@@ -1,0 +1,93 @@
+name: Deploy Fantasy Report
+
+on:
+  schedule:
+    # Every 30 minutes, all day. GitHub cron runs in UTC and may be delayed 5-20 min during peak load.
+    - cron: '0,30 * * * *'
+  workflow_dispatch:  # Allow manual triggers from the Actions tab
+
+# Only one deploy at a time; cancel older runs if a new one starts
+concurrency:
+  group: deploy-report
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pandas rapidfuzz
+
+      - name: Setup Node (for staticrypt)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install staticrypt
+        run: npm install -g staticrypt@3
+
+      - name: Write ESPN config from secrets
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          ESPN_SWID: ${{ secrets.ESPN_SWID }}
+        run: |
+          cat > engine/tracker_config.json <<EOF
+          {
+            "espn_s2": "${ESPN_S2}",
+            "SWID": "${ESPN_SWID}"
+          }
+          EOF
+
+      - name: Run tracker
+        working-directory: engine
+        run: python fantasy_tracker.py --top 5
+
+      - name: Encrypt report with staticrypt
+        env:
+          REPORT_PASSWORD: ${{ secrets.REPORT_PASSWORD }}
+        run: |
+          mkdir -p stage
+          cp engine/tracker_report.html stage/index.html
+          staticrypt stage/index.html \
+            --password "${REPORT_PASSWORD}" \
+            --short \
+            --remember 30 \
+            --template-title "Fantasy Report" \
+            --template-instructions "Enter password to view" \
+            --template-button "Unlock" \
+            -d .
+          # staticrypt writes encrypted file to ./index.html (same basename as input)
+          test -f index.html
+
+      - name: Commit updated cache + report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Stage everything we want tracked
+          git add index.html engine/streaming_cache engine/tracker_snapshots || true
+          # Remove local-only artifacts if any slipped in
+          rm -f engine/tracker_config.json engine/tracker_report.html
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto-update report $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          fi

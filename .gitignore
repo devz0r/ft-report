@@ -1,0 +1,5 @@
+engine/tracker_config.json
+engine/.ft-report-password
+engine/tracker_report.html
+engine/__pycache__/
+*.pyc

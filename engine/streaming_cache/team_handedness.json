@@ -1,0 +1,242 @@
+{
+  "BOS": {
+    "left": 5,
+    "right": 8,
+    "switch": 0,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 62
+  },
+  "AZ": {
+    "left": 3,
+    "right": 6,
+    "switch": 4,
+    "total": 13,
+    "left_pct": 23,
+    "right_pct": 46
+  },
+  "COL": {
+    "left": 6,
+    "right": 6,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 46,
+    "right_pct": 46
+  },
+  "CLE": {
+    "left": 6,
+    "right": 3,
+    "switch": 4,
+    "total": 13,
+    "left_pct": 46,
+    "right_pct": 23
+  },
+  "CIN": {
+    "left": 3,
+    "right": 9,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 23,
+    "right_pct": 69
+  },
+  "LAA": {
+    "left": 3,
+    "right": 8,
+    "switch": 1,
+    "total": 12,
+    "left_pct": 25,
+    "right_pct": 67
+  },
+  "CHC": {
+    "left": 4,
+    "right": 8,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 31,
+    "right_pct": 62
+  },
+  "DET": {
+    "left": 5,
+    "right": 7,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 54
+  },
+  "HOU": {
+    "left": 3,
+    "right": 10,
+    "switch": 0,
+    "total": 13,
+    "left_pct": 23,
+    "right_pct": 77
+  },
+  "BAL": {
+    "left": 4,
+    "right": 8,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 31,
+    "right_pct": 62
+  },
+  "KC": {
+    "left": 5,
+    "right": 7,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 54
+  },
+  "LAD": {
+    "left": 6,
+    "right": 6,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 46,
+    "right_pct": 46
+  },
+  "SD": {
+    "left": 3,
+    "right": 9,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 23,
+    "right_pct": 69
+  },
+  "STL": {
+    "left": 5,
+    "right": 8,
+    "switch": 0,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 62
+  },
+  "WSH": {
+    "left": 6,
+    "right": 4,
+    "switch": 3,
+    "total": 13,
+    "left_pct": 46,
+    "right_pct": 31
+  },
+  "SEA": {
+    "left": 6,
+    "right": 5,
+    "switch": 2,
+    "total": 13,
+    "left_pct": 46,
+    "right_pct": 38
+  },
+  "OAK": {
+    "left": 5,
+    "right": 8,
+    "switch": 0,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 62
+  },
+  "PIT": {
+    "left": 4,
+    "right": 7,
+    "switch": 2,
+    "total": 13,
+    "left_pct": 31,
+    "right_pct": 54
+  },
+  "SF": {
+    "left": 5,
+    "right": 7,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 54
+  },
+  "NYM": {
+    "left": 3,
+    "right": 8,
+    "switch": 2,
+    "total": 13,
+    "left_pct": 23,
+    "right_pct": 62
+  },
+  "TEX": {
+    "left": 5,
+    "right": 7,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 54
+  },
+  "TB": {
+    "left": 6,
+    "right": 6,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 46,
+    "right_pct": 46
+  },
+  "MIN": {
+    "left": 5,
+    "right": 5,
+    "switch": 3,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 38
+  },
+  "TOR": {
+    "left": 4,
+    "right": 7,
+    "switch": 2,
+    "total": 13,
+    "left_pct": 31,
+    "right_pct": 54
+  },
+  "ATL": {
+    "left": 5,
+    "right": 6,
+    "switch": 2,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 46
+  },
+  "NYY": {
+    "left": 7,
+    "right": 6,
+    "switch": 0,
+    "total": 13,
+    "left_pct": 54,
+    "right_pct": 46
+  },
+  "CWS": {
+    "left": 6,
+    "right": 6,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 46,
+    "right_pct": 46
+  },
+  "PHI": {
+    "left": 5,
+    "right": 7,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 54
+  },
+  "MIL": {
+    "left": 5,
+    "right": 5,
+    "switch": 3,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 38
+  },
+  "MIA": {
+    "left": 4,
+    "right": 8,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 31,
+    "right_pct": 62
+  }
+}
