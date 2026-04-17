@@ -1,6 +1,6 @@
 {
   "date": "2026-04-17",
-  "timestamp": "2026-04-17T05:59:49.389441",
+  "timestamp": "2026-04-17T07:55:57.292604",
   "players": [
     {
       "rank": 1,
@@ -1268,7 +1268,8 @@
       "rank": 87,
       "name": "Shea Langeliers",
       "positions": [
-        "C"
+        "C",
+        "DH"
       ],
       "displayPos": "C",
       "team": "OAK",
@@ -8359,7 +8360,8 @@
       "rank": 569,
       "name": "Samuel Antonacci",
       "positions": [
-        "2B"
+        "2B",
+        "OF"
       ],
       "displayPos": "2B",
       "team": "CWS",
