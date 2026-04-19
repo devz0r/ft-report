@@ -7632,5 +7632,152 @@
     ],
     "fb_velo": 90.2,
     "pitch_count": 4
+  },
+  "571510": {
+    "mlb_id": 571510,
+    "career_vs_l": {
+      "ops": ".661",
+      "whip": "1.09",
+      "k9": "8.51",
+      "ip": "238.0"
+    },
+    "career_vs_r": {
+      "ops": ".776",
+      "whip": "1.34",
+      "k9": "8.88",
+      "ip": "848.2"
+    },
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 92.69305567676767,
+        "pct": 0.61490685
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 73.01111942857143,
+        "pct": 0.08695652
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 79.3034347368421,
+        "pct": 0.23602484
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 84.3103095,
+        "pct": 0.062111802
+      }
+    ],
+    "fb_velo": 92.7,
+    "pitch_count": 4
+  },
+  "700712": {
+    "mlb_id": 700712,
+    "career_vs_l": {
+      "ops": "2.000",
+      "whip": "-.--",
+      "k9": "-.--",
+      "ip": "0.0"
+    },
+    "career_vs_r": {
+      "ops": ".917",
+      "whip": "3.60",
+      "k9": "10.80",
+      "ip": "1.2"
+    },
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 98.71192235714287,
+        "pct": 0.22580644
+      },
+      {
+        "code": "ST",
+        "desc": "Sweeper",
+        "velo": 87.18267643749999,
+        "pct": 0.2580645
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 92.47023057142857,
+        "pct": 0.11290322
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 98.78943564000001,
+        "pct": 0.4032258
+      }
+    ],
+    "fb_velo": 98.8,
+    "pitch_count": 4
+  },
+  "607067": {
+    "mlb_id": 607067,
+    "career_vs_l": {
+      "ops": ".782",
+      "whip": "1.37",
+      "k9": "7.25",
+      "ip": "307.2"
+    },
+    "career_vs_r": {
+      "ops": ".697",
+      "whip": "1.17",
+      "k9": "7.51",
+      "ip": "311.2"
+    },
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 94.11748576271184,
+        "pct": 0.44528303
+      },
+      {
+        "code": "ST",
+        "desc": "Sweeper",
+        "velo": 82.74497754545452,
+        "pct": 0.08301887
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 79.51639985714287,
+        "pct": 0.05283019
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 92.8601049130435,
+        "pct": 0.086792454
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 86.20838941935484,
+        "pct": 0.116981134
+      },
+      {
+        "code": "FS",
+        "desc": "Splitter",
+        "velo": 87.84008808695651,
+        "pct": 0.17358491
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 86.80644699999999,
+        "pct": 0.041509435
+      }
+    ],
+    "fb_velo": 94.1,
+    "pitch_count": 7
   }
 }
