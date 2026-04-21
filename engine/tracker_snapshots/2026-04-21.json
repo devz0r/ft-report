@@ -1,6 +1,6 @@
 {
   "date": "2026-04-21",
-  "timestamp": "2026-04-21T08:29:12.466357",
+  "timestamp": "2026-04-21T10:01:15.204465",
   "players": [
     {
       "rank": 1,
@@ -12440,7 +12440,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "TB",
       "dollars": -38.0,
       "rpts": 66.0,
       "type": "pitcher",
