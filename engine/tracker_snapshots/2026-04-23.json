@@ -1,6 +1,6 @@
 {
   "date": "2026-04-23",
-  "timestamp": "2026-04-23T08:16:44.319840",
+  "timestamp": "2026-04-23T10:02:46.993515",
   "players": [
     {
       "rank": 1,
@@ -5333,7 +5333,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "",
+      "team": "SD",
       "dollars": -13.8,
       "rpts": 175.0,
       "type": "pitcher",
@@ -7013,7 +7013,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "",
+      "team": "MIN",
       "dollars": -23.5,
       "rpts": 133.0,
       "type": "pitcher",
@@ -10737,7 +10737,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "MIN",
       "dollars": -35.0,
       "rpts": 83.0,
       "type": "pitcher",
@@ -13869,7 +13869,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "BOS",
       "dollars": -42.0,
       "rpts": 53.0,
       "type": "pitcher",
