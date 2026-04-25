@@ -669,47 +669,61 @@ def _ip_to_float(ip):
         return 0.0
 
 
-def fetch_todays_completed_starts():
-    """Pull today's finished starts from MLB Stats API boxscores.
+def fetch_completed_starts_for_date(date_iso, verbose=True):
+    """Pull all finished SP starts on a given date from MLB Stats API boxscores.
 
-    Returns dict {normalized_name: {'IP','ER','BB','K','H','team'}} so we can
-    blend into FG's L14D numbers before the HOLD assessment runs. This is what
-    lets you catch today's good/bad starts before FG's overnight update.
+    Returns dict {normalized_name: {'IP','ER','BB','K','H','decision','team'}}.
+    Used both for blending today's lines into FG L14D and for joining past
+    predictions with outcomes for the learning engine.
     """
-    today_iso = date.today().isoformat()
-    print(f"  Fetching today's completed starts ({today_iso})...")
-    url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={today_iso}"
+    if verbose:
+        print(f"  Fetching completed starts for {date_iso}...")
+    url = (f"https://statsapi.mlb.com/api/v1/schedule?sportId=1"
+           f"&date={date_iso}&hydrate=decisions")
     try:
         resp = requests.get(url, timeout=20)
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
-        print(f"    Schedule fetch failed: {e}")
+        if verbose:
+            print(f"    Schedule fetch failed: {e}")
         return {}
 
     final_game_pks = []
+    decisions_by_pk = {}  # pk -> {'W': name, 'L': name}
     for dt in data.get('dates', []):
         for g in dt.get('games', []):
             if g.get('status', {}).get('abstractGameState') == 'Final':
-                final_game_pks.append(g.get('gamePk'))
+                pk = g.get('gamePk')
+                final_game_pks.append(pk)
+                dec = g.get('decisions', {}) or {}
+                decisions_by_pk[pk] = {
+                    'W': (dec.get('winner') or {}).get('fullName'),
+                    'L': (dec.get('loser') or {}).get('fullName'),
+                }
 
     if not final_game_pks:
-        print("    0 final games yet today")
+        if verbose:
+            print(f"    0 final games on {date_iso}")
         return {}
 
     def fetch_box(pk):
         try:
-            r = requests.get(f"https://statsapi.mlb.com/api/v1/game/{pk}/boxscore", timeout=15)
+            r = requests.get(
+                f"https://statsapi.mlb.com/api/v1/game/{pk}/boxscore",
+                timeout=15,
+            )
             r.raise_for_status()
-            return r.json()
+            return pk, r.json()
         except Exception:
-            return None
+            return pk, None
 
     lines = {}
     with ThreadPoolExecutor(max_workers=8) as ex:
-        for box in ex.map(fetch_box, final_game_pks):
+        for pk, box in ex.map(fetch_box, final_game_pks):
             if not box:
                 continue
+            dec = decisions_by_pk.get(pk, {})
             for side in ('home', 'away'):
                 team_info = box.get('teams', {}).get(side, {})
                 team_id = team_info.get('team', {}).get('id')
@@ -722,6 +736,11 @@ def fetch_todays_completed_starts():
                         name = pinfo.get('person', {}).get('fullName', '')
                         if not name:
                             continue
+                        decision = ''
+                        if dec.get('W') == name:
+                            decision = 'W'
+                        elif dec.get('L') == name:
+                            decision = 'L'
                         lines[normalize_name(name)] = {
                             'name': name,
                             'team': team_abbr,
@@ -730,9 +749,16 @@ def fetch_todays_completed_starts():
                             'BB': stats.get('baseOnBalls', 0) or 0,
                             'K': stats.get('strikeOuts', 0) or 0,
                             'H': stats.get('hits', 0) or 0,
+                            'decision': decision,
                         }
-    print(f"    {len(lines)} starters with completed lines today")
+    if verbose:
+        print(f"    {len(lines)} starters with completed lines on {date_iso}")
     return lines
+
+
+def fetch_todays_completed_starts():
+    """Backward-compat alias used by the L14D blend logic."""
+    return fetch_completed_starts_for_date(date.today().isoformat())
 
 
 FG_RECENT_RAW_DIR = os.path.join(SCRIPT_DIR, 'streaming_cache', 'fg_recent_raw')
@@ -2080,9 +2106,10 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         else:
             status = 'FA'
 
-        # Only include FA and MY ROSTER
-        if status not in ('FA', 'MY ROSTER'):
-            continue
+        # NOTE: We compute features + prediction for EVERY scheduled SP (not
+        # just FA/MY ROSTER) so the learning engine has ~30 starts/day of
+        # ground truth to calibrate against. The streaming display still
+        # filters down at the end.
 
         # Compute scores
         base_pts = compute_pts_per_start(proj)
@@ -2138,7 +2165,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         if team_il_returns and opp in team_il_returns:
             opp_il_returns = team_il_returns[opp]
 
-        streaming.append({
+        entry = {
             'date': game['date'], 'day': game['day'],
             'name': fg_name, 'team': pitcher_team,
             'opponent': opp, 'home_away': game['home_away'],
@@ -2167,7 +2194,15 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'emerging': emerging,
             'opp_il': opp_il,
             'opp_il_returns': opp_il_returns,
-        })
+        }
+
+        # Log prediction for EVERY scheduled SP (not just FA/MY ROSTER) so the
+        # learning engine has full league-wide ground truth to calibrate against.
+        log_prediction(entry)
+
+        # Streaming UI only shows FA + MY ROSTER (the only ones you'd act on)
+        if status in ('FA', 'MY ROSTER'):
+            streaming.append(entry)
 
     # Sort by date, then by tier, then by pts descending within each tier
     streaming.sort(key=lambda s: (s['date'], TIER_ORDER.get(s.get('tier', 'avoid'), 3), -(s.get('pts') or -999)))
@@ -2180,7 +2215,8 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
 
 def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster_map,
                           streaming_data=None, cum_deltas=None, oldest_date=None,
-                          global_emerging=None, hold_asof_label=None):
+                          global_emerging=None, hold_asof_label=None,
+                          calibration=None):
     from string import Template
     if streaming_data is None:
         streaming_data = []
@@ -2364,6 +2400,7 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="tracker">RoS Tracker</button>
     <button class="tab-btn" data-tab="streaming">Streaming</button>
+    <button class="tab-btn" data-tab="accuracy">Accuracy</button>
   </div>
 </div>
 
@@ -2434,9 +2471,16 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 <div id="streamContent"></div>
 </div><!-- end tab-streaming -->
 
+<!-- ===== ACCURACY TAB ===== -->
+<div class="tab-view" id="tab-accuracy">
+<div class="stream-note">How well are predictions tracking actual results? Every scheduled SP gets logged each run; outcomes get joined the next morning. As more data accrues, we'll see which features the model is over/under-weighting.</div>
+<div id="accuracyContent"></div>
+</div><!-- end tab-accuracy -->
+
 <script>
 var PLAYERS = $PLAYERS_JSON;
 var STREAMING = $STREAMING_JSON;
+var CALIBRATION = $CALIBRATION_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -2747,6 +2791,68 @@ function ordinal(n) {
 }
 
 renderStreaming();
+
+/* ===== Accuracy tab rendering ===== */
+function renderAccuracy() {
+  var c = document.getElementById('accuracyContent');
+  if (!CALIBRATION || !CALIBRATION.n) {
+    c.innerHTML = '<div class="stream-note" style="padding:40px;text-align:center;color:#555">No outcomes joined yet. Predictions logged today; accuracy stats will populate after tomorrow’s outcomes are processed.</div>';
+    return;
+  }
+  var cal = CALIBRATION;
+  var biasDir = cal.bias > 0 ? 'underpredicting' : (cal.bias < 0 ? 'overpredicting' : 'on the nose');
+  var biasCls = Math.abs(cal.bias) > 1 ? 'opp-hard' : 'opp-easy';
+
+  var h = '';
+  // Top stats row
+  h += '<div class="day-card" style="margin:8px 0">';
+  h += '<div class="day-header"><span>Last ' + cal.window_days + ' days &mdash; ' + cal.n + ' starts</span></div>';
+  h += '<div style="padding:14px 16px; display:flex; gap:32px; flex-wrap:wrap; font-size:13px">';
+  h += '<div><div style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">MAE</div><div style="font-size:20px;font-weight:700">' + cal.mae.toFixed(2) + ' <span style="font-size:12px;color:#777">pts/start</span></div></div>';
+  h += '<div><div style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">RMSE</div><div style="font-size:20px;font-weight:700">' + cal.rmse.toFixed(2) + '</div></div>';
+  h += '<div><div style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Bias</div><div style="font-size:20px;font-weight:700"><span class="' + biasCls + '">' + (cal.bias >= 0 ? '+' : '') + cal.bias.toFixed(2) + '</span> <span style="font-size:12px;color:#777">' + biasDir + '</span></div></div>';
+  h += '</div></div>';
+
+  // Per-tier table
+  h += '<div class="day-card" style="margin:8px 0">';
+  h += '<div class="day-header"><span>Per-tier accuracy</span><span style="color:#777;font-size:11px">predicted vs actual mean pts</span></div>';
+  h += '<div style="padding:8px 0">';
+  h += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
+  h += '<tr style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:4px 16px">Tier</td><td style="padding:4px 16px;text-align:right">N</td><td style="padding:4px 16px;text-align:right">Predicted</td><td style="padding:4px 16px;text-align:right">Actual</td><td style="padding:4px 16px;text-align:right">Residual</td></tr>';
+  ['must_start','start','borderline','avoid'].forEach(function(tier) {
+    var ts = cal.by_tier[tier];
+    if (!ts) return;
+    var resCls = ts.mean_residual > 0.5 ? 'opp-easy' : (ts.mean_residual < -0.5 ? 'opp-hard' : '');
+    h += '<tr><td style="padding:6px 16px"><b>' + (TIER_META[tier] && TIER_META[tier].label || tier) + '</b></td>';
+    h += '<td style="padding:6px 16px;text-align:right">' + ts.count + '</td>';
+    h += '<td style="padding:6px 16px;text-align:right">' + ts.mean_predicted.toFixed(1) + '</td>';
+    h += '<td style="padding:6px 16px;text-align:right">' + ts.mean_actual.toFixed(1) + '</td>';
+    h += '<td style="padding:6px 16px;text-align:right" class="' + resCls + '">' + (ts.mean_residual >= 0 ? '+' : '') + ts.mean_residual.toFixed(1) + '</td></tr>';
+  });
+  h += '</table></div></div>';
+
+  // Top misses
+  function renderMissList(title, items, kind) {
+    if (!items || !items.length) return '';
+    var hh = '<div class="day-card" style="margin:8px 0">';
+    hh += '<div class="day-header"><span>' + title + '</span></div>';
+    hh += '<div style="padding:6px 16px">';
+    items.forEach(function(s) {
+      var cls = kind === 'over' ? 'opp-hard' : 'opp-easy';
+      hh += '<div style="padding:6px 0;border-bottom:1px solid #1a1a1a;display:flex;justify-content:space-between;font-size:13px">';
+      hh += '<span><b>' + s.name + '</b> ' + (s.opponent || '') + ' &middot; <span style="color:#777">' + s.date + '</span></span>';
+      hh += '<span>' + (s.tier || '') + ' &middot; predicted ' + (s.predicted_pts || 0).toFixed(1) + ', actual ' + (s.actual_pts || 0).toFixed(1) + ' &middot; <span class="' + cls + '">' + (s.residual >= 0 ? '+' : '') + s.residual.toFixed(1) + '</span></span>';
+      hh += '</div>';
+    });
+    hh += '</div></div>';
+    return hh;
+  }
+  h += renderMissList('Most over-predicted (we said go, they bombed)', cal.worst_overpredictions, 'over');
+  h += renderMissList('Best surprises (we underestimated)', cal.best_underpredictions, 'under');
+
+  c.innerHTML = h;
+}
+renderAccuracy();
 </script>
 </body>
 </html>""")
@@ -2773,6 +2879,7 @@ renderStreaming();
         TRENDING=str(trending_up),
         OLDEST_DATE=oldest_label,
         HOLD_ASOF=hold_asof_label or (date.today() - timedelta(days=1)).strftime('%b %-d'),
+        CALIBRATION_JSON=json.dumps(calibration) if calibration else 'null',
     )
 
     with open(OUTPUT_HTML, 'w') as f:
@@ -2807,6 +2914,227 @@ def run_setup():
         json.dump(config, f, indent=2)
     print(f"\nSaved to {CONFIG_FILE}")
     print("You can now run: python3.11 fantasy_tracker.py")
+
+
+# =============================================================================
+# PREDICTION LEARNING — log predictions, fetch outcomes, compute residuals
+# =============================================================================
+
+PREDICTIONS_DIR = os.path.join(SCRIPT_DIR, 'predictions')
+OUTCOMES_LOG = os.path.join(SCRIPT_DIR, 'predictions_outcomes.jsonl')
+
+
+def log_prediction(entry):
+    """Persist one game-level prediction to predictions/{date}/{pitcher}.json.
+
+    Latest run wins for the same (pitcher, game_date) — multiple intraday
+    runs simply update the file. After the game date passes,
+    process_pending_outcomes() joins it with the actual stat line.
+    """
+    try:
+        if entry.get('tbd') or entry.get('name') == 'TBD':
+            return
+        game_date = entry.get('date')
+        pitcher_norm = normalize_name(entry.get('name', ''))
+        if not game_date or not pitcher_norm:
+            return
+        day_dir = os.path.join(PREDICTIONS_DIR, game_date)
+        os.makedirs(day_dir, exist_ok=True)
+        # Strip non-feature fields and snapshot
+        record = {
+            'logged_at': datetime.now().isoformat(timespec='seconds'),
+            'date': game_date,
+            'name': entry.get('name'),
+            'team': entry.get('team'),
+            'opponent': entry.get('opponent'),
+            'home_away': entry.get('home_away'),
+            'predicted_pts': entry.get('pts'),
+            'base_pts': entry.get('base_pts'),
+            'tier': entry.get('tier'),
+            'status': entry.get('status'),
+            'features': {
+                'proj_era': entry.get('era'),
+                'proj_whip': entry.get('whip'),
+                'proj_k9': entry.get('k9'),
+                'opp_ops': entry.get('opp_ops'),
+                'opp_ops_raw': entry.get('opp_ops_raw'),
+                'opp_rank': entry.get('opp_rank'),
+                'opp_k_pct': entry.get('opp_k_pct'),
+                'park_factor': entry.get('park_factor'),
+                'park': entry.get('park'),
+                'platoon': entry.get('platoon'),
+                'opp_hand': entry.get('opp_hand'),
+                'vs_l_ops': entry.get('vs_l_ops'),
+                'vs_r_ops': entry.get('vs_r_ops'),
+                'tag': entry.get('tag'),
+                'trend': entry.get('trend'),
+                'recent_era': entry.get('recent_era'),
+                'fb_velo': entry.get('fb_velo'),
+                'pitch_count': entry.get('pitch_count'),
+                'emerging': entry.get('emerging'),
+                'opp_il_count': len(entry.get('opp_il', []) or []),
+                'opp_il_returns_count': len(entry.get('opp_il_returns', []) or []),
+            },
+        }
+        with open(os.path.join(day_dir, f'{pitcher_norm}.json'), 'w') as f:
+            json.dump(record, f)
+    except Exception as e:
+        # Logging must never break the tracker run
+        print(f"  [predict-log] {e}")
+
+
+def actual_pitcher_pts(line):
+    """Compute fantasy points from a completed boxscore line using the user's
+    league scoring (IP*3, K*1, W*5, H*-1, ER*-2, BB*-1, L*-5)."""
+    ip = line.get('IP', 0) or 0
+    h = line.get('H', 0) or 0
+    er = line.get('ER', 0) or 0
+    bb = line.get('BB', 0) or 0
+    k = line.get('K', 0) or 0
+    decision = line.get('decision', '')
+    w = 1 if decision == 'W' else 0
+    l = 1 if decision == 'L' else 0
+    return ip * 3 + k * 1 + w * 5 + h * -1 + er * -2 + bb * -1 + l * -5
+
+
+def process_pending_outcomes():
+    """For every prediction directory whose game date is already in the past,
+    fetch the actual SP lines from MLB boxscores, join with the prediction,
+    append a record to OUTCOMES_LOG, and archive the prediction directory.
+    Returns the number of outcomes newly recorded."""
+    if not os.path.isdir(PREDICTIONS_DIR):
+        return 0
+    today = date.today().isoformat()
+    archive_root = os.path.join(PREDICTIONS_DIR, '.processed')
+    new_records = 0
+
+    for d in sorted(os.listdir(PREDICTIONS_DIR)):
+        if d.startswith('.') or not re.match(r'^\d{4}-\d{2}-\d{2}$', d):
+            continue
+        if d >= today:
+            continue  # game has not happened yet (or is happening now)
+
+        day_dir = os.path.join(PREDICTIONS_DIR, d)
+        outcomes = fetch_completed_starts_for_date(d, verbose=False)
+        if not outcomes:
+            continue  # try again on next run (postponed?)
+
+        added_today = 0
+        for fn in os.listdir(day_dir):
+            if not fn.endswith('.json'):
+                continue
+            try:
+                with open(os.path.join(day_dir, fn)) as f:
+                    pred = json.load(f)
+            except Exception:
+                continue
+            pname = normalize_name(pred.get('name', ''))
+            outcome = outcomes.get(pname)
+            if not outcome:
+                # Pitcher didn't actually start — scratched, postponed, etc.
+                # Record as a non-start so we can audit later if needed.
+                joined = {
+                    **pred,
+                    'actual_line': None,
+                    'actual_pts': None,
+                    'residual': None,
+                    'no_start': True,
+                }
+            else:
+                actual = actual_pitcher_pts(outcome)
+                joined = {
+                    **pred,
+                    'actual_line': outcome,
+                    'actual_pts': round(actual, 2),
+                    'residual': round(actual - (pred.get('predicted_pts') or 0), 2),
+                    'no_start': False,
+                }
+            with open(OUTCOMES_LOG, 'a') as f:
+                f.write(json.dumps(joined) + '\n')
+            added_today += 1
+
+        new_records += added_today
+        # Archive the day's predictions (don't delete — useful for audits)
+        os.makedirs(archive_root, exist_ok=True)
+        archive_target = os.path.join(archive_root, d)
+        if os.path.exists(archive_target):
+            import shutil
+            shutil.rmtree(archive_target)
+        os.rename(day_dir, archive_target)
+
+    return new_records
+
+
+def calibration_stats(window_days=30):
+    """Compute rolling accuracy over the last N days. Returns dict with MAE,
+    RMSE, bias, per-tier means, and the most over/under-predicted starts."""
+    if not os.path.exists(OUTCOMES_LOG):
+        return None
+    cutoff = (date.today() - timedelta(days=window_days)).isoformat()
+    samples = []
+    try:
+        with open(OUTCOMES_LOG) as f:
+            for line in f:
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                if rec.get('no_start') or rec.get('residual') is None:
+                    continue
+                if rec.get('date', '0') >= cutoff:
+                    samples.append(rec)
+    except Exception:
+        return None
+    if not samples:
+        return None
+
+    diffs = [s['residual'] for s in samples]
+    abs_diffs = [abs(d) for d in diffs]
+    n = len(samples)
+    mae = sum(abs_diffs) / n
+    rmse = (sum(d * d for d in diffs) / n) ** 0.5
+    bias = sum(diffs) / n  # positive = we underpredict; negative = overpredict
+
+    # Per-tier accuracy: was the recommendation borne out?
+    by_tier = {}
+    for s in samples:
+        t = s.get('tier', 'unknown')
+        by_tier.setdefault(t, []).append(s)
+    tier_summary = {}
+    for t, items in by_tier.items():
+        n_t = len(items)
+        tier_summary[t] = {
+            'count': n_t,
+            'mean_predicted': round(sum((it.get('predicted_pts') or 0) for it in items) / n_t, 2),
+            'mean_actual': round(sum(it['actual_pts'] for it in items) / n_t, 2),
+            'mean_residual': round(sum(it['residual'] for it in items) / n_t, 2),
+        }
+
+    sorted_by_residual = sorted(samples, key=lambda s: s['residual'])
+    worst = sorted_by_residual[:5]   # we said go, they bombed
+    best = sorted_by_residual[-5:]   # we underestimated
+
+    def _slim(s):
+        return {
+            'date': s.get('date'),
+            'name': s.get('name'),
+            'opponent': s.get('opponent'),
+            'tier': s.get('tier'),
+            'predicted_pts': s.get('predicted_pts'),
+            'actual_pts': s.get('actual_pts'),
+            'residual': s.get('residual'),
+        }
+
+    return {
+        'n': n,
+        'window_days': window_days,
+        'mae': round(mae, 2),
+        'rmse': round(rmse, 2),
+        'bias': round(bias, 2),
+        'by_tier': tier_summary,
+        'worst_overpredictions': [_slim(x) for x in worst],
+        'best_underpredictions': [_slim(x) for x in reversed(best)],
+    }
 
 
 # =============================================================================
@@ -2858,13 +3186,24 @@ def _pull_from_github_repo():
         if result.returncode != 0:
             print(f"  GitHub pull skipped: {result.stderr.strip() or 'non-zero exit'}")
             return
-        # Mirror cloud cache/snapshots into local working dirs
+        # Mirror cloud cache/snapshots/predictions into local working dirs
         snap_copied = _mirror_dir(os.path.join(engine_dir, 'tracker_snapshots'),
                                   os.path.join(SCRIPT_DIR, 'tracker_snapshots'))
         cache_copied = _mirror_dir(os.path.join(engine_dir, 'streaming_cache'),
                                    os.path.join(SCRIPT_DIR, 'streaming_cache'))
-        if snap_copied or cache_copied:
-            print(f"Pulled latest from GitHub: {snap_copied} snapshot(s), {cache_copied} cache file(s)")
+        pred_copied = _mirror_dir(os.path.join(engine_dir, 'predictions'),
+                                  os.path.join(SCRIPT_DIR, 'predictions'))
+        # Single-file outcome log: pull the cloud version if newer
+        cloud_outcomes = os.path.join(engine_dir, 'predictions_outcomes.jsonl')
+        local_outcomes = os.path.join(SCRIPT_DIR, 'predictions_outcomes.jsonl')
+        if os.path.exists(cloud_outcomes):
+            if (not os.path.exists(local_outcomes) or
+                    os.path.getmtime(cloud_outcomes) > os.path.getmtime(local_outcomes) + 0.5):
+                import shutil
+                shutil.copy2(cloud_outcomes, local_outcomes)
+        if snap_copied or cache_copied or pred_copied:
+            print(f"Pulled latest from GitHub: {snap_copied} snapshot(s), "
+                  f"{cache_copied} cache file(s), {pred_copied} prediction(s)")
         else:
             print("Pulled latest from GitHub: already up-to-date")
     except Exception as e:
@@ -2888,19 +3227,33 @@ def _push_to_github_repo():
                     os.path.join(engine_dir, 'tracker_snapshots'))
         _mirror_dir(os.path.join(SCRIPT_DIR, 'streaming_cache'),
                     os.path.join(engine_dir, 'streaming_cache'))
+        _mirror_dir(os.path.join(SCRIPT_DIR, 'predictions'),
+                    os.path.join(engine_dir, 'predictions'))
+        # Single-file outcome log
+        local_outcomes = os.path.join(SCRIPT_DIR, 'predictions_outcomes.jsonl')
+        if os.path.exists(local_outcomes):
+            shutil.copy2(local_outcomes, os.path.join(engine_dir, 'predictions_outcomes.jsonl'))
 
         # Pull --rebase one more time in case Actions committed during our run
         subprocess.run(['git', '-C', git_dir, 'pull', '--rebase', '--autostash', '--quiet'],
                        capture_output=True, timeout=60)
 
-        # Stage code + data; intentionally exclude tracker_report.html and config
-        subprocess.run(
-            ['git', '-C', git_dir, 'add',
-             'engine/fantasy_tracker.py',
-             'engine/tracker_snapshots',
-             'engine/streaming_cache'],
-            check=True, capture_output=True,
-        )
+        # Stage code + data; only include paths that actually exist on disk
+        # (predictions_outcomes.jsonl and engine/predictions/ may be absent
+        # on a brand-new install).
+        candidate_paths = [
+            'engine/fantasy_tracker.py',
+            'engine/tracker_snapshots',
+            'engine/streaming_cache',
+            'engine/predictions',
+            'engine/predictions_outcomes.jsonl',
+        ]
+        existing = [p for p in candidate_paths if os.path.exists(os.path.join(git_dir, p))]
+        if existing:
+            subprocess.run(
+                ['git', '-C', git_dir, 'add', *existing],
+                check=True, capture_output=True,
+            )
         diff = subprocess.run(
             ['git', '-C', git_dir, 'diff', '--staged', '--quiet'],
             capture_output=True,
@@ -2956,6 +3309,15 @@ def main():
     # Sync down freshest cache/snapshots from cloud before reading anything,
     # so local always works against the same state Actions sees.
     _pull_from_github_repo()
+
+    # Catch up on outcomes for past predictions (yesterday's starts, etc.)
+    # before we make new predictions, so calibration uses the freshest data.
+    try:
+        new_outcomes = process_pending_outcomes()
+        if new_outcomes:
+            print(f"Joined {new_outcomes} prediction(s) with their actual outcomes")
+    except Exception as e:
+        print(f"  Outcome processing failed: {e}")
 
     today = date.today().isoformat()
 
@@ -3119,6 +3481,25 @@ def main():
         import traceback
         traceback.print_exc()
 
+    # Phase 5.5: Calibration summary
+    cal = None
+    try:
+        cal = calibration_stats(window_days=30)
+        if cal:
+            print("\n" + "=" * 60)
+            print(f"PREDICTION ACCURACY (last {cal['window_days']}d, n={cal['n']})")
+            print("=" * 60)
+            bias_dir = 'underpredicting' if cal['bias'] > 0 else 'overpredicting'
+            print(f"  MAE:  {cal['mae']:.2f} pts  |  RMSE: {cal['rmse']:.2f}  |  Bias: {cal['bias']:+.2f} ({bias_dir})")
+            print("  Per-tier:")
+            for tier in ('must_start', 'start', 'borderline', 'avoid'):
+                ts = cal['by_tier'].get(tier)
+                if not ts:
+                    continue
+                print(f"    {tier:11s} n={ts['count']:3d}  predicted {ts['mean_predicted']:>5.1f}  actual {ts['mean_actual']:>5.1f}  ({ts['mean_residual']:+.1f})")
+    except Exception as e:
+        print(f"  Calibration summary failed: {e}")
+
     # Phase 6: Generate HTML
     print()
     if today_lines:
@@ -3128,7 +3509,8 @@ def main():
     generate_tracker_html(players_list, deltas, prev_date, today, roster_map,
                           streaming_data, cum_deltas, oldest_date,
                           global_emerging=global_emerging,
-                          hold_asof_label=hold_asof_label)
+                          hold_asof_label=hold_asof_label,
+                          calibration=cal)
 
     print("\nDone!")
     print(f"\nOpen tracker_report.html to review movements and free agents.")
