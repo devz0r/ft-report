@@ -1,1 +1,23 @@
-{}
+{
+  "AZ": [
+    {
+      "name": "Lourdes Gurriel Jr.",
+      "rank": 97,
+      "dollars": 10.8
+    }
+  ],
+  "BAL": [
+    {
+      "name": "Adley Rutschman",
+      "rank": 193,
+      "dollars": 1.0
+    }
+  ],
+  "NYM": [
+    {
+      "name": "Juan Soto",
+      "rank": 8,
+      "dollars": 39.0
+    }
+  ]
+}

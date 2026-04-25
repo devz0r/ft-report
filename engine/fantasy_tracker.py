@@ -2809,59 +2809,130 @@ def run_setup():
 # GITHUB SYNC
 # =============================================================================
 
-def _sync_to_github_repo():
-    """After every local run, if fantasy_tracker.py has changed vs the copy
-    in the GitHub Pages repo, commit and push it automatically. This keeps
-    the cloud Actions workflow in lockstep with local edits without any
-    extra manual step."""
-    this_file = os.path.abspath(__file__)
-    engine_dir = os.path.join(SCRIPT_DIR, 'ft-report', 'engine')
-    dest_file = os.path.join(engine_dir, 'fantasy_tracker.py')
+def _ft_report_paths():
+    """Resolve the ft-report repo paths if it exists alongside this script."""
     git_dir = os.path.join(SCRIPT_DIR, 'ft-report')
-
-    # Only run if the ft-report repo checkout exists alongside this script
+    engine_dir = os.path.join(git_dir, 'engine')
     if not os.path.isdir(os.path.join(git_dir, '.git')):
+        return None, None
+    return git_dir, engine_dir
+
+
+def _mirror_dir(src, dst):
+    """Copy any newer files from src into dst (one-way mirror, no deletes)."""
+    import shutil
+    if not os.path.isdir(src):
+        return 0
+    copied = 0
+    for root, _, files in os.walk(src):
+        rel = os.path.relpath(root, src)
+        target = os.path.join(dst, rel) if rel != '.' else dst
+        os.makedirs(target, exist_ok=True)
+        for fn in files:
+            s = os.path.join(root, fn)
+            d = os.path.join(target, fn)
+            if not os.path.exists(d) or os.path.getmtime(s) > os.path.getmtime(d) + 0.5:
+                shutil.copy2(s, d)
+                copied += 1
+    return copied
+
+
+def _pull_from_github_repo():
+    """At the START of a local run, pull the latest snapshots/cache from
+    the cloud so local mirrors whatever Actions wrote since last local run.
+    Without this step, local always sees a stale 'previous' snapshot."""
+    git_dir, engine_dir = _ft_report_paths()
+    if not git_dir:
         return
-
     try:
-        import filecmp, subprocess
+        import subprocess
+        # Pull --rebase so a local commit doesn't block fast-forward
+        result = subprocess.run(
+            ['git', '-C', git_dir, 'pull', '--rebase', '--autostash', '--quiet'],
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode != 0:
+            print(f"  GitHub pull skipped: {result.stderr.strip() or 'non-zero exit'}")
+            return
+        # Mirror cloud cache/snapshots into local working dirs
+        snap_copied = _mirror_dir(os.path.join(engine_dir, 'tracker_snapshots'),
+                                  os.path.join(SCRIPT_DIR, 'tracker_snapshots'))
+        cache_copied = _mirror_dir(os.path.join(engine_dir, 'streaming_cache'),
+                                   os.path.join(SCRIPT_DIR, 'streaming_cache'))
+        if snap_copied or cache_copied:
+            print(f"Pulled latest from GitHub: {snap_copied} snapshot(s), {cache_copied} cache file(s)")
+        else:
+            print("Pulled latest from GitHub: already up-to-date")
+    except Exception as e:
+        print(f"  GitHub pull skipped: {e}")
 
-        # Nothing to do if files are identical
-        if os.path.exists(dest_file) and filecmp.cmp(this_file, dest_file, shallow=False):
+
+def _push_to_github_repo():
+    """At the END of a local run, push code + cache + snapshots back to the
+    cloud, then trigger the deploy workflow so devz0r.github.io reflects
+    this run's output without waiting for the next 30-min cron tick."""
+    git_dir, engine_dir = _ft_report_paths()
+    if not git_dir:
+        return
+    try:
+        import shutil, subprocess
+
+        # Mirror local code + data into the engine dir
+        this_file = os.path.abspath(__file__)
+        shutil.copy2(this_file, os.path.join(engine_dir, 'fantasy_tracker.py'))
+        _mirror_dir(os.path.join(SCRIPT_DIR, 'tracker_snapshots'),
+                    os.path.join(engine_dir, 'tracker_snapshots'))
+        _mirror_dir(os.path.join(SCRIPT_DIR, 'streaming_cache'),
+                    os.path.join(engine_dir, 'streaming_cache'))
+
+        # Pull --rebase one more time in case Actions committed during our run
+        subprocess.run(['git', '-C', git_dir, 'pull', '--rebase', '--autostash', '--quiet'],
+                       capture_output=True, timeout=60)
+
+        # Stage code + data; intentionally exclude tracker_report.html and config
+        subprocess.run(
+            ['git', '-C', git_dir, 'add',
+             'engine/fantasy_tracker.py',
+             'engine/tracker_snapshots',
+             'engine/streaming_cache'],
+            check=True, capture_output=True,
+        )
+        diff = subprocess.run(
+            ['git', '-C', git_dir, 'diff', '--staged', '--quiet'],
+            capture_output=True,
+        )
+        if diff.returncode == 0:
+            print("\nGitHub sync: nothing changed locally")
             return
 
-        print("\nSyncing updated fantasy_tracker.py to GitHub repo...")
-        import shutil
-        shutil.copy2(this_file, dest_file)
-
-        # Commit + push only the tracker source (not snapshots — those are pushed by Actions)
-        result = subprocess.run(
-            ['git', '-C', git_dir, 'diff', '--quiet', 'engine/fantasy_tracker.py'],
-            capture_output=True
-        )
-        if result.returncode == 0:
-            return  # No diff after copy (shouldn't happen but guard anyway)
-
-        subprocess.run(
-            ['git', '-C', git_dir, 'add', 'engine/fantasy_tracker.py'],
-            check=True, capture_output=True
-        )
         subprocess.run(
             ['git', '-C', git_dir,
              '-c', 'user.email=devz0r@users.noreply.github.com',
              '-c', 'user.name=devz0r',
-             'commit', '-m', f'Sync tracker.py from local run {date.today().isoformat()}'],
-            check=True, capture_output=True
+             'commit', '-m', f'Local run sync {datetime.now().strftime("%Y-%m-%d %H:%M")}'],
+            check=True, capture_output=True, timeout=30,
         )
-        subprocess.run(
-            ['git', '-C', git_dir, 'push'],
-            check=True, capture_output=True
-        )
-        print("  Pushed to GitHub ✓")
+        push = subprocess.run(['git', '-C', git_dir, 'push'],
+                              capture_output=True, text=True, timeout=60)
+        if push.returncode != 0:
+            print(f"\nGitHub push failed: {push.stderr.strip()}")
+            return
+        print("\nPushed code + data to GitHub ✓")
 
+        # Trigger the cloud workflow so the encrypted index.html refreshes
+        # using the data we just pushed (instead of waiting for the next cron).
+        gh = shutil.which('gh')
+        if gh:
+            trig = subprocess.run(
+                [gh, 'workflow', 'run', 'deploy.yml', '--repo', 'devz0r/ft-report'],
+                capture_output=True, text=True, timeout=30,
+            )
+            if trig.returncode == 0:
+                print("Triggered cloud rebuild — devz0r.github.io will refresh in ~1-2 min")
+            else:
+                print(f"Workflow trigger failed: {trig.stderr.strip()}")
     except Exception as e:
-        # Never block the user — sync failures are silently logged
-        print(f"  GitHub sync skipped: {e}")
+        print(f"\nGitHub sync skipped: {e}")
 
 
 # =============================================================================
@@ -2877,6 +2948,10 @@ def main():
     if args.setup:
         run_setup()
         return
+
+    # Sync down freshest cache/snapshots from cloud before reading anything,
+    # so local always works against the same state Actions sees.
+    _pull_from_github_repo()
 
     today = date.today().isoformat()
 
@@ -3054,9 +3129,9 @@ def main():
     print("\nDone!")
     print(f"\nOpen tracker_report.html to review movements and free agents.")
 
-    # Auto-sync this file to the GitHub Pages engine repo whenever it's changed.
-    # Keeps the cloud deploy workflow in lockstep with local edits.
-    _sync_to_github_repo()
+    # Push code + fresh cache + new snapshot back to GitHub, and trigger
+    # the cloud workflow so the public site reflects this run.
+    _push_to_github_repo()
 
 
 if __name__ == '__main__':

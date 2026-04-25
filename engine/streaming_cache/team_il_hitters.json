@@ -1,57 +1,49 @@
 {
-  "AZ": [
-    {
-      "name": "Lourdes Gurriel Jr.",
-      "rank": 145,
-      "dollars": 5.6,
-      "il_type": "IL-10-Day"
-    }
-  ],
-  "BAL": [
-    {
-      "name": "Adley Rutschman",
-      "rank": 199,
-      "dollars": 1.0,
-      "il_type": "IL-10-Day"
-    }
-  ],
   "LAD": [
     {
       "name": "Mookie Betts",
-      "rank": 95,
-      "dollars": 10.1,
+      "rank": 73,
+      "dollars": 13.4,
       "il_type": "IL-10-Day"
     }
   ],
   "NYM": [
     {
-      "name": "Juan Soto",
-      "rank": 20,
-      "dollars": 25.4,
+      "name": "Francisco Lindor",
+      "rank": 145,
+      "dollars": 6.5,
       "il_type": "IL-10-Day"
     }
   ],
   "OAK": [
     {
       "name": "Brent Rooker",
-      "rank": 81,
-      "dollars": 11.4,
+      "rank": 77,
+      "dollars": 12.8,
+      "il_type": "IL-10-Day"
+    }
+  ],
+  "TEX": [
+    {
+      "name": "Wyatt Langford",
+      "rank": 151,
+      "dollars": 6.0,
       "il_type": "IL-10-Day"
     }
   ],
   "TOR": [
     {
       "name": "George Springer",
-      "rank": 117,
-      "dollars": 8.5,
+      "rank": 90,
+      "dollars": 11.4,
       "il_type": "IL-10-Day"
     }
   ],
   "MIL": [
     {
       "name": "Jackson Chourio",
-      "rank": 128,
-      "dollars": 7.3,
+      "rank": 118,
+      "dollars": 8.6,
       "il_type": "IL-10-Day"
     }
   ]
