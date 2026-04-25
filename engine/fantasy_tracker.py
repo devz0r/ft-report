@@ -2806,6 +2806,65 @@ def run_setup():
 
 
 # =============================================================================
+# GITHUB SYNC
+# =============================================================================
+
+def _sync_to_github_repo():
+    """After every local run, if fantasy_tracker.py has changed vs the copy
+    in the GitHub Pages repo, commit and push it automatically. This keeps
+    the cloud Actions workflow in lockstep with local edits without any
+    extra manual step."""
+    this_file = os.path.abspath(__file__)
+    engine_dir = os.path.join(SCRIPT_DIR, 'ft-report', 'engine')
+    dest_file = os.path.join(engine_dir, 'fantasy_tracker.py')
+    git_dir = os.path.join(SCRIPT_DIR, 'ft-report')
+
+    # Only run if the ft-report repo checkout exists alongside this script
+    if not os.path.isdir(os.path.join(git_dir, '.git')):
+        return
+
+    try:
+        import filecmp, subprocess
+
+        # Nothing to do if files are identical
+        if os.path.exists(dest_file) and filecmp.cmp(this_file, dest_file, shallow=False):
+            return
+
+        print("\nSyncing updated fantasy_tracker.py to GitHub repo...")
+        import shutil
+        shutil.copy2(this_file, dest_file)
+
+        # Commit + push only the tracker source (not snapshots — those are pushed by Actions)
+        result = subprocess.run(
+            ['git', '-C', git_dir, 'diff', '--quiet', 'engine/fantasy_tracker.py'],
+            capture_output=True
+        )
+        if result.returncode == 0:
+            return  # No diff after copy (shouldn't happen but guard anyway)
+
+        subprocess.run(
+            ['git', '-C', git_dir, 'add', 'engine/fantasy_tracker.py'],
+            check=True, capture_output=True
+        )
+        subprocess.run(
+            ['git', '-C', git_dir,
+             '-c', 'user.email=devz0r@users.noreply.github.com',
+             '-c', 'user.name=devz0r',
+             'commit', '-m', f'Sync tracker.py from local run {date.today().isoformat()}'],
+            check=True, capture_output=True
+        )
+        subprocess.run(
+            ['git', '-C', git_dir, 'push'],
+            check=True, capture_output=True
+        )
+        print("  Pushed to GitHub ✓")
+
+    except Exception as e:
+        # Never block the user — sync failures are silently logged
+        print(f"  GitHub sync skipped: {e}")
+
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -2994,6 +3053,10 @@ def main():
 
     print("\nDone!")
     print(f"\nOpen tracker_report.html to review movements and free agents.")
+
+    # Auto-sync this file to the GitHub Pages engine repo whenever it's changed.
+    # Keeps the cloud deploy workflow in lockstep with local edits.
+    _sync_to_github_repo()
 
 
 if __name__ == '__main__':
