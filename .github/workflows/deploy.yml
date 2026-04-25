@@ -83,7 +83,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Stage everything we want tracked
-          git add index.html engine/streaming_cache engine/tracker_snapshots || true
+          git add index.html engine/streaming_cache engine/tracker_snapshots engine/predictions engine/predictions_outcomes.jsonl || true
           # Remove local-only artifacts if any slipped in
           rm -f engine/tracker_config.json engine/tracker_report.html
           if git diff --staged --quiet; then
