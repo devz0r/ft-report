@@ -121,7 +121,8 @@ NAME_OVERRIDES = {}
 # =============================================================================
 
 def normalize_name(name):
-    if not name:
+    # Guard against NaN/float/None — pandas can yield NaN for missing names
+    if name is None or not isinstance(name, str) or not name:
         return ""
     if name in NAME_OVERRIDES:
         name = NAME_OVERRIDES[name]
@@ -148,7 +149,10 @@ def match_fg_to_espn(fg_players, espn_players):
     unmatched = []
 
     for fg in fg_players:
-        fg_name = fg['name']
+        fg_name = fg.get('name') if isinstance(fg, dict) else fg['name']
+        # Skip rows where FG returned a missing/NaN name
+        if not isinstance(fg_name, str) or not fg_name.strip():
+            continue
         fg_norm = normalize_name(fg_name)
         fg_team = fg.get('team', '')
         fg_team_abbr = FG_TEAM_TO_ESPN.get(fg_team, fg_team)
