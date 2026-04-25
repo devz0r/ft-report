@@ -1396,8 +1396,8 @@ def process_fg_pitchers(raw_data):
 
 
 def combine_ohtani(batters_df, pitchers_df):
-    ohtani_bat = batters_df[batters_df['name'].str.contains('Ohtani', case=False)]
-    ohtani_pit = pitchers_df[pitchers_df['name'].str.contains('Ohtani', case=False)]
+    ohtani_bat = batters_df[batters_df['name'].str.contains('Ohtani', case=False, na=False)]
+    ohtani_pit = pitchers_df[pitchers_df['name'].str.contains('Ohtani', case=False, na=False)]
     if len(ohtani_bat) > 0 and len(ohtani_pit) > 0:
         bat_dollars = ohtani_bat.iloc[0]['dollars']
         pit_dollars = ohtani_pit.iloc[0]['dollars']
@@ -1410,7 +1410,7 @@ def combine_ohtani(batters_df, pitchers_df):
         batters_df.at[idx, 'positions'] = ['DH', 'P']
         batters_df.at[idx, 'type'] = 'two-way'
         batters_df.at[idx, 'pitcher_role'] = 'SP'
-        pitchers_df = pitchers_df[~pitchers_df['name'].str.contains('Ohtani', case=False)]
+        pitchers_df = pitchers_df[~pitchers_df['name'].str.contains('Ohtani', case=False, na=False)]
     return batters_df, pitchers_df
 
 
