@@ -1971,7 +1971,8 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                          league_avg_ops, team_handedness, pitcher_details,
                          roster_map, espn_matches, savant_data=None,
                          team_il_hitters=None, team_il_returns=None,
-                         global_emerging=None, espn_probables=None):
+                         global_emerging=None, espn_probables=None,
+                         learned_biases=None):
     """Build the full streaming dataset for the week."""
     # Build lookup from FG name to ESPN match data
     espn_id_to_roster = roster_map or {}
@@ -2165,11 +2166,44 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         if team_il_returns and opp in team_il_returns:
             opp_il_returns = team_il_returns[opp]
 
+        # Pre-adjustment ("rule-based") prediction. This is what the learning
+        # engine uses for residual computation; never gets fed back on itself.
+        pts_pre_adj = effective_pts
+
+        # Apply learned biases (from accumulated outcomes) — auto-correct for
+        # any feature buckets where the model has been systematically off.
+        learned_adj_total = 0.0
+        adjustments_applied = []
+        if learned_biases:
+            preview_entry = {
+                'name': fg_name, 'tier': tier, 'opp_rank': opp_stats.get('ops_rank', 15),
+                'park_factor': park_factor, 'platoon': platoon, 'tag': tag,
+                'trend': trend, 'home_away': game['home_away'],
+            }
+            learned_adj_total, adjustments_applied = apply_learned_biases(
+                preview_entry, learned_biases
+            )
+
+        # Final pts = effective + learned correction
+        final_pts = pts_pre_adj + learned_adj_total
+        # Re-classify tier with the corrected pts so the recommendation reflects
+        # what we actually expect to happen.
+        if learned_adj_total != 0:
+            tier = classify_tier(final_pts - pitch_adj, pitch_matchup_score)
+
         entry = {
             'date': game['date'], 'day': game['day'],
             'name': fg_name, 'team': pitcher_team,
             'opponent': opp, 'home_away': game['home_away'],
-            'pts': round(effective_pts, 1), 'base_pts': round(adj_pts, 1),
+            'pts': round(final_pts, 1),
+            'pts_pre_adj': round(pts_pre_adj, 1),
+            'adj_total': round(learned_adj_total, 2),
+            'adjustments': [
+                {'label': a.get('label', ''), 'delta': a.get('delta_applied', a.get('mean', 0)),
+                 'n': a.get('n'), 'basis': a.get('basis')}
+                for a in adjustments_applied
+            ],
+            'base_pts': round(adj_pts, 1),
             'era': round(proj['ERA'], 2), 'whip': round(proj['WHIP'], 3),
             'k9': round(proj['K9'], 1),
             'opp_ops': f"{opp_ops:.3f}",
@@ -2390,6 +2424,10 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .opp-il-boost { color: #34d399; font-size: 10px; font-weight: 600; }
 .opp-il-warn { color: #f59e0b; font-size: 10px; font-weight: 600; }
 .chip-emerging { background: rgba(168,85,247,0.2); color: #c084fc; }
+.adj-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; padding: 2px 6px; margin-left: 6px; border-radius: 10px; cursor: help; font-weight: 600; vertical-align: middle; }
+.adj-up { background: rgba(52,211,153,0.18); color: #34d399; border: 1px solid rgba(52,211,153,0.35); }
+.adj-down { background: rgba(239,68,68,0.18); color: #f87171; border: 1px solid rgba(239,68,68,0.35); }
+.adj-chip::before { content: '\2728'; font-size: 8px; }
 </style>
 </head>
 <body>
@@ -2481,6 +2519,7 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 var PLAYERS = $PLAYERS_JSON;
 var STREAMING = $STREAMING_JSON;
 var CALIBRATION = $CALIBRATION_JSON;
+var LEARNED_BIASES = $LEARNED_BIASES_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -2708,7 +2747,19 @@ function renderPitcherEntry(s, allReal) {
   else h += '<span class="stream-name">' + s.name + '</span>';
   h += '<span class="stream-team">' + s.team + '</span>';
   h += '<span class="stream-matchup">' + matchup + ' (' + s.home_away + ')</span>';
-  h += '<span class="stream-pts ' + ptsCls + '">' + s.pts.toFixed(1) + ' pts</span>';
+  var ptsHtml = '<span class="stream-pts ' + ptsCls + '">' + s.pts.toFixed(1) + ' pts</span>';
+  if (s.adj_total && Math.abs(s.adj_total) >= 0.3 && s.adjustments && s.adjustments.length) {
+    var adjCls = s.adj_total > 0 ? 'adj-up' : 'adj-down';
+    var adjText = (s.adj_total >= 0 ? '+' : '') + s.adj_total.toFixed(1);
+    var lines = s.adjustments.map(function(a) {
+      var d = (a.delta >= 0 ? '+' : '') + a.delta.toFixed(2);
+      return '• ' + (a.label || '(no label)') + '  [' + d + ']';
+    });
+    var tip = 'Auto-adjustments based on accumulated outcomes:\n' + lines.join('\n')
+            + '\n\nBase prediction: ' + (s.pts_pre_adj || s.pts).toFixed(1) + ' pts\nAdjusted: ' + s.pts.toFixed(1) + ' pts';
+    ptsHtml += '<span class="adj-chip ' + adjCls + '" title="' + tip.replace(/"/g, '&quot;') + '">' + adjText + '</span>';
+  }
+  h += ptsHtml;
   h += '<span class="stream-stat">ERA <b>' + s.era.toFixed(2) + '</b></span>';
   h += '<span class="stream-stat">K/9 <b>' + s.k9.toFixed(1) + '</b></span>';
   h += tagHtml;
@@ -2850,6 +2901,26 @@ function renderAccuracy() {
   h += renderMissList('Most over-predicted (we said go, they bombed)', cal.worst_overpredictions, 'over');
   h += renderMissList('Best surprises (we underestimated)', cal.best_underpredictions, 'under');
 
+  // Learned biases — auto-detected feature buckets where the model is off
+  var biasKeys = LEARNED_BIASES ? Object.keys(LEARNED_BIASES) : [];
+  if (biasKeys.length) {
+    h += '<div class="day-card" style="margin:8px 0">';
+    h += '<div class="day-header"><span>Active learned corrections</span><span style="color:#777;font-size:11px">' + biasKeys.length + ' bucket(s) auto-applied to predictions</span></div>';
+    h += '<div style="padding:6px 16px">';
+    var sortedBiases = biasKeys.map(function(k) { return LEARNED_BIASES[k]; })
+      .sort(function(a, b) { return Math.abs(b.mean) - Math.abs(a.mean); });
+    sortedBiases.forEach(function(b) {
+      var dCls = b.mean > 0 ? 'opp-easy' : 'opp-hard';
+      h += '<div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px">';
+      h += '<div>' + b.label + '</div>';
+      h += '<div style="color:#777;font-size:11px;margin-top:2px">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
+      h += 'mean residual <span class="' + dCls + '">' + (b.mean >= 0 ? '+' : '') + b.mean.toFixed(2) + '</span> &middot; ';
+      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + (b.z || 0).toFixed(2);
+      h += '</div></div>';
+    });
+    h += '</div></div>';
+  }
+
   c.innerHTML = h;
 }
 renderAccuracy();
@@ -2880,6 +2951,7 @@ renderAccuracy();
         OLDEST_DATE=oldest_label,
         HOLD_ASOF=hold_asof_label or (date.today() - timedelta(days=1)).strftime('%b %-d'),
         CALIBRATION_JSON=json.dumps(calibration) if calibration else 'null',
+        LEARNED_BIASES_JSON=json.dumps(load_learned_biases() or {}),
     )
 
     with open(OUTPUT_HTML, 'w') as f:
@@ -2922,6 +2994,22 @@ def run_setup():
 
 PREDICTIONS_DIR = os.path.join(SCRIPT_DIR, 'predictions')
 OUTCOMES_LOG = os.path.join(SCRIPT_DIR, 'predictions_outcomes.jsonl')
+LEARNED_BIASES_PATH = os.path.join(SCRIPT_DIR, 'learned_biases.json')
+
+# Feature bucket definitions for bias detection
+OPP_RANK_BRACKETS = [
+    (1, 5, 'top-5 OPS offenses'),
+    (6, 10, 'top-10 OPS offenses'),
+    (11, 20, 'middle-tier offenses'),
+    (21, 25, 'bottom-10 OPS offenses'),
+    (26, 30, 'bottom-5 OPS offenses'),
+]
+
+PARK_BRACKETS = [
+    (0.0, 0.96, 'pitcher-friendly parks'),
+    (0.96, 1.04, 'neutral parks'),
+    (1.04, 99.0, 'hitter-friendly parks'),
+]
 
 
 def log_prediction(entry):
@@ -2948,7 +3036,14 @@ def log_prediction(entry):
             'team': entry.get('team'),
             'opponent': entry.get('opponent'),
             'home_away': entry.get('home_away'),
+            # predicted_pts is the FINAL number we're committing to (post-learning)
             'predicted_pts': entry.get('pts'),
+            # predicted_pts_raw is the rule-based prediction BEFORE learned
+            # adjustments. Used for future bias detection so the learning
+            # loop never feeds on its own outputs.
+            'predicted_pts_raw': entry.get('pts_pre_adj', entry.get('pts')),
+            'adj_total': entry.get('adj_total', 0.0),
+            'adjustments': entry.get('adjustments', []),
             'base_pts': entry.get('base_pts'),
             'tier': entry.get('tier'),
             'status': entry.get('status'),
@@ -3042,11 +3137,17 @@ def process_pending_outcomes():
                 }
             else:
                 actual = actual_pitcher_pts(outcome)
+                pred_final = pred.get('predicted_pts') or 0
+                pred_raw = pred.get('predicted_pts_raw', pred_final)
                 joined = {
                     **pred,
                     'actual_line': outcome,
                     'actual_pts': round(actual, 2),
-                    'residual': round(actual - (pred.get('predicted_pts') or 0), 2),
+                    # residual_raw drives bias detection (no feedback loop)
+                    'residual_raw': round(actual - pred_raw, 2),
+                    # residual is vs the final/learned prediction — measures
+                    # how much the learning has actually helped.
+                    'residual': round(actual - pred_final, 2),
                     'no_start': False,
                 }
             with open(OUTCOMES_LOG, 'a') as f:
@@ -3137,6 +3238,246 @@ def calibration_stats(window_days=30):
     }
 
 
+def _residual_stats(samples, residual_key='residual_raw'):
+    """Compute n, mean residual, std, z-score for a list of joined records.
+    Uses residual_raw by default (rule-based prediction vs actual) so the
+    learning loop never feeds on its own learned-adjusted outputs."""
+    rs = []
+    for s in samples:
+        r = s.get(residual_key)
+        if r is None:
+            r = s.get('residual')  # back-compat for older records
+        if r is None:
+            continue
+        rs.append(r)
+    n = len(rs)
+    if n == 0:
+        return None
+    mean = sum(rs) / n
+    if n < 2:
+        return {'n': n, 'mean': round(mean, 2), 'std': 0.0, 'z': 0.0}
+    var = sum((r - mean) ** 2 for r in rs) / (n - 1)
+    std = var ** 0.5
+    se = std / (n ** 0.5)
+    z = mean / se if se > 0 else 0.0
+    return {'n': n, 'mean': round(mean, 2), 'std': round(std, 2), 'z': round(z, 2)}
+
+
+def _load_outcomes_for_learning():
+    """Load all joined outcome records from the rolling log."""
+    if not os.path.exists(OUTCOMES_LOG):
+        return []
+    out = []
+    try:
+        with open(OUTCOMES_LOG) as f:
+            for line in f:
+                try:
+                    s = json.loads(line)
+                except Exception:
+                    continue
+                if s.get('no_start') or (s.get('residual_raw') is None and s.get('residual') is None):
+                    continue
+                out.append(s)
+    except Exception:
+        pass
+    return out
+
+
+def compute_learned_biases(min_samples=8, min_abs_z=1.5, min_abs_delta=0.5):
+    """Scan accumulated outcomes for systematic biases in feature buckets.
+
+    A bucket gets a learned correction when:
+      - n >= min_samples (enough data)
+      - |mean residual| >= min_abs_delta (meaningful magnitude)
+      - |z-score| >= min_abs_z (statistically distinguishable from noise)
+
+    Per-pitcher buckets use lower thresholds (n>=3) since individual pitchers
+    accrue starts slowly. Returns dict keyed by bucket id with stats + label.
+    """
+    samples = _load_outcomes_for_learning()
+    if not samples:
+        return {}
+
+    biases = {}
+
+    def add_bucket(key, bucket, basis, label_tmpl):
+        st = _residual_stats(bucket)
+        if not st or st['n'] < min_samples:
+            return
+        if abs(st['mean']) < min_abs_delta or abs(st['z']) < min_abs_z:
+            return
+        biases[key] = {
+            **st, 'basis': basis, 'key': key,
+            'label': label_tmpl.format(delta=st['mean'], n=st['n']),
+        }
+
+    # 1. Per-tier bias
+    for tier in ('must_start', 'start', 'borderline', 'avoid'):
+        bucket = [s for s in samples if s.get('tier') == tier]
+        add_bucket(f'tier_{tier}', bucket, 'tier',
+                   f'{tier.replace("_"," ").title()} tier averaging {{delta:+.1f}} pts vs prediction (n={{n}})')
+
+    # 2. Per opp_rank bracket
+    for lo, hi, label in OPP_RANK_BRACKETS:
+        bucket = [s for s in samples
+                  if (s.get('features') or {}).get('opp_rank') is not None
+                  and lo <= s['features']['opp_rank'] <= hi]
+        add_bucket(f'opp_rank_{lo}_{hi}', bucket, 'opp_rank',
+                   f'vs {label}: {{delta:+.1f}} pts (n={{n}})')
+
+    # 3. Per park factor bracket
+    for lo, hi, label in PARK_BRACKETS:
+        bucket = [s for s in samples
+                  if (s.get('features') or {}).get('park_factor') is not None
+                  and lo <= s['features']['park_factor'] < hi]
+        add_bucket(f'park_{lo}_{hi}', bucket, 'park',
+                   f'in {label}: {{delta:+.1f}} pts (n={{n}})')
+
+    # 4. Platoon
+    for plat in ('edge', 'risk'):
+        bucket = [s for s in samples if (s.get('features') or {}).get('platoon') == plat]
+        add_bucket(f'platoon_{plat}', bucket, 'platoon',
+                   f'with platoon {plat}: {{delta:+.1f}} pts (n={{n}})')
+
+    # 5. Tag
+    for tag in ('ACE', 'SAFE', 'UPSIDE'):
+        bucket = [s for s in samples if (s.get('features') or {}).get('tag') == tag]
+        add_bucket(f'tag_{tag}', bucket, 'tag',
+                   f'{tag}-tagged predictions: {{delta:+.1f}} pts (n={{n}})')
+
+    # 6. Trend
+    for trend in ('hot', 'cold'):
+        bucket = [s for s in samples if (s.get('features') or {}).get('trend') == trend]
+        add_bucket(f'trend_{trend}', bucket, 'trend',
+                   f'on {trend} streak: {{delta:+.1f}} pts (n={{n}})')
+
+    # 7. Home/Away
+    for ha in ('H', 'A'):
+        bucket = [s for s in samples if s.get('home_away') == ha]
+        add_bucket(f'home_away_{ha}', bucket, 'home_away',
+                   f'{"home" if ha == "H" else "road"} starts: {{delta:+.1f}} pts (n={{n}})')
+
+    # 8. Per-pitcher: 3+ starts and noticeable bias
+    by_pitcher = {}
+    for s in samples:
+        nm = normalize_name(s.get('name', ''))
+        if nm:
+            by_pitcher.setdefault(nm, []).append(s)
+    for nm, bucket in by_pitcher.items():
+        if len(bucket) < 3:
+            continue
+        st = _residual_stats(bucket)
+        if not st or abs(st['mean']) < 0.8:
+            continue
+        display_name = bucket[-1].get('name', nm)
+        biases[f'pitcher_{nm}'] = {
+            **st, 'basis': 'pitcher', 'key': f'pitcher_{nm}',
+            'label': f'{display_name} historically {st["mean"]:+.1f} pts vs prediction (n={st["n"]})',
+        }
+
+    return biases
+
+
+def save_learned_biases(biases):
+    payload = {
+        'updated_at': datetime.now().isoformat(timespec='seconds'),
+        'count': len(biases),
+        'biases': biases,
+    }
+    try:
+        with open(LEARNED_BIASES_PATH, 'w') as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+    except Exception as e:
+        print(f"  Could not save learned biases: {e}")
+
+
+def load_learned_biases():
+    if not os.path.exists(LEARNED_BIASES_PATH):
+        return {}
+    try:
+        with open(LEARNED_BIASES_PATH) as f:
+            data = json.load(f)
+        return data.get('biases', {})
+    except Exception:
+        return {}
+
+
+def apply_learned_biases(entry, biases, damping=0.6):
+    """Look up biases that match this entry's features.
+    Returns (total_delta, applied_list).
+
+    Per-pitcher applies at full weight (most specific). Categorical buckets
+    (tier/opp_rank/park/platoon/tag/trend/home_away) get damped when more
+    than one applies, since they often correlate (e.g., must_start tier and
+    ACE tag overlap heavily).
+    """
+    if not biases:
+        return 0.0, []
+
+    applied = []
+
+    # Per-pitcher (full weight)
+    pname = normalize_name(entry.get('name', ''))
+    pkey = f'pitcher_{pname}'
+    if pkey in biases:
+        b = dict(biases[pkey])
+        b['delta_applied'] = b['mean']
+        applied.append(b)
+
+    # Categorical buckets — collect all that apply
+    bucket_hits = []
+    tkey = f"tier_{entry.get('tier')}"
+    if tkey in biases:
+        bucket_hits.append(biases[tkey])
+
+    rank = entry.get('opp_rank')
+    if rank is not None:
+        for lo, hi, _ in OPP_RANK_BRACKETS:
+            k = f'opp_rank_{lo}_{hi}'
+            if k in biases and lo <= rank <= hi:
+                bucket_hits.append(biases[k])
+                break
+
+    pf = entry.get('park_factor')
+    if pf is not None:
+        for lo, hi, _ in PARK_BRACKETS:
+            k = f'park_{lo}_{hi}'
+            if k in biases and lo <= pf < hi:
+                bucket_hits.append(biases[k])
+                break
+
+    if entry.get('platoon'):
+        k = f"platoon_{entry['platoon']}"
+        if k in biases:
+            bucket_hits.append(biases[k])
+
+    if entry.get('tag'):
+        k = f"tag_{entry['tag']}"
+        if k in biases:
+            bucket_hits.append(biases[k])
+
+    if entry.get('trend'):
+        k = f"trend_{entry['trend']}"
+        if k in biases:
+            bucket_hits.append(biases[k])
+
+    if entry.get('home_away'):
+        k = f"home_away_{entry['home_away']}"
+        if k in biases:
+            bucket_hits.append(biases[k])
+
+    # Damping multiplier: 1.0 if 1 hit, scales down with multiple hits
+    if bucket_hits:
+        scale = 1.0 if len(bucket_hits) == 1 else damping
+        for b in bucket_hits:
+            b2 = dict(b)
+            b2['delta_applied'] = round(b['mean'] * scale, 2)
+            applied.append(b2)
+
+    total = round(sum(b['delta_applied'] for b in applied), 2)
+    return total, applied
+
+
 # =============================================================================
 # GITHUB SYNC
 # =============================================================================
@@ -3194,13 +3535,14 @@ def _pull_from_github_repo():
         pred_copied = _mirror_dir(os.path.join(engine_dir, 'predictions'),
                                   os.path.join(SCRIPT_DIR, 'predictions'))
         # Single-file outcome log: pull the cloud version if newer
-        cloud_outcomes = os.path.join(engine_dir, 'predictions_outcomes.jsonl')
-        local_outcomes = os.path.join(SCRIPT_DIR, 'predictions_outcomes.jsonl')
-        if os.path.exists(cloud_outcomes):
-            if (not os.path.exists(local_outcomes) or
-                    os.path.getmtime(cloud_outcomes) > os.path.getmtime(local_outcomes) + 0.5):
-                import shutil
-                shutil.copy2(cloud_outcomes, local_outcomes)
+        import shutil
+        for fn in ('predictions_outcomes.jsonl', 'learned_biases.json'):
+            cloud_path = os.path.join(engine_dir, fn)
+            local_path = os.path.join(SCRIPT_DIR, fn)
+            if os.path.exists(cloud_path):
+                if (not os.path.exists(local_path) or
+                        os.path.getmtime(cloud_path) > os.path.getmtime(local_path) + 0.5):
+                    shutil.copy2(cloud_path, local_path)
         if snap_copied or cache_copied or pred_copied:
             print(f"Pulled latest from GitHub: {snap_copied} snapshot(s), "
                   f"{cache_copied} cache file(s), {pred_copied} prediction(s)")
@@ -3229,10 +3571,11 @@ def _push_to_github_repo():
                     os.path.join(engine_dir, 'streaming_cache'))
         _mirror_dir(os.path.join(SCRIPT_DIR, 'predictions'),
                     os.path.join(engine_dir, 'predictions'))
-        # Single-file outcome log
-        local_outcomes = os.path.join(SCRIPT_DIR, 'predictions_outcomes.jsonl')
-        if os.path.exists(local_outcomes):
-            shutil.copy2(local_outcomes, os.path.join(engine_dir, 'predictions_outcomes.jsonl'))
+        # Single-file logs (outcomes + learned biases)
+        for fn in ('predictions_outcomes.jsonl', 'learned_biases.json'):
+            local_path = os.path.join(SCRIPT_DIR, fn)
+            if os.path.exists(local_path):
+                shutil.copy2(local_path, os.path.join(engine_dir, fn))
 
         # Pull --rebase one more time in case Actions committed during our run
         subprocess.run(['git', '-C', git_dir, 'pull', '--rebase', '--autostash', '--quiet'],
@@ -3247,6 +3590,7 @@ def _push_to_github_repo():
             'engine/streaming_cache',
             'engine/predictions',
             'engine/predictions_outcomes.jsonl',
+            'engine/learned_biases.json',
         ]
         existing = [p for p in candidate_paths if os.path.exists(os.path.join(git_dir, p))]
         if existing:
@@ -3318,6 +3662,28 @@ def main():
             print(f"Joined {new_outcomes} prediction(s) with their actual outcomes")
     except Exception as e:
         print(f"  Outcome processing failed: {e}")
+
+    # Recompute learned biases from the (possibly updated) outcomes log so
+    # this run's predictions get the freshest correction layer.
+    learned_biases = {}
+    try:
+        learned_biases = compute_learned_biases()
+        if learned_biases:
+            save_learned_biases(learned_biases)
+            print(f"Learned biases active: {len(learned_biases)} feature bucket(s)")
+            for k, b in sorted(learned_biases.items(), key=lambda kv: -abs(kv[1].get('mean', 0)))[:6]:
+                print(f"    {b.get('label', k)}")
+        else:
+            existing = load_learned_biases()
+            if existing:
+                # Keep using the existing biases until we have enough data to recompute
+                learned_biases = existing
+                print(f"Using existing learned biases ({len(existing)} bucket(s)) — not enough new data to recompute")
+            else:
+                # Phase 1: still collecting outcomes; no adjustments yet
+                pass
+    except Exception as e:
+        print(f"  Bias detection failed: {e}")
 
     today = date.today().isoformat()
 
@@ -3471,6 +3837,7 @@ def main():
             team_il_returns=il_returns,
             global_emerging=global_emerging,
             espn_probables=espn_probables,
+            learned_biases=learned_biases,
         )
         fa_count = sum(1 for s in streaming_data if s.get('status') == 'FA' and not s.get('tbd'))
         mine_count = sum(1 for s in streaming_data if s.get('status') == 'MY ROSTER')
