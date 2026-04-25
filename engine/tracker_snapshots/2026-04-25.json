@@ -1,6 +1,6 @@
 {
   "date": "2026-04-25",
-  "timestamp": "2026-04-25T05:44:18.611698",
+  "timestamp": "2026-04-25T07:04:58.390668",
   "players": [
     {
       "rank": 1,
@@ -8241,6 +8241,21 @@
     },
     {
       "rank": 560,
+      "name": "Starling Marte",
+      "positions": [
+        "OF",
+        "DH"
+      ],
+      "displayPos": "OF",
+      "team": "KC",
+      "dollars": -27.7,
+      "rpts": 100.6,
+      "type": "hitter",
+      "fg_id": "9241",
+      "espn_id": 30830
+    },
+    {
+      "rank": 561,
       "name": "Patrick Bailey",
       "positions": [
         "C"
@@ -8254,7 +8269,7 @@
       "espn_id": 4345843
     },
     {
-      "rank": 561,
+      "rank": 562,
       "name": "Kirby Yates",
       "positions": [
         "P"
@@ -8269,7 +8284,7 @@
       "espn_id": 32623
     },
     {
-      "rank": 562,
+      "rank": 563,
       "name": "Justin Topa",
       "positions": [
         "P"
@@ -8284,7 +8299,7 @@
       "espn_id": 38796
     },
     {
-      "rank": 563,
+      "rank": 564,
       "name": "Erik Sabrowski",
       "positions": [
         "P"
@@ -8299,7 +8314,7 @@
       "espn_id": 5194333
     },
     {
-      "rank": 564,
+      "rank": 565,
       "name": "Angel Zerpa",
       "positions": [
         "P"
@@ -8314,7 +8329,7 @@
       "espn_id": 4705673
     },
     {
-      "rank": 565,
+      "rank": 566,
       "name": "Phil Maton",
       "positions": [
         "P"
@@ -8327,20 +8342,6 @@
       "fg_id": "18064",
       "pitcherRole": "RP",
       "espn_id": 36161
-    },
-    {
-      "rank": 566,
-      "name": "Starling Marte",
-      "positions": [
-        "DH"
-      ],
-      "displayPos": "DH",
-      "team": "KC",
-      "dollars": -28.0,
-      "rpts": 100.6,
-      "type": "hitter",
-      "fg_id": "9241",
-      "espn_id": 30830
     },
     {
       "rank": 567,
@@ -11200,7 +11201,8 @@
       "name": "Lenyn Sosa",
       "positions": [
         "1B",
-        "2B"
+        "2B",
+        "DH"
       ],
       "displayPos": "2B",
       "team": "TOR",
@@ -15299,7 +15301,6 @@
       "rank": 1038,
       "name": "Braden Shewmake",
       "positions": [
-        "3B",
         "SS"
       ],
       "displayPos": "SS",
@@ -16546,7 +16547,8 @@
       "name": "Tyler Black",
       "positions": [
         "1B",
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "MIL",
