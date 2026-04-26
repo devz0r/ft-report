@@ -1,0 +1,24 @@
+{
+  "biases": {
+    "home_away_A": {
+      "basis": "home_away",
+      "key": "home_away_A",
+      "label": "road starts: -6.3 pts (n=13)",
+      "mean": -6.35,
+      "n": 13,
+      "std": 13.34,
+      "z": -1.72
+    },
+    "tier_borderline": {
+      "basis": "tier",
+      "key": "tier_borderline",
+      "label": "Borderline tier averaging -6.8 pts vs prediction (n=8)",
+      "mean": -6.79,
+      "n": 8,
+      "std": 10.35,
+      "z": -1.85
+    }
+  },
+  "count": 2,
+  "updated_at": "2026-04-26T04:00:47"
+}
