@@ -1244,9 +1244,18 @@ def _parse_savant_csv(text):
 
 
 def _safe_float(val, default=None):
-    """Convert a string to float, returning default if empty/invalid."""
+    """Convert a value to float, returning default if empty/invalid.
+    Handles strings, ints, floats, and None safely."""
+    if val is None:
+        return default
+    if isinstance(val, (int, float)):
+        try:
+            return float(val) if val == val else default  # filter NaN
+        except Exception:
+            return default
     try:
-        return float(val) if val and val.strip() else default
+        s = str(val).strip()
+        return float(s) if s else default
     except (ValueError, TypeError):
         return default
 
@@ -1461,17 +1470,23 @@ def fetch_fg_pitching_plus():
         )
         data = resp.json().get('data', [])
         for p in data:
-            raw_name = p.get('Name') or p.get('PlayerName', '')
-            if not isinstance(raw_name, str):
+            try:
+                raw_name = p.get('Name') or p.get('PlayerName', '')
+                if not isinstance(raw_name, str):
+                    continue
+                m = re.search(r'>([^<]+)<', raw_name)
+                name = m.group(1) if m else raw_name
+                raw_team = p.get('Team', '')
+                team_str = str(raw_team) if raw_team is not None else ''
+                tm = re.search(r'>([A-Z]+)<', team_str)
+                team = tm.group(1) if tm else (team_str if isinstance(raw_team, str) else '')
+                if isinstance(team, str):
+                    team = FG_TEAM_TO_ESPN.get(team, team)
+                else:
+                    team = ''
+                key = f"{normalize_name(name)}|{team}"
+            except Exception:
                 continue
-            m = re.search(r'>([^<]+)<', raw_name)
-            name = m.group(1) if m else raw_name
-            raw_team = p.get('Team', '')
-            team_str = str(raw_team) if raw_team is not None else ''
-            tm = re.search(r'>([A-Z]+)<', team_str)
-            team = tm.group(1) if tm else (team_str if isinstance(raw_team, str) else '')
-            team = FG_TEAM_TO_ESPN.get(team, team) if isinstance(team, str) else ''
-            key = f"{normalize_name(name)}|{team}"
             out[key] = {
                 'stuff_plus': _safe_float(p.get('Stuff+')),
                 'location_plus': _safe_float(p.get('Location+')),
