@@ -8219,5 +8219,109 @@
     ],
     "fb_velo": 96.6,
     "pitch_count": 5
+  },
+  "801403": {
+    "mlb_id": 801403,
+    "career_vs_l": {
+      "ops": ".860",
+      "whip": "1.67",
+      "k9": "6.60",
+      "ip": "60.0"
+    },
+    "career_vs_r": {
+      "ops": ".691",
+      "whip": "1.23",
+      "k9": "10.05",
+      "ip": "62.2"
+    },
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 99.09508094478528,
+        "pct": 0.36465323
+      },
+      {
+        "code": "ST",
+        "desc": "Sweeper",
+        "velo": 86.22488174074076,
+        "pct": 0.060402684
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 79.94537472972974,
+        "pct": 0.08277405
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 90.80289705084745,
+        "pct": 0.13199106
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 97.5753537916667,
+        "pct": 0.2147651
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 87.81556204615381,
+        "pct": 0.14541388
+      }
+    ],
+    "fb_velo": 99.1,
+    "pitch_count": 6
+  },
+  "682254": {
+    "mlb_id": 682254,
+    "career_vs_l": {
+      "ops": ".593",
+      "whip": "1.31",
+      "k9": "14.19",
+      "ip": "26.0"
+    },
+    "career_vs_r": {
+      "ops": ".855",
+      "whip": "1.75",
+      "k9": "13.50",
+      "ip": "40.0"
+    },
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 98.44832602898556,
+        "pct": 0.6418605
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 87.13896897619048,
+        "pct": 0.19534884
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 92.235744,
+        "pct": 0.009302326
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 98.8898585,
+        "pct": 0.009302326
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 89.87571767741935,
+        "pct": 0.14418605
+      }
+    ],
+    "fb_velo": 98.4,
+    "pitch_count": 5
   }
 }
