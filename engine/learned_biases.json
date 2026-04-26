@@ -1,24 +1,5 @@
 {
-  "biases": {
-    "opp_rank_26_30": {
-      "basis": "opp_rank",
-      "key": "opp_rank_26_30",
-      "label": "vs bottom-5 OPS offenses: -21.6 pts (n=8)",
-      "mean": -2.0,
-      "n": 8,
-      "std": 6.78,
-      "z": -8.99
-    },
-    "trend_cold": {
-      "basis": "trend",
-      "key": "trend_cold",
-      "label": "on cold streak: +6.9 pts (n=6)",
-      "mean": 2.0,
-      "n": 6,
-      "std": 3.97,
-      "z": 4.27
-    }
-  },
-  "count": 2,
-  "updated_at": "2026-04-26T15:02:09"
+  "biases": {},
+  "count": 0,
+  "updated_at": "2026-04-26T11:04:59"
 }

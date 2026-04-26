@@ -4121,20 +4121,15 @@ def main():
             n_samples = result.get('samples', 0)
             print(f"Bias scan: {n_samples} outcomes, {tests} buckets tested, "
                   f"{len(learned_biases)} significant, {len(learned_candidates)} near-threshold")
-            if learned_biases:
-                save_learned_biases(learned_biases)
-                for k, b in sorted(learned_biases.items(),
-                                   key=lambda kv: -abs(kv[1].get('mean', 0)))[:6]:
-                    print(f"    [active]    {b.get('label', k)}  (z={b.get('z', 0):.2f})")
+            # Always overwrite the saved biases with the freshest scan — if
+            # recompute returns empty, we want predictions to NOT use stale
+            # corrections from old/looser thresholds.
+            save_learned_biases(learned_biases)
+            for k, b in sorted(learned_biases.items(),
+                               key=lambda kv: -abs(kv[1].get('mean', 0)))[:6]:
+                print(f"    [active]    {b.get('label', k)}  (z={b.get('z', 0):.2f})")
             for c in learned_candidates[:4]:
                 print(f"    [candidate] {c.get('label', '')}  (z={c.get('z', 0):.2f})")
-            # Persist what we found, even if no significant biases yet, so
-            # the HTML can still show candidates from the cloud.
-            if not learned_biases:
-                existing = load_learned_biases()
-                if existing:
-                    learned_biases = existing
-                    print(f"  No new significant biases — keeping existing {len(existing)} until next recompute")
         else:
             # Old return shape (just dict of biases) — support legacy
             learned_biases = result or {}
