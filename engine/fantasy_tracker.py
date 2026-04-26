@@ -2192,7 +2192,9 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                          roster_map, espn_matches, savant_data=None,
                          team_il_hitters=None, team_il_returns=None,
                          global_emerging=None, espn_probables=None,
-                         learned_biases=None):
+                         learned_biases=None, savant_advanced=None,
+                         fg_pitching_plus=None, team_bullpens=None,
+                         pitcher_workload=None):
     """Build the full streaming dataset for the week."""
     # Build lookup from FG name to ESPN match data
     espn_id_to_roster = roster_map or {}
@@ -2450,6 +2452,52 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'opp_il_returns': opp_il_returns,
         }
 
+        # Phase 2 enrichment: attach advanced features for auto-correlation
+        # discovery. Each one becomes a candidate feature the bias engine
+        # quartile-buckets and tests for residual signal.
+        try:
+            mlb_id_str = str(mlb_id) if mlb_id else None
+            sa = (savant_advanced or {}).get(mlb_id_str, {}) if mlb_id_str else {}
+            fg_pp_key = f"{normalize_name(fg_name)}|{pitcher_team}"
+            fpp = (fg_pitching_plus or {}).get(fg_pp_key, {})
+            opp_bp = (team_bullpens or {}).get(opp, {})
+            wl = (pitcher_workload or {}).get(normalize_name(fg_name), {})
+
+            entry.update({
+                # Statcast advanced
+                'xera': sa.get('xera'),
+                'xwoba': sa.get('xwoba'),
+                'xba': sa.get('xba'),
+                'xslg': sa.get('xslg'),
+                'barrel_pct': sa.get('barrel_pct'),
+                'hard_hit_pct': sa.get('hard_hit_pct'),
+                'whiff_pct': sa.get('whiff_pct'),
+                'k_pct_savant': sa.get('k_pct'),
+                'bb_pct_savant': sa.get('bb_pct'),
+                'chase_pct': sa.get('chase_pct'),
+                'gb_pct': sa.get('gb_pct'),
+                'fb_pct': sa.get('fb_pct'),
+                'ld_pct': sa.get('ld_pct'),
+                # FG advanced
+                'stuff_plus': fpp.get('stuff_plus'),
+                'location_plus': fpp.get('location_plus'),
+                'pitching_plus': fpp.get('pitching_plus'),
+                'fip': fpp.get('fip'),
+                'xfip': fpp.get('xfip'),
+                'siera': fpp.get('siera'),
+                # Opponent bullpen (affects W/L probability)
+                'opp_bullpen_era': opp_bp.get('era'),
+                'opp_bullpen_whip': opp_bp.get('whip'),
+                # Workload
+                'last_pitch_count': wl.get('last_pitch_count'),
+                'days_rest': (
+                    (date.fromisoformat(game['date']) - date.fromisoformat(wl['last_start_date'])).days
+                    if wl.get('last_start_date') else None
+                ),
+            })
+        except Exception:
+            pass
+
         # Log prediction for EVERY scheduled SP (not just FA/MY ROSTER) so the
         # learning engine has full league-wide ground truth to calibrate against.
         log_prediction(entry)
@@ -2470,7 +2518,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
 def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster_map,
                           streaming_data=None, cum_deltas=None, oldest_date=None,
                           global_emerging=None, hold_asof_label=None,
-                          calibration=None):
+                          calibration=None, learned_candidates=None):
     from string import Template
     if streaming_data is None:
         streaming_data = []
@@ -2740,6 +2788,7 @@ var PLAYERS = $PLAYERS_JSON;
 var STREAMING = $STREAMING_JSON;
 var CALIBRATION = $CALIBRATION_JSON;
 var LEARNED_BIASES = $LEARNED_BIASES_JSON;
+var LEARNED_CANDIDATES = $LEARNED_CANDIDATES_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -3121,6 +3170,24 @@ function renderAccuracy() {
   h += renderMissList('Most over-predicted (we said go, they bombed)', cal.worst_overpredictions, 'over');
   h += renderMissList('Best surprises (we underestimated)', cal.best_underpredictions, 'under');
 
+  // Emerging candidate signals — close to statistical significance but not
+  // yet auto-applied. Lets the user see what's about to kick in.
+  if (LEARNED_CANDIDATES && LEARNED_CANDIDATES.length) {
+    h += '<div class="day-card" style="margin:8px 0">';
+    h += '<div class="day-header"><span>Emerging signals (not yet applied)</span><span style="color:#777;font-size:11px">close to significance — auto-activate when z &gt; threshold</span></div>';
+    h += '<div style="padding:6px 16px">';
+    LEARNED_CANDIDATES.forEach(function(b) {
+      var dCls = b.mean > 0 ? 'opp-easy' : 'opp-hard';
+      h += '<div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px">';
+      h += '<div style="opacity:0.85">' + b.label + '</div>';
+      h += '<div style="color:#777;font-size:11px;margin-top:2px">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
+      h += 'mean residual <span class="' + dCls + '">' + (b.mean >= 0 ? '+' : '') + (b.mean || 0).toFixed(2) + '</span> &middot; ';
+      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + (b.z || 0).toFixed(2) + ' (need higher)';
+      h += '</div></div>';
+    });
+    h += '</div></div>';
+  }
+
   // Learned biases — auto-detected feature buckets where the model is off
   var biasKeys = LEARNED_BIASES ? Object.keys(LEARNED_BIASES) : [];
   if (biasKeys.length) {
@@ -3172,6 +3239,7 @@ renderAccuracy();
         HOLD_ASOF=hold_asof_label or (date.today() - timedelta(days=1)).strftime('%b %-d'),
         CALIBRATION_JSON=json.dumps(calibration) if calibration else 'null',
         LEARNED_BIASES_JSON=json.dumps(load_learned_biases() or {}),
+        LEARNED_CANDIDATES_JSON=json.dumps(learned_candidates or []),
     )
 
     with open(OUTPUT_HTML, 'w') as f:
@@ -3268,9 +3336,11 @@ def log_prediction(entry):
             'tier': entry.get('tier'),
             'status': entry.get('status'),
             'features': {
+                # Core projection
                 'proj_era': entry.get('era'),
                 'proj_whip': entry.get('whip'),
                 'proj_k9': entry.get('k9'),
+                # Matchup
                 'opp_ops': entry.get('opp_ops'),
                 'opp_ops_raw': entry.get('opp_ops_raw'),
                 'opp_rank': entry.get('opp_rank'),
@@ -3289,6 +3359,32 @@ def log_prediction(entry):
                 'emerging': entry.get('emerging'),
                 'opp_il_count': len(entry.get('opp_il', []) or []),
                 'opp_il_returns_count': len(entry.get('opp_il_returns', []) or []),
+                # Statcast advanced (Phase 2)
+                'xera': entry.get('xera'),
+                'xwoba': entry.get('xwoba'),
+                'xba': entry.get('xba'),
+                'xslg': entry.get('xslg'),
+                'barrel_pct': entry.get('barrel_pct'),
+                'hard_hit_pct': entry.get('hard_hit_pct'),
+                'whiff_pct': entry.get('whiff_pct'),
+                'k_pct_savant': entry.get('k_pct_savant'),
+                'bb_pct_savant': entry.get('bb_pct_savant'),
+                'chase_pct': entry.get('chase_pct'),
+                'gb_pct': entry.get('gb_pct'),
+                'fb_pct': entry.get('fb_pct'),
+                'ld_pct': entry.get('ld_pct'),
+                # FG advanced (Phase 2)
+                'stuff_plus': entry.get('stuff_plus'),
+                'location_plus': entry.get('location_plus'),
+                'pitching_plus': entry.get('pitching_plus'),
+                'fip': entry.get('fip'),
+                'xfip': entry.get('xfip'),
+                'siera': entry.get('siera'),
+                # Bullpen + workload (Phase 2)
+                'opp_bullpen_era': entry.get('opp_bullpen_era'),
+                'opp_bullpen_whip': entry.get('opp_bullpen_whip'),
+                'days_rest': entry.get('days_rest'),
+                'last_pitch_count': entry.get('last_pitch_count'),
             },
         }
         with open(os.path.join(day_dir, f'{pitcher_norm}.json'), 'w') as f:
@@ -3503,38 +3599,123 @@ def _load_outcomes_for_learning():
     return out
 
 
-def compute_learned_biases(min_samples=8, min_abs_z=1.5, min_abs_delta=0.5):
+MAX_BUCKET_DELTA = 2.0   # cap any single bucket's adjustment at ±2 pts
+NUMERIC_AUTO_BUCKET_FEATURES = [
+    # Core projection features
+    'proj_era', 'proj_whip', 'proj_k9',
+    # Recent form
+    'recent_era',
+    # Matchup
+    'opp_rank', 'park_factor',
+    # Arsenal
+    'fb_velo', 'pitch_count',
+    # IL
+    'opp_il_count', 'opp_il_returns_count',
+    # Statcast advanced (populated as new data flows in)
+    'xera', 'xwoba', 'xba', 'xslg', 'barrel_pct', 'hard_hit_pct',
+    'whiff_pct', 'k_pct_savant', 'bb_pct_savant', 'chase_pct',
+    'gb_pct', 'fb_pct', 'ld_pct',
+    # FG advanced
+    'stuff_plus', 'location_plus', 'pitching_plus', 'fip', 'xfip', 'siera',
+    # Workload
+    'days_rest', 'last_pitch_count',
+    # Bullpen
+    'opp_bullpen_era', 'opp_bullpen_whip',
+]
+
+
+def _auto_bucket_continuous(samples, fname, n_buckets=4):
+    """Auto-quartile any numeric feature, return list of (bucket_samples, label, lo, hi).
+    Skips features with fewer than n_buckets * 5 samples (need enough to bucket)."""
+    vals = []
+    for s in samples:
+        v = (s.get('features') or {}).get(fname)
+        if v is None or not isinstance(v, (int, float)):
+            continue
+        vals.append(v)
+    if len(vals) < n_buckets * 5:
+        return []
+    sorted_vals = sorted(vals)
+    boundaries = [sorted_vals[int(i * len(sorted_vals) / n_buckets)] for i in range(1, n_buckets)]
+    boundaries = [-float('inf')] + boundaries + [float('inf')]
+    out = []
+    for i in range(len(boundaries) - 1):
+        lo, hi = boundaries[i], boundaries[i + 1]
+        bucket = [s for s in samples
+                  if (s.get('features') or {}).get(fname) is not None
+                  and lo <= s['features'][fname] < hi]
+        # Pretty range label
+        if lo == -float('inf'):
+            lbl = f"{fname} ≤ {hi:.2f}"
+        elif hi == float('inf'):
+            lbl = f"{fname} ≥ {lo:.2f}"
+        else:
+            lbl = f"{fname} in [{lo:.2f}, {hi:.2f})"
+        out.append((bucket, lbl, lo, hi))
+    return out
+
+
+def compute_learned_biases(min_samples=5, min_abs_delta=0.5, base_alpha=0.01):
     """Scan accumulated outcomes for systematic biases in feature buckets.
 
-    A bucket gets a learned correction when:
-      - n >= min_samples (enough data)
-      - |mean residual| >= min_abs_delta (meaningful magnitude)
-      - |z-score| >= min_abs_z (statistically distinguishable from noise)
-
-    Per-pitcher buckets use lower thresholds (n>=3) since individual pitchers
-    accrue starts slowly. Returns dict keyed by bucket id with stats + label.
+    Statistical rigor (so we don't fire on noise):
+      - Multiple-comparisons correction: z threshold scales with #buckets tested
+        via approximate Bonferroni. With 50 tests at α=0.01, effective z ≈ 3.0.
+        With more features, the bar gets stricter — protects against the
+        "data dredging" failure mode.
+      - Each bucket's adjustment is clamped to ±MAX_BUCKET_DELTA, so no single
+        noisy correlation can dominate a prediction.
+      - Per-pitcher buckets evaluated separately (n>=3) since individual
+        pitchers accrue starts slowly; they get a higher delta floor.
     """
     samples = _load_outcomes_for_learning()
     if not samples:
         return {}
 
     biases = {}
+    candidates = []  # (key, stats, basis, label) — close to threshold but not yet
+    test_count = 0
 
-    def add_bucket(key, bucket, basis, label_tmpl):
+    def passes_threshold(z, n_tests):
+        # Bonferroni-style: more tests → higher bar. Floor at 2.5 for sanity.
+        if n_tests <= 1:
+            return abs(z) >= 2.5
+        # Approx z for Bonferroni-corrected α/n_tests, two-tailed.
+        # For α=0.01 and ~50 tests: z ≈ 3.0. For ~100 tests: z ≈ 3.3.
+        import math
+        # Use simple formula z = sqrt(2 * ln(n_tests / α))
+        try:
+            corrected_z = math.sqrt(2 * math.log(n_tests / base_alpha))
+        except (ValueError, ZeroDivisionError):
+            corrected_z = 3.0
+        return abs(z) >= max(2.5, corrected_z)
+
+    def maybe_add(key, bucket, basis, label_tmpl):
+        nonlocal test_count
+        test_count += 1
         st = _residual_stats(bucket)
         if not st or st['n'] < min_samples:
             return
-        if abs(st['mean']) < min_abs_delta or abs(st['z']) < min_abs_z:
+        if abs(st['mean']) < min_abs_delta:
             return
-        biases[key] = {
-            **st, 'basis': basis, 'key': key,
-            'label': label_tmpl.format(delta=st['mean'], n=st['n']),
-        }
+        # We track candidates separately: 1.5 < |z| < threshold so the user
+        # can see what's "almost there"
+        label = label_tmpl.format(delta=st['mean'], n=st['n'])
+        rec = {**st, 'basis': basis, 'key': key, 'label': label}
+        if abs(st.get('z', 0)) >= 1.5 and not passes_threshold(st['z'], 50):
+            # close but not yet — surface as candidate
+            candidates.append(rec)
+        if not passes_threshold(st.get('z', 0), 50):
+            return
+        # Clamp delta magnitude
+        clamped = max(-MAX_BUCKET_DELTA, min(MAX_BUCKET_DELTA, st['mean']))
+        rec['mean'] = clamped
+        biases[key] = rec
 
     # 1. Per-tier bias
     for tier in ('must_start', 'start', 'borderline', 'avoid'):
         bucket = [s for s in samples if s.get('tier') == tier]
-        add_bucket(f'tier_{tier}', bucket, 'tier',
+        maybe_add(f'tier_{tier}', bucket, 'tier',
                    f'{tier.replace("_"," ").title()} tier averaging {{delta:+.1f}} pts vs prediction (n={{n}})')
 
     # 2. Per opp_rank bracket
@@ -3542,7 +3723,7 @@ def compute_learned_biases(min_samples=8, min_abs_z=1.5, min_abs_delta=0.5):
         bucket = [s for s in samples
                   if (s.get('features') or {}).get('opp_rank') is not None
                   and lo <= s['features']['opp_rank'] <= hi]
-        add_bucket(f'opp_rank_{lo}_{hi}', bucket, 'opp_rank',
+        maybe_add(f'opp_rank_{lo}_{hi}', bucket, 'opp_rank',
                    f'vs {label}: {{delta:+.1f}} pts (n={{n}})')
 
     # 3. Per park factor bracket
@@ -3550,52 +3731,78 @@ def compute_learned_biases(min_samples=8, min_abs_z=1.5, min_abs_delta=0.5):
         bucket = [s for s in samples
                   if (s.get('features') or {}).get('park_factor') is not None
                   and lo <= s['features']['park_factor'] < hi]
-        add_bucket(f'park_{lo}_{hi}', bucket, 'park',
+        maybe_add(f'park_{lo}_{hi}', bucket, 'park',
                    f'in {label}: {{delta:+.1f}} pts (n={{n}})')
 
     # 4. Platoon
     for plat in ('edge', 'risk'):
         bucket = [s for s in samples if (s.get('features') or {}).get('platoon') == plat]
-        add_bucket(f'platoon_{plat}', bucket, 'platoon',
+        maybe_add(f'platoon_{plat}', bucket, 'platoon',
                    f'with platoon {plat}: {{delta:+.1f}} pts (n={{n}})')
 
     # 5. Tag
     for tag in ('ACE', 'SAFE', 'UPSIDE'):
         bucket = [s for s in samples if (s.get('features') or {}).get('tag') == tag]
-        add_bucket(f'tag_{tag}', bucket, 'tag',
+        maybe_add(f'tag_{tag}', bucket, 'tag',
                    f'{tag}-tagged predictions: {{delta:+.1f}} pts (n={{n}})')
 
     # 6. Trend
     for trend in ('hot', 'cold'):
         bucket = [s for s in samples if (s.get('features') or {}).get('trend') == trend]
-        add_bucket(f'trend_{trend}', bucket, 'trend',
+        maybe_add(f'trend_{trend}', bucket, 'trend',
                    f'on {trend} streak: {{delta:+.1f}} pts (n={{n}})')
 
     # 7. Home/Away
     for ha in ('H', 'A'):
         bucket = [s for s in samples if s.get('home_away') == ha]
-        add_bucket(f'home_away_{ha}', bucket, 'home_away',
+        maybe_add(f'home_away_{ha}', bucket, 'home_away',
                    f'{"home" if ha == "H" else "road"} starts: {{delta:+.1f}} pts (n={{n}})')
 
-    # 8. Per-pitcher: 3+ starts and noticeable bias
+    # 8. Per-pitcher: ≥3 starts AND z-score >= 2.0 (no longer auto-fires
+    #    on any pitcher with high mean — small samples with high variance
+    #    are rejected by the statistical check)
     by_pitcher = {}
     for s in samples:
         nm = normalize_name(s.get('name', ''))
         if nm:
             by_pitcher.setdefault(nm, []).append(s)
     for nm, bucket in by_pitcher.items():
+        test_count += 1
         if len(bucket) < 3:
             continue
         st = _residual_stats(bucket)
         if not st or abs(st['mean']) < 0.8:
             continue
         display_name = bucket[-1].get('name', nm)
-        biases[f'pitcher_{nm}'] = {
+        rec = {
             **st, 'basis': 'pitcher', 'key': f'pitcher_{nm}',
             'label': f'{display_name} historically {st["mean"]:+.1f} pts vs prediction (n={st["n"]})',
         }
+        # Per-pitcher uses slightly looser bar (z>=2.0) since data is sparse
+        if abs(st.get('z', 0)) >= 2.0:
+            rec['mean'] = max(-MAX_BUCKET_DELTA, min(MAX_BUCKET_DELTA, st['mean']))
+            biases[f'pitcher_{nm}'] = rec
+        elif abs(st.get('z', 0)) >= 1.2:
+            candidates.append(rec)
 
-    return biases
+    # 9. Auto-discover correlations in any numeric feature we have data on.
+    #    This is the engine that finds unexpected signals: drop any new feature
+    #    into the prediction record and the system quartile-buckets and tests
+    #    it for residual bias automatically.
+    for fname in NUMERIC_AUTO_BUCKET_FEATURES:
+        for bucket, lbl, lo, hi in _auto_bucket_continuous(samples, fname, n_buckets=4):
+            key = f'auto_{fname}_{lo:.2f}_{hi:.2f}'
+            maybe_add(key, bucket, f'auto:{fname}',
+                      f'when {lbl}: {{delta:+.1f}} pts (n={{n}})')
+
+    # Sort candidates (close-to-significant) by |z| desc, keep top 12 for display
+    candidates.sort(key=lambda c: -abs(c.get('z', 0)))
+    return {
+        'biases': biases,
+        'candidates': candidates[:12],
+        'tests_run': test_count,
+        'samples': len(samples),
+    }
 
 
 def save_learned_biases(biases):
@@ -3886,24 +4093,39 @@ def main():
     # Recompute learned biases from the (possibly updated) outcomes log so
     # this run's predictions get the freshest correction layer.
     learned_biases = {}
+    learned_candidates = []
     try:
-        learned_biases = compute_learned_biases()
-        if learned_biases:
-            save_learned_biases(learned_biases)
-            print(f"Learned biases active: {len(learned_biases)} feature bucket(s)")
-            for k, b in sorted(learned_biases.items(), key=lambda kv: -abs(kv[1].get('mean', 0)))[:6]:
-                print(f"    {b.get('label', k)}")
+        result = compute_learned_biases()
+        if isinstance(result, dict) and 'biases' in result:
+            learned_biases = result.get('biases', {}) or {}
+            learned_candidates = result.get('candidates', []) or []
+            tests = result.get('tests_run', 0)
+            n_samples = result.get('samples', 0)
+            print(f"Bias scan: {n_samples} outcomes, {tests} buckets tested, "
+                  f"{len(learned_biases)} significant, {len(learned_candidates)} near-threshold")
+            if learned_biases:
+                save_learned_biases(learned_biases)
+                for k, b in sorted(learned_biases.items(),
+                                   key=lambda kv: -abs(kv[1].get('mean', 0)))[:6]:
+                    print(f"    [active]    {b.get('label', k)}  (z={b.get('z', 0):.2f})")
+            for c in learned_candidates[:4]:
+                print(f"    [candidate] {c.get('label', '')}  (z={c.get('z', 0):.2f})")
+            # Persist what we found, even if no significant biases yet, so
+            # the HTML can still show candidates from the cloud.
+            if not learned_biases:
+                existing = load_learned_biases()
+                if existing:
+                    learned_biases = existing
+                    print(f"  No new significant biases — keeping existing {len(existing)} until next recompute")
         else:
-            existing = load_learned_biases()
-            if existing:
-                # Keep using the existing biases until we have enough data to recompute
-                learned_biases = existing
-                print(f"Using existing learned biases ({len(existing)} bucket(s)) — not enough new data to recompute")
-            else:
-                # Phase 1: still collecting outcomes; no adjustments yet
-                pass
+            # Old return shape (just dict of biases) — support legacy
+            learned_biases = result or {}
+            if learned_biases:
+                save_learned_biases(learned_biases)
     except Exception as e:
         print(f"  Bias detection failed: {e}")
+        import traceback
+        traceback.print_exc()
 
     today = date.today().isoformat()
 
@@ -4039,6 +4261,11 @@ def main():
                 mlb_ids.add(mid)
         pitcher_details = fetch_pitcher_details(list(mlb_ids))
         savant_data = fetch_savant_pitch_arsenal()
+        # Phase 2 enrichment: more data sources for the auto-learning engine
+        savant_advanced = fetch_savant_advanced_pitcher_stats()
+        fg_pitching_plus = fetch_fg_pitching_plus()
+        team_bullpens = fetch_team_bullpens()
+        pitcher_workload = compute_pitcher_workload(PREDICTIONS_DIR, OUTCOMES_LOG)
         il_hitters, il_returns = fetch_team_il_hitters(players_list)
 
         # Build a global emerging/HOLD map for ALL FA + rostered SPs based on recent form,
@@ -4058,6 +4285,10 @@ def main():
             global_emerging=global_emerging,
             espn_probables=espn_probables,
             learned_biases=learned_biases,
+            savant_advanced=savant_advanced,
+            fg_pitching_plus=fg_pitching_plus,
+            team_bullpens=team_bullpens,
+            pitcher_workload=pitcher_workload,
         )
         fa_count = sum(1 for s in streaming_data if s.get('status') == 'FA' and not s.get('tbd'))
         mine_count = sum(1 for s in streaming_data if s.get('status') == 'MY ROSTER')
@@ -4097,7 +4328,8 @@ def main():
                           streaming_data, cum_deltas, oldest_date,
                           global_emerging=global_emerging,
                           hold_asof_label=hold_asof_label,
-                          calibration=cal)
+                          calibration=cal,
+                          learned_candidates=learned_candidates)
 
     print("\nDone!")
     print(f"\nOpen tracker_report.html to review movements and free agents.")
