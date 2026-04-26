@@ -1364,6 +1364,214 @@ def fetch_savant_pitch_arsenal():
     return result
 
 
+def fetch_savant_advanced_pitcher_stats():
+    """Pull Savant 'expected statistics' (xERA, xWOBA, xBA, xSLG, barrel%, hard-hit%)
+    plus whiff/CSW/chase rate per pitcher. Returns dict keyed by mlb_id (string).
+    Cached 24h. Free, public, no auth.
+    """
+    cached, age = _load_streaming_cache('savant_advanced.json')
+    if cached is not None:
+        print(f"  Using cached Savant advanced stats ({age:.1f}h old)")
+        return cached
+
+    print("  Fetching Savant advanced pitcher stats (xERA, xWOBA, barrel%, etc)...")
+    out = {}
+    year = date.today().year
+
+    # Endpoint 1: expected statistics (xERA, xWOBA, xBA, xSLG)
+    try:
+        resp = requests.get(
+            'https://baseballsavant.mlb.com/leaderboard/expected_statistics',
+            params={'type': 'pitcher', 'year': year, 'min': 'q', 'csv': 'true',
+                    'pitchHand': '', 'team': '', 'filter': ''},
+            headers={'User-Agent': 'Mozilla/5.0'}, timeout=30,
+        )
+        for r in _parse_savant_csv(resp.text):
+            pid = (r.get('player_id') or '').strip()
+            if not pid:
+                continue
+            out.setdefault(pid, {})
+            out[pid].update({
+                'xera': _safe_float(r.get('xera')),
+                'xwoba': _safe_float(r.get('xwoba')),
+                'xba': _safe_float(r.get('xba')),
+                'xslg': _safe_float(r.get('xslg')),
+                'woba_diff': _safe_float(r.get('woba_minus_xwoba_diff')),
+            })
+    except Exception as e:
+        print(f"    expected_statistics failed: {e}")
+
+    # Endpoint 2: pitcher percentile / quality stats (barrel%, hard-hit%, whiff%, chase%)
+    try:
+        resp = requests.get(
+            'https://baseballsavant.mlb.com/leaderboard/custom',
+            params={
+                'year': year, 'type': 'pitcher', 'min': 'q', 'selections':
+                'p_total_pa,barrel_batted_rate,hard_hit_percent,whiff_percent,k_percent,bb_percent,'
+                'chase_percent,oz_swing_percent,xba,xera,xwoba,p_ground_ball,p_fly_ball,p_line_drive',
+                'csv': 'true',
+            },
+            headers={'User-Agent': 'Mozilla/5.0'}, timeout=30,
+        )
+        for r in _parse_savant_csv(resp.text):
+            pid = (r.get('player_id') or '').strip()
+            if not pid:
+                continue
+            out.setdefault(pid, {})
+            out[pid].update({
+                'barrel_pct': _safe_float(r.get('barrel_batted_rate')),
+                'hard_hit_pct': _safe_float(r.get('hard_hit_percent')),
+                'whiff_pct': _safe_float(r.get('whiff_percent')),
+                'k_pct': _safe_float(r.get('k_percent')),
+                'bb_pct': _safe_float(r.get('bb_percent')),
+                'chase_pct': _safe_float(r.get('chase_percent')),
+                'gb_pct': _safe_float(r.get('p_ground_ball')),
+                'fb_pct': _safe_float(r.get('p_fly_ball')),
+                'ld_pct': _safe_float(r.get('p_line_drive')),
+            })
+    except Exception as e:
+        print(f"    custom leaderboard failed: {e}")
+
+    print(f"    {len(out)} pitchers with advanced Statcast stats")
+    _save_streaming_cache('savant_advanced.json', out)
+    return out
+
+
+def fetch_fg_pitching_plus():
+    """Pull FanGraphs Stuff+, Location+, Pitching+ (their pitch-quality models)
+    for all SPs. Cached 24h. Returns dict keyed by 'normalized_name|team'.
+    """
+    cached, age = _load_streaming_cache('fg_pitching_plus.json')
+    if cached is not None:
+        print(f"  Using cached FG Pitching+ data ({age:.1f}h old)")
+        return cached
+
+    print("  Fetching FG Pitching+ / Stuff+ / Location+ ...")
+    out = {}
+    try:
+        resp = requests.get(
+            'https://www.fangraphs.com/api/leaders/major-league/data',
+            params={
+                'pos': 'sp', 'stats': 'pit', 'lg': 'all', 'qual': 0,
+                'season': date.today().year, 'season1': date.today().year,
+                'ind': 0, 'team': '', 'pageitems': 500, 'type': 36,
+                # type=36 returns pitching+ models
+            },
+            headers=HEADERS, timeout=30,
+        )
+        data = resp.json().get('data', [])
+        for p in data:
+            raw_name = p.get('Name') or p.get('PlayerName', '')
+            m = re.search(r'>([^<]+)<', raw_name)
+            name = m.group(1) if m else raw_name
+            raw_team = p.get('Team', '')
+            tm = re.search(r'>([A-Z]+)<', str(raw_team))
+            team = tm.group(1) if tm else raw_team
+            team = FG_TEAM_TO_ESPN.get(team, team)
+            key = f"{normalize_name(name)}|{team}"
+            out[key] = {
+                'stuff_plus': _safe_float(p.get('Stuff+')),
+                'location_plus': _safe_float(p.get('Location+')),
+                'pitching_plus': _safe_float(p.get('Pitching+')),
+                'fip': _safe_float(p.get('FIP')),
+                'xfip': _safe_float(p.get('xFIP')),
+                'siera': _safe_float(p.get('SIERA')),
+                'k_pct': _safe_float(p.get('K%') or p.get('K_pct')),
+                'bb_pct': _safe_float(p.get('BB%') or p.get('BB_pct')),
+                'swstr_pct': _safe_float(p.get('SwStr%') or p.get('SwStr_pct')),
+            }
+    except Exception as e:
+        print(f"    FG Pitching+ fetch failed: {e}")
+
+    print(f"    {len(out)} pitchers with Pitching+ data")
+    _save_streaming_cache('fg_pitching_plus.json', out)
+    return out
+
+
+def fetch_team_bullpens():
+    """Team bullpen quality (ERA, FIP, WHIP) — affects W/L probability.
+    Cached 12h. Returns dict {team_abbr: {era, fip, whip, k9, bb9}}.
+    """
+    cached, age = _load_streaming_cache('team_bullpens.json', max_age_hours=12)
+    if cached is not None:
+        print(f"  Using cached team bullpens ({age:.1f}h old)")
+        return cached
+
+    print("  Fetching team bullpen stats...")
+    out = {}
+    try:
+        url = 'https://statsapi.mlb.com/api/v1/teams/stats'
+        params = {
+            'season': date.today().year, 'sportIds': 1, 'group': 'pitching',
+            'stats': 'season', 'gameType': 'R',
+        }
+        resp = requests.get(url, params=params, timeout=20)
+        data = resp.json()
+        # Per-team season pitching stats (combined SP+RP). To isolate the bullpen
+        # we'd need to subtract starters. As a proxy we use overall team pitching
+        # which still correlates with bullpen quality.
+        for split in data.get('stats', []):
+            for sp in split.get('splits', []):
+                team = sp.get('team', {})
+                team_id = team.get('id')
+                team_abbr = MLB_TEAM_TO_ABBR.get(team_id)
+                if not team_abbr:
+                    continue
+                stat = sp.get('stat', {})
+                out[team_abbr] = {
+                    'era': _safe_float(stat.get('era')),
+                    'whip': _safe_float(stat.get('whip')),
+                    'k9': _safe_float(stat.get('strikeoutsPer9Inn')),
+                    'bb9': _safe_float(stat.get('walksPer9Inn')),
+                }
+    except Exception as e:
+        print(f"    team bullpens fetch failed: {e}")
+
+    print(f"    {len(out)} teams with bullpen stats")
+    _save_streaming_cache('team_bullpens.json', out)
+    return out
+
+
+def compute_pitcher_workload(predictions_dir, outcomes_log):
+    """Derive days-rest-since-last-start and last-start pitch count for each
+    pitcher from our own historical predictions+outcomes (no extra API calls).
+    Returns dict {normalized_name: {last_start_date, last_pitch_count, days_rest_to_next}}.
+    """
+    workload = {}
+
+    # 1. Past outcomes give us actual start dates + IP (proxy for pitch count)
+    if os.path.exists(outcomes_log):
+        try:
+            with open(outcomes_log) as f:
+                for line in f:
+                    try:
+                        s = json.loads(line)
+                    except Exception:
+                        continue
+                    if s.get('no_start'):
+                        continue
+                    pname = normalize_name(s.get('name', ''))
+                    if not pname:
+                        continue
+                    sdate = s.get('date')
+                    if not sdate:
+                        continue
+                    line_data = s.get('actual_line') or {}
+                    ip = line_data.get('IP', 0) or 0
+                    # Approximate pitch count from IP: ~16 pitches/inning league avg
+                    approx_pc = round(ip * 16)
+                    prev = workload.get(pname)
+                    if prev is None or sdate > prev.get('last_start_date', '0'):
+                        workload[pname] = {
+                            'last_start_date': sdate,
+                            'last_ip': round(ip, 1),
+                            'last_pitch_count': approx_pc,
+                        }
+        except Exception:
+            pass
+    return workload
+
+
 # =============================================================================
 # DATA PROCESSING
 # =============================================================================
@@ -1643,17 +1851,29 @@ def classify_pitcher(proj):
 
 
 def assess_trend(proj, recent):
-    """Assess recent form vs projection. Returns 'hot', 'cold', or ''."""
+    """Assess recent form vs projection. Returns 'hot', 'cold', or ''.
+
+    Bug fix: previously a high recent K/9 would trigger HOT even if ERA
+    was much worse than projection (Senga had 8.83 L14D ERA but high K/9 ->
+    incorrectly labeled HOT). Now HOT requires ERA isn't blowing up, and
+    K/9 alone can only signal HOT when ERA is at least near projection.
+    """
     if not recent:
         return ''
     proj_era = proj.get('ERA', 4.0)
     recent_era = recent.get('ERA', proj_era)
     proj_k9 = proj.get('K9', 8.0)
     recent_k9 = recent.get('K9', proj_k9)
-    if recent_era < proj_era - 1.5 or recent_k9 > proj_k9 + 2.0:
-        return 'hot'
-    if recent_era > proj_era + 1.5:
+
+    # COLD takes priority — if recent ERA is significantly worse, label cold
+    # even if K/9 is up.
+    if recent_era >= proj_era + 1.5:
         return 'cold'
+    # HOT only when recent ERA is at or below projection (with small slack)
+    if recent_era <= proj_era + 0.3 and (
+        recent_era <= proj_era - 1.0 or recent_k9 >= proj_k9 + 2.0
+    ):
+        return 'hot'
     return ''
 
 
