@@ -2,8 +2,8 @@
   "AZ": [
     {
       "name": "Lourdes Gurriel Jr.",
-      "rank": 97,
-      "dollars": 10.8
+      "rank": 94,
+      "dollars": 11.4
     }
   ],
   "BAL": [
@@ -17,7 +17,14 @@
     {
       "name": "Juan Soto",
       "rank": 8,
-      "dollars": 39.0
+      "dollars": 40.1
+    }
+  ],
+  "MIN": [
+    {
+      "name": "Royce Lewis",
+      "rank": 197,
+      "dollars": 1.0
     }
   ]
 }

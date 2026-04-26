@@ -3,22 +3,58 @@
     "home_away_A": {
       "basis": "home_away",
       "key": "home_away_A",
-      "label": "road starts: -6.3 pts (n=13)",
+      "label": "road starts: -6.3 pts (n=26)",
       "mean": -6.35,
-      "n": 13,
-      "std": 13.34,
-      "z": -1.72
+      "n": 26,
+      "std": 13.07,
+      "z": -2.48
+    },
+    "opp_rank_26_30": {
+      "basis": "opp_rank",
+      "key": "opp_rank_26_30",
+      "label": "vs bottom-5 OPS offenses: -21.6 pts (n=8)",
+      "mean": -21.55,
+      "n": 8,
+      "std": 6.78,
+      "z": -8.99
+    },
+    "opp_rank_6_10": {
+      "basis": "opp_rank",
+      "key": "opp_rank_6_10",
+      "label": "vs top-10 OPS offenses: +4.1 pts (n=10)",
+      "mean": 4.06,
+      "n": 10,
+      "std": 5.36,
+      "z": 2.39
+    },
+    "tier_avoid": {
+      "basis": "tier",
+      "key": "tier_avoid",
+      "label": "Avoid tier averaging +3.9 pts vs prediction (n=14)",
+      "mean": 3.86,
+      "n": 14,
+      "std": 8.22,
+      "z": 1.76
     },
     "tier_borderline": {
       "basis": "tier",
       "key": "tier_borderline",
-      "label": "Borderline tier averaging -6.8 pts vs prediction (n=8)",
+      "label": "Borderline tier averaging -6.8 pts vs prediction (n=16)",
       "mean": -6.79,
-      "n": 8,
-      "std": 10.35,
-      "z": -1.85
+      "n": 16,
+      "std": 10.0,
+      "z": -2.72
+    },
+    "trend_hot": {
+      "basis": "trend",
+      "key": "trend_hot",
+      "label": "on hot streak: +3.6 pts (n=14)",
+      "mean": 3.63,
+      "n": 14,
+      "std": 5.45,
+      "z": 2.49
     }
   },
-  "count": 2,
-  "updated_at": "2026-04-26T14:38:04"
+  "count": 6,
+  "updated_at": "2026-04-26T10:52:28"
 }
