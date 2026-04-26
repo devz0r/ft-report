@@ -1462,12 +1462,15 @@ def fetch_fg_pitching_plus():
         data = resp.json().get('data', [])
         for p in data:
             raw_name = p.get('Name') or p.get('PlayerName', '')
+            if not isinstance(raw_name, str):
+                continue
             m = re.search(r'>([^<]+)<', raw_name)
             name = m.group(1) if m else raw_name
             raw_team = p.get('Team', '')
-            tm = re.search(r'>([A-Z]+)<', str(raw_team))
-            team = tm.group(1) if tm else raw_team
-            team = FG_TEAM_TO_ESPN.get(team, team)
+            team_str = str(raw_team) if raw_team is not None else ''
+            tm = re.search(r'>([A-Z]+)<', team_str)
+            team = tm.group(1) if tm else (team_str if isinstance(raw_team, str) else '')
+            team = FG_TEAM_TO_ESPN.get(team, team) if isinstance(team, str) else ''
             key = f"{normalize_name(name)}|{team}"
             out[key] = {
                 'stuff_plus': _safe_float(p.get('Stuff+')),
@@ -3655,7 +3658,7 @@ def _auto_bucket_continuous(samples, fname, n_buckets=4):
     return out
 
 
-def compute_learned_biases(min_samples=5, min_abs_delta=0.5, base_alpha=0.01):
+def compute_learned_biases(min_samples=12, min_abs_delta=0.5, base_alpha=0.01):
     """Scan accumulated outcomes for systematic biases in feature buckets.
 
     Statistical rigor (so we don't fire on noise):
@@ -3768,7 +3771,7 @@ def compute_learned_biases(min_samples=5, min_abs_delta=0.5, base_alpha=0.01):
             by_pitcher.setdefault(nm, []).append(s)
     for nm, bucket in by_pitcher.items():
         test_count += 1
-        if len(bucket) < 3:
+        if len(bucket) < 5:
             continue
         st = _residual_stats(bucket)
         if not st or abs(st['mean']) < 0.8:
