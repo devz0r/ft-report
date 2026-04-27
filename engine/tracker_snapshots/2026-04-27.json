@@ -1,6 +1,6 @@
 {
   "date": "2026-04-27",
-  "timestamp": "2026-04-27T04:05:22.694569",
+  "timestamp": "2026-04-27T07:11:56.987516",
   "players": [
     {
       "rank": 1,
@@ -5038,8 +5038,7 @@
       "rank": 344,
       "name": "T.J. Rumfield",
       "positions": [
-        "1B",
-        "DH"
+        "1B"
       ],
       "displayPos": "1B",
       "team": "COL",
@@ -5482,7 +5481,8 @@
       "rank": 374,
       "name": "Luisangel Acuna",
       "positions": [
-        "2B"
+        "2B",
+        "OF"
       ],
       "displayPos": "2B",
       "team": "CWS",
@@ -13939,20 +13939,6 @@
     },
     {
       "rank": 944,
-      "name": "Nick Loftin",
-      "positions": [
-        "OF"
-      ],
-      "displayPos": "OF",
-      "team": "KC",
-      "dollars": -41.5,
-      "rpts": 35.7,
-      "type": "hitter",
-      "fg_id": "27630",
-      "espn_id": 4314013
-    },
-    {
-      "rank": 945,
       "name": "Jorge Barrosa",
       "positions": [
         "OF"
@@ -13966,7 +13952,7 @@
       "espn_id": 41259
     },
     {
-      "rank": 946,
+      "rank": 945,
       "name": "Jerar Encarnacion",
       "positions": [
         "OF"
@@ -13980,7 +13966,7 @@
       "espn_id": 42623
     },
     {
-      "rank": 947,
+      "rank": 946,
       "name": "Welinton Herrera",
       "positions": [
         "P"
@@ -13995,7 +13981,7 @@
       "espn_id": 5274126
     },
     {
-      "rank": 948,
+      "rank": 947,
       "name": "Zach Maxwell",
       "positions": [
         "P"
@@ -14010,7 +13996,7 @@
       "espn_id": 5195258
     },
     {
-      "rank": 949,
+      "rank": 948,
       "name": "Angel Chivilli",
       "positions": [
         "P"
@@ -14025,7 +14011,7 @@
       "espn_id": 5185106
     },
     {
-      "rank": 950,
+      "rank": 949,
       "name": "Leo Rivas",
       "positions": [
         "2B"
@@ -14039,7 +14025,7 @@
       "espn_id": 40858
     },
     {
-      "rank": 951,
+      "rank": 950,
       "name": "Brett Sullivan",
       "positions": [
         "C"
@@ -14053,7 +14039,7 @@
       "espn_id": 39913
     },
     {
-      "rank": 952,
+      "rank": 951,
       "name": "Carson Seymour",
       "positions": [
         "P"
@@ -14068,7 +14054,7 @@
       "espn_id": 4420745
     },
     {
-      "rank": 953,
+      "rank": 952,
       "name": "Tyler Black",
       "positions": [
         "1B",
@@ -14084,7 +14070,7 @@
       "espn_id": 4414183
     },
     {
-      "rank": 954,
+      "rank": 953,
       "name": "Mitch Spence",
       "positions": [
         "P"
@@ -14099,7 +14085,7 @@
       "espn_id": 4987645
     },
     {
-      "rank": 955,
+      "rank": 954,
       "name": "Luis Mey",
       "positions": [
         "P"
@@ -14114,7 +14100,7 @@
       "espn_id": 4722939
     },
     {
-      "rank": 956,
+      "rank": 955,
       "name": "Taijuan Walker",
       "positions": [
         "P"
@@ -14129,7 +14115,7 @@
       "espn_id": 31864
     },
     {
-      "rank": 957,
+      "rank": 956,
       "name": "Brice Matthews",
       "positions": [
         "2B",
@@ -14145,7 +14131,7 @@
       "espn_id": 4838117
     },
     {
-      "rank": 958,
+      "rank": 957,
       "name": "Braden Montgomery",
       "positions": [
         "OF"
@@ -14159,7 +14145,7 @@
       "espn_id": 4950345
     },
     {
-      "rank": 959,
+      "rank": 958,
       "name": "Jose Iglesias",
       "positions": [
         "2B",
@@ -14175,7 +14161,7 @@
       "espn_id": 30382
     },
     {
-      "rank": 960,
+      "rank": 959,
       "name": "Triston Casas",
       "positions": [
         "1B"
@@ -14189,7 +14175,7 @@
       "espn_id": 41180
     },
     {
-      "rank": 961,
+      "rank": 960,
       "name": "Travis Adams",
       "positions": [
         "P"
@@ -14204,7 +14190,7 @@
       "espn_id": 4424951
     },
     {
-      "rank": 962,
+      "rank": 961,
       "name": "Zach Pop",
       "positions": [
         "P"
@@ -14219,7 +14205,7 @@
       "espn_id": 41103
     },
     {
-      "rank": 963,
+      "rank": 962,
       "name": "Shaun Anderson",
       "positions": [
         "P"
@@ -14232,6 +14218,21 @@
       "fg_id": "19453",
       "pitcherRole": "RP",
       "espn_id": 39681
+    },
+    {
+      "rank": 963,
+      "name": "Nick Loftin",
+      "positions": [
+        "2B",
+        "OF"
+      ],
+      "displayPos": "2B",
+      "team": "KC",
+      "dollars": -42.5,
+      "rpts": 35.7,
+      "type": "hitter",
+      "fg_id": "27630",
+      "espn_id": 4314013
     },
     {
       "rank": 964,
@@ -15394,6 +15395,7 @@
       "rank": 1044,
       "name": "Braden Shewmake",
       "positions": [
+        "2B",
         "SS"
       ],
       "displayPos": "SS",
