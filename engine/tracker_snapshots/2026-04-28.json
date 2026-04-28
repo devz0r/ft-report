@@ -1,6 +1,6 @@
 {
   "date": "2026-04-28",
-  "timestamp": "2026-04-28T05:43:27.920634",
+  "timestamp": "2026-04-28T08:10:49.988080",
   "players": [
     {
       "rank": 1,
@@ -9146,7 +9146,8 @@
       "positions": [
         "1B",
         "2B",
-        "SS"
+        "SS",
+        "OF"
       ],
       "displayPos": "SS",
       "team": "TEX",
