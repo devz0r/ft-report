@@ -1,6 +1,6 @@
 {
   "date": "2026-04-29",
-  "timestamp": "2026-04-29T05:38:45.577807",
+  "timestamp": "2026-04-29T08:03:50.054575",
   "players": [
     {
       "rank": 1,
@@ -14163,11 +14163,9 @@
       "rank": 959,
       "name": "Brice Matthews",
       "positions": [
-        "2B",
-        "3B",
         "OF"
       ],
-      "displayPos": "2B",
+      "displayPos": "OF",
       "team": "HOU",
       "dollars": -44.6,
       "rpts": 31.5,
