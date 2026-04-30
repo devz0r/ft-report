@@ -1,6 +1,6 @@
 {
   "date": "2026-04-30",
-  "timestamp": "2026-04-30T10:22:53.565371",
+  "timestamp": "2026-04-30T11:56:51.890034",
   "players": [
     {
       "rank": 1,
@@ -15523,11 +15523,12 @@
       "rank": 1053,
       "name": "Bryan Torres",
       "positions": [
+        "2B",
         "OF"
       ],
-      "displayPos": "OF",
+      "displayPos": "2B",
       "team": "STL",
-      "dollars": -49.7,
+      "dollars": -49.8,
       "rpts": 7.5,
       "type": "hitter",
       "fg_id": "sa885119",
