@@ -1,6 +1,6 @@
 {
   "date": "2026-05-01",
-  "timestamp": "2026-05-01T05:52:20.197370",
+  "timestamp": "2026-05-01T08:04:10.594066",
   "players": [
     {
       "rank": 1,
@@ -6172,7 +6172,8 @@
       "rank": 421,
       "name": "Nick Gonzales",
       "positions": [
-        "2B"
+        "2B",
+        "3B"
       ],
       "displayPos": "2B",
       "team": "PIT",
@@ -11548,7 +11549,7 @@
       "type": "pitcher",
       "fg_id": "27819",
       "pitcherRole": "SP",
-      "espn_id": 4414339
+      "espn_id": 5255095
     },
     {
       "rank": 783,
