@@ -1,6 +1,6 @@
 {
   "date": "2026-05-02",
-  "timestamp": "2026-05-02T12:52:09.160750",
+  "timestamp": "2026-05-02T14:07:14.770871",
   "players": [
     {
       "rank": 1,
@@ -13190,7 +13190,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "BOS",
       "dollars": -39.6,
       "rpts": 55.0,
       "type": "pitcher",
@@ -15890,7 +15890,7 @@
         "DH"
       ],
       "displayPos": "OF",
-      "team": "NYY",
+      "team": "",
       "dollars": -46.3,
       "rpts": 3.2,
       "type": "hitter",
