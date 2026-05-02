@@ -1,6 +1,6 @@
 {
   "date": "2026-05-02",
-  "timestamp": "2026-05-02T10:43:22.376454",
+  "timestamp": "2026-05-02T11:39:22.772483",
   "players": [
     {
       "rank": 1,
@@ -2114,7 +2114,8 @@
       "rank": 145,
       "name": "Adley Rutschman",
       "positions": [
-        "C"
+        "C",
+        "DH"
       ],
       "displayPos": "C",
       "team": "BAL",
@@ -15281,7 +15282,6 @@
       "rank": 1036,
       "name": "Billy Cook",
       "positions": [
-        "1B",
         "OF"
       ],
       "displayPos": "OF",
