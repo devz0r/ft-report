@@ -1,6 +1,6 @@
 {
   "date": "2026-05-03",
-  "timestamp": "2026-05-03T05:41:38.833705",
+  "timestamp": "2026-05-03T07:50:55.548244",
   "players": [
     {
       "rank": 1,
@@ -2636,7 +2636,8 @@
       "rank": 181,
       "name": "Daylen Lile",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "WSH",
@@ -8273,6 +8274,22 @@
     },
     {
       "rank": 563,
+      "name": "Curtis Mead",
+      "positions": [
+        "1B",
+        "2B",
+        "3B"
+      ],
+      "displayPos": "2B",
+      "team": "WSH",
+      "dollars": -27.4,
+      "rpts": 100.1,
+      "type": "hitter",
+      "fg_id": "23986",
+      "espn_id": 42360
+    },
+    {
+      "rank": 564,
       "name": "Graham Pauley",
       "positions": [
         "3B"
@@ -8284,21 +8301,6 @@
       "type": "hitter",
       "fg_id": "31363",
       "espn_id": 4622931
-    },
-    {
-      "rank": 564,
-      "name": "Curtis Mead",
-      "positions": [
-        "1B",
-        "3B"
-      ],
-      "displayPos": "3B",
-      "team": "WSH",
-      "dollars": -27.4,
-      "rpts": 100.1,
-      "type": "hitter",
-      "fg_id": "23986",
-      "espn_id": 42360
     },
     {
       "rank": 565,
@@ -11720,7 +11722,8 @@
       "rank": 795,
       "name": "Brett Sullivan",
       "positions": [
-        "C"
+        "C",
+        "DH"
       ],
       "displayPos": "C",
       "team": "COL",
@@ -14029,7 +14032,8 @@
       "rank": 951,
       "name": "Leo Rivas",
       "positions": [
-        "2B"
+        "2B",
+        "3B"
       ],
       "displayPos": "2B",
       "team": "SEA",
@@ -16272,6 +16276,7 @@
       "name": "Garrett Stubbs",
       "positions": [
         "C",
+        "OF",
         "DH"
       ],
       "displayPos": "C",
@@ -16318,6 +16323,7 @@
       "name": "Braden Shewmake",
       "positions": [
         "2B",
+        "3B",
         "SS"
       ],
       "displayPos": "SS",
