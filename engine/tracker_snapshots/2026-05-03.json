@@ -1,6 +1,6 @@
 {
   "date": "2026-05-03",
-  "timestamp": "2026-05-03T09:15:56.856602",
+  "timestamp": "2026-05-03T10:29:57.522561",
   "players": [
     {
       "rank": 1,
@@ -13870,7 +13870,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "MIN",
       "dollars": -41.5,
       "rpts": 51.0,
       "type": "pitcher",
@@ -17223,7 +17223,7 @@
         "DH"
       ],
       "displayPos": "DH",
-      "team": "TOR",
+      "team": "",
       "dollars": -49.2,
       "rpts": 2.8,
       "type": "hitter",
