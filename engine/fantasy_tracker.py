@@ -3523,6 +3523,21 @@ def flush_predictions():
     for gd, recs in by_date.items():
         path = os.path.join(PREDICTIONS_DIR, f'{gd}.jsonl')
         existing = {}
+        # Pull in any legacy per-pitcher .json files for this date so we
+        # consolidate into the JSONL and they don't get processed twice
+        legacy_dir = os.path.join(PREDICTIONS_DIR, gd)
+        if os.path.isdir(legacy_dir):
+            for fn in os.listdir(legacy_dir):
+                if not fn.endswith('.json'):
+                    continue
+                try:
+                    with open(os.path.join(legacy_dir, fn)) as f:
+                        r = json.load(f)
+                    key = normalize_name(r.get('name', ''))
+                    if key:
+                        existing[key] = r
+                except Exception:
+                    continue
         if os.path.exists(path):
             try:
                 with open(path) as f:
@@ -3536,11 +3551,16 @@ def flush_predictions():
                             existing[key] = r
             except Exception:
                 pass
-        existing.update(recs)
+        existing.update(recs)  # current run wins over both legacy and prior JSONL
         try:
             with open(path, 'w') as f:
                 for rec in existing.values():
                     f.write(json.dumps(rec) + '\n')
+            # Now safe to delete the legacy directory — its contents are
+            # merged into the JSONL.
+            if os.path.isdir(legacy_dir):
+                import shutil
+                shutil.rmtree(legacy_dir)
         except Exception as e:
             print(f"  [flush-predictions] {gd}: {e}")
     _pending_predictions.clear()
