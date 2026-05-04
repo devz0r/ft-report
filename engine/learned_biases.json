@@ -1,5 +1,33 @@
 {
-  "biases": {},
-  "count": 0,
-  "updated_at": "2026-05-03T22:14:40"
+  "biases": {
+    "auto_hard_hit_pct_39.40_42.40": {
+      "basis": "auto:hard_hit_pct",
+      "key": "auto_hard_hit_pct_39.40_42.40",
+      "label": "when hard_hit_pct in [39.40, 42.40): +8.1 pts (n=14)",
+      "mean": 2.0,
+      "n": 14,
+      "std": 5.57,
+      "z": 5.46
+    },
+    "trend_cold": {
+      "basis": "trend",
+      "key": "trend_cold",
+      "label": "on cold streak: -8.1 pts (n=42)",
+      "mean": -2.0,
+      "n": 42,
+      "std": 12.69,
+      "z": -4.15
+    },
+    "trend_hot": {
+      "basis": "trend",
+      "key": "trend_hot",
+      "label": "on hot streak: +4.0 pts (n=88)",
+      "mean": 2.0,
+      "n": 88,
+      "std": 8.29,
+      "z": 4.49
+    }
+  },
+  "count": 3,
+  "updated_at": "2026-05-04T02:17:43"
 }
