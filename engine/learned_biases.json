@@ -1,33 +1,96 @@
 {
   "biases": {
+    "auto_bb_pct_savant_9.50_inf": {
+      "basis": "auto:bb_pct_savant",
+      "key": "auto_bb_pct_savant_9.50_inf",
+      "label": "when bb_pct_savant \u2265 9.50: +6.9 pts (n=17)",
+      "mean": 2.0,
+      "n": 17,
+      "std": 6.59,
+      "z": 4.34
+    },
     "auto_hard_hit_pct_39.40_42.40": {
       "basis": "auto:hard_hit_pct",
       "key": "auto_hard_hit_pct_39.40_42.40",
-      "label": "when hard_hit_pct in [39.40, 42.40): +8.1 pts (n=14)",
+      "label": "when hard_hit_pct in [39.40, 42.40): +8.6 pts (n=17)",
       "mean": 2.0,
-      "n": 14,
-      "std": 5.57,
-      "z": 5.46
+      "n": 17,
+      "std": 5.13,
+      "z": 6.88
+    },
+    "auto_recent_era_5.40_inf": {
+      "basis": "auto:recent_era",
+      "key": "auto_recent_era_5.40_inf",
+      "label": "when recent_era \u2265 5.40: -6.6 pts (n=63)",
+      "mean": -2.0,
+      "n": 63,
+      "std": 11.82,
+      "z": -4.43
+    },
+    "pitcher_chase burns": {
+      "basis": "pitcher",
+      "key": "pitcher_chase burns",
+      "label": "Chase Burns historically +8.7 pts vs prediction (n=5)",
+      "mean": 2.0,
+      "n": 5,
+      "std": 1.39,
+      "z": 14.0
+    },
+    "pitcher_clay holmes": {
+      "basis": "pitcher",
+      "key": "pitcher_clay holmes",
+      "label": "Clay Holmes historically +11.3 pts vs prediction (n=5)",
+      "mean": 2.0,
+      "n": 5,
+      "std": 1.59,
+      "z": 15.85
+    },
+    "pitcher_dustin may": {
+      "basis": "pitcher",
+      "key": "pitcher_dustin may",
+      "label": "Dustin May historically -4.5 pts vs prediction (n=5)",
+      "mean": -2.0,
+      "n": 5,
+      "std": 1.7,
+      "z": -5.97
+    },
+    "pitcher_jesus luzardo": {
+      "basis": "pitcher",
+      "key": "pitcher_jesus luzardo",
+      "label": "Jes\u00fas Luzardo historically +11.5 pts vs prediction (n=5)",
+      "mean": 2.0,
+      "n": 5,
+      "std": 4.52,
+      "z": 5.7
+    },
+    "pitcher_kyle freeland": {
+      "basis": "pitcher",
+      "key": "pitcher_kyle freeland",
+      "label": "Kyle Freeland historically -4.9 pts vs prediction (n=5)",
+      "mean": -2.0,
+      "n": 5,
+      "std": 1.12,
+      "z": -9.8
     },
     "trend_cold": {
       "basis": "trend",
       "key": "trend_cold",
-      "label": "on cold streak: -8.1 pts (n=42)",
+      "label": "on cold streak: -8.4 pts (n=48)",
       "mean": -2.0,
-      "n": 42,
-      "std": 12.69,
-      "z": -4.15
+      "n": 48,
+      "std": 12.26,
+      "z": -4.76
     },
     "trend_hot": {
       "basis": "trend",
       "key": "trend_hot",
-      "label": "on hot streak: +4.0 pts (n=88)",
+      "label": "on hot streak: +3.9 pts (n=99)",
       "mean": 2.0,
-      "n": 88,
-      "std": 8.29,
-      "z": 4.49
+      "n": 99,
+      "std": 8.04,
+      "z": 4.88
     }
   },
-  "count": 3,
-  "updated_at": "2026-05-03T22:18:12"
+  "count": 10,
+  "updated_at": "2026-05-04T02:24:05"
 }
