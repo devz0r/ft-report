@@ -1,123 +1,159 @@
 {
   "biases": {
+    "auto_barrel_pct_-inf_4.10": {
+      "basis": "auto:barrel_pct",
+      "key": "auto_barrel_pct_-inf_4.10",
+      "label": "when barrel_pct \u2264 4.10: -5.5 pts (n=15)",
+      "mean": -2.0,
+      "n": 15,
+      "std": 5.09,
+      "z": -4.23
+    },
     "auto_bb_pct_savant_9.80_inf": {
       "basis": "auto:bb_pct_savant",
       "key": "auto_bb_pct_savant_9.80_inf",
-      "label": "when bb_pct_savant \u2265 9.80: +7.0 pts (n=19)",
+      "label": "when bb_pct_savant \u2265 9.80: +7.0 pts (n=22)",
       "mean": 2.0,
-      "n": 19,
-      "std": 6.54,
-      "z": 4.7
+      "n": 22,
+      "std": 6.37,
+      "z": 5.16
     },
     "auto_hard_hit_pct_39.40_42.20": {
       "basis": "auto:hard_hit_pct",
       "key": "auto_hard_hit_pct_39.40_42.20",
-      "label": "when hard_hit_pct in [39.40, 42.20): +8.1 pts (n=13)",
+      "label": "when hard_hit_pct in [39.40, 42.20): +8.4 pts (n=15)",
       "mean": 2.0,
-      "n": 13,
-      "std": 5.51,
-      "z": 5.31
+      "n": 15,
+      "std": 5.18,
+      "z": 6.3
     },
     "auto_last_pitch_count_-inf_80.00": {
       "basis": "auto:last_pitch_count",
       "key": "auto_last_pitch_count_-inf_80.00",
-      "label": "when last_pitch_count \u2264 80.00: -8.7 pts (n=25)",
+      "label": "when last_pitch_count \u2264 80.00: -9.1 pts (n=32)",
       "mean": -2.0,
-      "n": 25,
-      "std": 10.21,
-      "z": -4.28
+      "n": 32,
+      "std": 9.78,
+      "z": -5.28
     },
-    "auto_recent_era_5.57_inf": {
+    "auto_recent_era_5.60_inf": {
       "basis": "auto:recent_era",
-      "key": "auto_recent_era_5.57_inf",
-      "label": "when recent_era \u2265 5.57: -6.7 pts (n=69)",
+      "key": "auto_recent_era_5.60_inf",
+      "label": "when recent_era \u2265 5.60: -7.0 pts (n=75)",
       "mean": -2.0,
-      "n": 69,
-      "std": 11.59,
-      "z": -4.82
+      "n": 75,
+      "std": 11.39,
+      "z": -5.36
+    },
+    "pitcher_aaron civale": {
+      "basis": "pitcher",
+      "key": "pitcher_aaron civale",
+      "label": "Aaron Civale historically +5.6 pts vs prediction (n=6)",
+      "mean": 2.0,
+      "n": 6,
+      "std": 0.0,
+      "z": 1.4098496874340414e+16
     },
     "pitcher_chase burns": {
       "basis": "pitcher",
       "key": "pitcher_chase burns",
-      "label": "Chase Burns historically +8.8 pts vs prediction (n=6)",
+      "label": "Chase Burns historically +8.9 pts vs prediction (n=7)",
       "mean": 2.0,
+      "n": 7,
+      "std": 1.17,
+      "z": 20.0
+    },
+    "pitcher_chris paddack": {
+      "basis": "pitcher",
+      "key": "pitcher_chris paddack",
+      "label": "Chris Paddack historically -26.4 pts vs prediction (n=6)",
+      "mean": -2.0,
       "n": 6,
-      "std": 1.27,
-      "z": 17.0
+      "std": 0.0,
+      "z": -1.6616085601901202e+16
     },
     "pitcher_clay holmes": {
       "basis": "pitcher",
       "key": "pitcher_clay holmes",
-      "label": "Clay Holmes historically +11.2 pts vs prediction (n=6)",
+      "label": "Clay Holmes historically +11.1 pts vs prediction (n=7)",
       "mean": 2.0,
-      "n": 6,
-      "std": 1.45,
-      "z": 18.89
+      "n": 7,
+      "std": 1.34,
+      "z": 21.92
     },
     "pitcher_dustin may": {
       "basis": "pitcher",
       "key": "pitcher_dustin may",
-      "label": "Dustin May historically -4.7 pts vs prediction (n=6)",
+      "label": "Dustin May historically -4.8 pts vs prediction (n=7)",
       "mean": -2.0,
-      "n": 6,
-      "std": 1.55,
-      "z": -7.37
+      "n": 7,
+      "std": 1.44,
+      "z": -8.76
     },
     "pitcher_jesus luzardo": {
       "basis": "pitcher",
       "key": "pitcher_jesus luzardo",
-      "label": "Jes\u00fas Luzardo historically +11.2 pts vs prediction (n=6)",
+      "label": "Jes\u00fas Luzardo historically +10.9 pts vs prediction (n=7)",
       "mean": 2.0,
+      "n": 7,
+      "std": 3.82,
+      "z": 7.58
+    },
+    "pitcher_joe ryan": {
+      "basis": "pitcher",
+      "key": "pitcher_joe ryan",
+      "label": "Joe Ryan historically -11.8 pts vs prediction (n=6)",
+      "mean": -2.0,
       "n": 6,
-      "std": 4.12,
-      "z": 6.64
+      "std": 0.0,
+      "z": -1.4853773492608648e+16
     },
     "pitcher_kyle freeland": {
       "basis": "pitcher",
       "key": "pitcher_kyle freeland",
-      "label": "Kyle Freeland historically -5.0 pts vs prediction (n=6)",
+      "label": "Kyle Freeland historically -5.0 pts vs prediction (n=7)",
       "mean": -2.0,
-      "n": 6,
-      "std": 1.02,
-      "z": -11.96
+      "n": 7,
+      "std": 0.94,
+      "z": -14.12
     },
     "pitcher_parker messick": {
       "basis": "pitcher",
       "key": "pitcher_parker messick",
-      "label": "Parker Messick historically -5.3 pts vs prediction (n=6)",
+      "label": "Parker Messick historically -5.7 pts vs prediction (n=7)",
       "mean": -2.0,
-      "n": 6,
-      "std": 6.12,
-      "z": -2.12
+      "n": 7,
+      "std": 5.67,
+      "z": -2.64
     },
     "pitcher_trey yesavage": {
       "basis": "pitcher",
       "key": "pitcher_trey yesavage",
-      "label": "Trey Yesavage historically -6.0 pts vs prediction (n=6)",
+      "label": "Trey Yesavage historically -6.4 pts vs prediction (n=7)",
       "mean": -2.0,
-      "n": 6,
-      "std": 6.78,
-      "z": -2.18
+      "n": 7,
+      "std": 6.27,
+      "z": -2.71
     },
     "trend_cold": {
       "basis": "trend",
       "key": "trend_cold",
-      "label": "on cold streak: -8.7 pts (n=54)",
+      "label": "on cold streak: -8.8 pts (n=60)",
       "mean": -2.0,
-      "n": 54,
-      "std": 11.91,
-      "z": -5.34
+      "n": 60,
+      "std": 11.62,
+      "z": -5.89
     },
     "trend_hot": {
       "basis": "trend",
       "key": "trend_hot",
-      "label": "on hot streak: +3.9 pts (n=110)",
+      "label": "on hot streak: +3.9 pts (n=121)",
       "mean": 2.0,
-      "n": 110,
-      "std": 7.83,
-      "z": 5.24
+      "n": 121,
+      "std": 7.66,
+      "z": 5.6
     }
   },
-  "count": 13,
-  "updated_at": "2026-05-04T08:20:16"
+  "count": 17,
+  "updated_at": "2026-05-04T06:13:49"
 }
