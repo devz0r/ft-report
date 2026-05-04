@@ -4214,6 +4214,18 @@ def _push_to_github_repo():
                     os.path.join(engine_dir, 'streaming_cache'))
         _mirror_dir(os.path.join(SCRIPT_DIR, 'predictions'),
                     os.path.join(engine_dir, 'predictions'))
+        # Remove any legacy per-pitcher prediction dirs that have a matching
+        # JSONL sibling (mirror doesn't propagate deletions).
+        engine_pred_dir = os.path.join(engine_dir, 'predictions')
+        if os.path.isdir(engine_pred_dir):
+            for name in os.listdir(engine_pred_dir):
+                full = os.path.join(engine_pred_dir, name)
+                if os.path.isdir(full) and re.match(r'^\d{4}-\d{2}-\d{2}$', name):
+                    if os.path.exists(os.path.join(engine_pred_dir, f'{name}.jsonl')):
+                        try:
+                            shutil.rmtree(full)
+                        except Exception:
+                            pass
         # Single-file logs (outcomes + learned biases)
         for fn in ('predictions_outcomes.jsonl', 'learned_biases.json'):
             local_path = os.path.join(SCRIPT_DIR, fn)
