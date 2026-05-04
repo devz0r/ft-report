@@ -1149,55 +1149,138 @@ def fetch_team_handedness():
     return results
 
 
-def _fetch_single_pitcher_details(mlb_id):
-    """Fetch career platoon splits + pitch arsenal for one pitcher."""
-    try:
-        url = f"https://statsapi.mlb.com/api/v1/people/{mlb_id}/stats"
-        params = {
-            'stats': 'careerStatSplits,pitchArsenal',
-            'season': date.today().year,
-            'group': 'pitching',
-            'sitCodes': 'vl,vr',
-        }
-        resp = requests.get(url, params=params, timeout=15)
-        resp.raise_for_status()
-        result = {'mlb_id': mlb_id}
+def _aggregate_recent_splits(splits, max_seasons=3):
+    """IP-weighted aggregate of the last N seasons of splits (vs L / vs R).
 
-        for stat_group in resp.json().get('stats', []):
-            type_name = stat_group.get('type', {}).get('displayName', '')
-            if 'Splits' in type_name:
-                for split in stat_group.get('splits', []):
-                    desc = split.get('split', {}).get('description', '')
-                    st = split.get('stat', {})
-                    if 'Left' in desc:
-                        result['career_vs_l'] = {
-                            'ops': st.get('ops', '.700'),
-                            'whip': st.get('whip', '1.30'),
-                            'k9': st.get('strikeoutsPer9Inn', '8.00'),
-                            'ip': st.get('inningsPitched', '0'),
-                        }
-                    elif 'Right' in desc:
-                        result['career_vs_r'] = {
-                            'ops': st.get('ops', '.700'),
-                            'whip': st.get('whip', '1.30'),
-                            'k9': st.get('strikeoutsPer9Inn', '8.00'),
-                            'ip': st.get('inningsPitched', '0'),
-                        }
-            elif 'Arsenal' in type_name:
-                pitches = []
-                fb_velo = None
-                for split in stat_group.get('splits', []):
-                    st = split.get('stat', {})
-                    pitch_type = st.get('type', {}).get('code', '')
-                    pitch_desc = st.get('type', {}).get('description', '')
-                    velo = st.get('averageSpeed')
-                    pct = st.get('percentage', 0)
-                    pitches.append({'code': pitch_type, 'desc': pitch_desc, 'velo': velo, 'pct': pct})
-                    if pitch_type in ('FF', 'SI') and velo and (fb_velo is None or pct > 0.3):
-                        fb_velo = round(velo, 1)
-                result['pitches'] = pitches
-                result['fb_velo'] = fb_velo
-                result['pitch_count'] = len(pitches)
+    Aging vets (Scherzer at 41 vs 2018 prime Scherzer) have very different
+    recent splits than career splits. Career averages mask decline. Using only
+    the last 3 seasons reflects the current version of the pitcher.
+
+    Returns ({'l': {ops, whip, k9, ip}, 'r': {...}, 'window_years': N}) or None.
+    """
+    by_year = {}  # year -> {'l': stat_dict, 'r': stat_dict}
+    for split in splits:
+        season = split.get('season')
+        try:
+            y = int(season) if season else None
+        except (ValueError, TypeError):
+            y = None
+        if y is None:
+            continue
+        desc = split.get('split', {}).get('description', '') or ''
+        st = split.get('stat', {})
+        if 'Left' in desc:
+            by_year.setdefault(y, {})['l'] = st
+        elif 'Right' in desc:
+            by_year.setdefault(y, {})['r'] = st
+
+    if not by_year:
+        return None
+
+    target_years = sorted(by_year.keys(), reverse=True)[:max_seasons]
+
+    def _blend(side):
+        total_ip = 0.0
+        wsum_ops = wsum_whip = wsum_k9 = 0.0
+        for y in target_years:
+            s = by_year.get(y, {}).get(side, {})
+            if not s:
+                continue
+            ip = _ip_to_float(s.get('inningsPitched', 0))
+            if ip <= 0:
+                continue
+            try:
+                ops = float(s.get('ops', 0) or 0)
+                whip = float(s.get('whip', 0) or 0)
+                k9 = float(s.get('strikeoutsPer9Inn', 0) or 0)
+            except (ValueError, TypeError):
+                continue
+            wsum_ops += ops * ip
+            wsum_whip += whip * ip
+            wsum_k9 += k9 * ip
+            total_ip += ip
+        if total_ip < 15:  # too little data — unreliable
+            return None
+        return {
+            'ops': f'{wsum_ops / total_ip:.3f}',
+            'whip': f'{wsum_whip / total_ip:.2f}',
+            'k9': f'{wsum_k9 / total_ip:.2f}',
+            'ip': f'{total_ip:.1f}',
+        }
+
+    out = {'l': _blend('l'), 'r': _blend('r'), 'window_years': len(target_years)}
+    if not out['l'] and not out['r']:
+        return None
+    return out
+
+
+def _fetch_single_pitcher_details(mlb_id):
+    """Fetch last-3-seasons platoon splits + pitch arsenal for one pitcher.
+
+    The MLB Stats API only returns splits one season at a time via statSplits,
+    so we issue 3 calls (current year and the two prior). Aging vets'
+    decline shows up here — Scherzer's 2018 dominance no longer drowns out
+    his 2025 numbers.
+    """
+    try:
+        result = {'mlb_id': mlb_id}
+        url = f"https://statsapi.mlb.com/api/v1/people/{mlb_id}/stats"
+        current_year = date.today().year
+        seasons_to_query = [current_year, current_year - 1, current_year - 2]
+        all_splits = []  # list of split dicts annotated with year
+
+        # First call also fetches arsenal (saves one round-trip)
+        first = True
+        for yr in seasons_to_query:
+            stats_param = 'statSplits,pitchArsenal' if first else 'statSplits'
+            try:
+                resp = requests.get(url, params={
+                    'stats': stats_param,
+                    'season': yr,
+                    'group': 'pitching',
+                    'sitCodes': 'vl,vr',
+                }, timeout=15)
+                if resp.status_code != 200:
+                    first = False
+                    continue
+                data = resp.json()
+            except Exception:
+                first = False
+                continue
+
+            for stat_group in data.get('stats', []):
+                type_name = stat_group.get('type', {}).get('displayName', '')
+                if 'Splits' in type_name:
+                    for sp in stat_group.get('splits', []):
+                        # Annotate with year so the aggregator can dedupe across seasons
+                        sp['season'] = sp.get('season') or str(yr)
+                        all_splits.append(sp)
+                elif first and 'Arsenal' in type_name:
+                    pitches = []
+                    fb_velo = None
+                    for split in stat_group.get('splits', []):
+                        st = split.get('stat', {})
+                        pitch_type = st.get('type', {}).get('code', '')
+                        pitch_desc = st.get('type', {}).get('description', '')
+                        velo = st.get('averageSpeed')
+                        pct = st.get('percentage', 0)
+                        pitches.append({'code': pitch_type, 'desc': pitch_desc, 'velo': velo, 'pct': pct})
+                        if pitch_type in ('FF', 'SI') and velo and (fb_velo is None or pct > 0.3):
+                            fb_velo = round(velo, 1)
+                    result['pitches'] = pitches
+                    result['fb_velo'] = fb_velo
+                    result['pitch_count'] = len(pitches)
+            first = False
+
+        # Aggregate all collected splits across the 3 seasons
+        if all_splits:
+            aggregated = _aggregate_recent_splits(all_splits, max_seasons=3)
+            if aggregated:
+                if aggregated.get('l'):
+                    result['career_vs_l'] = aggregated['l']
+                if aggregated.get('r'):
+                    result['career_vs_r'] = aggregated['r']
+                result['splits_window_years'] = aggregated.get('window_years', 3)
 
         return result
     except Exception:
@@ -2455,6 +2538,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'platoon': platoon,
             'opp_hand': f"{opp_hand.get('left_pct', '?')}% L" if opp_hand else '',
             'vs_l_ops': vs_l_ops, 'vs_r_ops': vs_r_ops,
+            'splits_window_years': details.get('splits_window_years'),
             'tag': tag,
             'trend': trend,
             'recent_era': round(recent['ERA'], 2) if recent else None,
@@ -2526,6 +2610,8 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
 
     # Sort by date, then by tier, then by pts descending within each tier
     streaming.sort(key=lambda s: (s['date'], TIER_ORDER.get(s.get('tier', 'avoid'), 3), -(s.get('pts') or -999)))
+    # Flush all buffered predictions to disk as one JSONL per game date
+    flush_predictions()
     return streaming
 
 
@@ -3068,7 +3154,10 @@ function renderPitcherEntry(s, allReal) {
   if (s.platoon === 'edge') h += '<span>\u2022 <span class="platoon-edge">\u2714 platoon edge</span></span>';
   else if (s.platoon === 'risk') h += '<span>\u2022 <span class="platoon-risk">\u26A0 platoon risk</span></span>';
   if (s.opp_hand) h += '<span>\u2022 opp lineup: ' + s.opp_hand + '</span>';
-  if (s.vs_l_ops && s.vs_r_ops) h += '<span>\u2022 career vs L: ' + s.vs_l_ops + ' / vs R: ' + s.vs_r_ops + '</span>';
+  if (s.vs_l_ops && s.vs_r_ops) {
+    var splitsLabel = s.splits_window_years ? ('L' + s.splits_window_years) : 'recent';
+    h += '<span title="IP-weighted average over the last ' + (s.splits_window_years || 3) + ' seasons. Career averages mask aging-vet decline.">\u2022 ' + splitsLabel + ' vs L: ' + s.vs_l_ops + ' / vs R: ' + s.vs_r_ops + '</span>';
+  }
   if (s.trend === 'hot') h += '<span>\u2022 <span class="trend-hot">\u25B2 HOT</span> (' + (s.recent_era !== null ? s.recent_era.toFixed(2) + ' ERA L14D' : '') + ')</span>';
   else if (s.trend === 'cold') h += '<span>\u2022 <span class="trend-cold">\u25BC COLD</span> (' + (s.recent_era !== null ? s.recent_era.toFixed(2) + ' ERA L14D' : '') + ')</span>';
   // Opponent IL: notable hitters missing from opponent lineup
@@ -3302,6 +3391,11 @@ PREDICTIONS_DIR = os.path.join(SCRIPT_DIR, 'predictions')
 OUTCOMES_LOG = os.path.join(SCRIPT_DIR, 'predictions_outcomes.jsonl')
 LEARNED_BIASES_PATH = os.path.join(SCRIPT_DIR, 'learned_biases.json')
 
+# Buffer predictions in memory and write one JSONL file per date at the end
+# of the run. Avoids thousands of small files which slow git operations to
+# a crawl (each `git add` indexes every file).
+_pending_predictions = {}  # {(game_date, pitcher_norm): record}
+
 # Feature bucket definitions for bias detection
 OPP_RANK_BRACKETS = [
     (1, 5, 'top-5 OPS offenses'),
@@ -3319,12 +3413,9 @@ PARK_BRACKETS = [
 
 
 def log_prediction(entry):
-    """Persist one game-level prediction to predictions/{date}/{pitcher}.json.
-
-    Latest run wins for the same (pitcher, game_date) — multiple intraday
-    runs simply update the file. After the game date passes,
-    process_pending_outcomes() joins it with the actual stat line.
-    """
+    """Buffer a game-level prediction in memory; write to disk via
+    flush_predictions() at the end of the run. Latest run wins for the same
+    (pitcher, game_date) — multiple intraday runs simply update the buffer."""
     try:
         if entry.get('tbd') or entry.get('name') == 'TBD':
             return
@@ -3332,9 +3423,6 @@ def log_prediction(entry):
         pitcher_norm = normalize_name(entry.get('name', ''))
         if not game_date or not pitcher_norm:
             return
-        day_dir = os.path.join(PREDICTIONS_DIR, game_date)
-        os.makedirs(day_dir, exist_ok=True)
-        # Strip non-feature fields and snapshot
         record = {
             'logged_at': datetime.now().isoformat(timespec='seconds'),
             'date': game_date,
@@ -3369,6 +3457,15 @@ def log_prediction(entry):
                 'opp_hand': entry.get('opp_hand'),
                 'vs_l_ops': entry.get('vs_l_ops'),
                 'vs_r_ops': entry.get('vs_r_ops'),
+                # Numeric versions so the auto-bucketing engine can quartile
+                # and test for residual signal on platoon splits
+                'vs_l_ops_num': _safe_float(entry.get('vs_l_ops')),
+                'vs_r_ops_num': _safe_float(entry.get('vs_r_ops')),
+                'splits_window_years': entry.get('splits_window_years'),
+                'splits_l_r_diff': (
+                    (_safe_float(entry.get('vs_l_ops')) or 0)
+                    - (_safe_float(entry.get('vs_r_ops')) or 0)
+                ) if entry.get('vs_l_ops') and entry.get('vs_r_ops') else None,
                 'tag': entry.get('tag'),
                 'trend': entry.get('trend'),
                 'recent_era': entry.get('recent_era'),
@@ -3405,11 +3502,48 @@ def log_prediction(entry):
                 'last_pitch_count': entry.get('last_pitch_count'),
             },
         }
-        with open(os.path.join(day_dir, f'{pitcher_norm}.json'), 'w') as f:
-            json.dump(record, f)
+        # Buffer in memory; flush_predictions() writes one JSONL per date at
+        # end of run. Avoids thousands of small files which slow git ops.
+        _pending_predictions[(game_date, pitcher_norm)] = record
     except Exception as e:
         # Logging must never break the tracker run
         print(f"  [predict-log] {e}")
+
+
+def flush_predictions():
+    """Persist buffered predictions to disk. Writes one JSONL file per game
+    date, merging with any existing entries (updating same-pitcher records
+    with the freshest one)."""
+    if not _pending_predictions:
+        return
+    by_date = {}
+    for (gd, pname), rec in _pending_predictions.items():
+        by_date.setdefault(gd, {})[pname] = rec
+    os.makedirs(PREDICTIONS_DIR, exist_ok=True)
+    for gd, recs in by_date.items():
+        path = os.path.join(PREDICTIONS_DIR, f'{gd}.jsonl')
+        existing = {}
+        if os.path.exists(path):
+            try:
+                with open(path) as f:
+                    for line in f:
+                        try:
+                            r = json.loads(line)
+                        except Exception:
+                            continue
+                        key = normalize_name(r.get('name', ''))
+                        if key:
+                            existing[key] = r
+            except Exception:
+                pass
+        existing.update(recs)
+        try:
+            with open(path, 'w') as f:
+                for rec in existing.values():
+                    f.write(json.dumps(rec) + '\n')
+        except Exception as e:
+            print(f"  [flush-predictions] {gd}: {e}")
+    _pending_predictions.clear()
 
 
 def actual_pitcher_pts(line):
@@ -3428,74 +3562,99 @@ def actual_pitcher_pts(line):
 
 def process_pending_outcomes():
     """For every prediction directory whose game date is already in the past,
-    fetch the actual SP lines from MLB boxscores, join with the prediction,
-    append a record to OUTCOMES_LOG, and archive the prediction directory.
+    fetch actual SP lines from MLB boxscores, join with each prediction,
+    append a record to OUTCOMES_LOG, and DELETE the prediction file.
+    The outcomes log is the single source of truth — no need to archive
+    individual prediction files (which used to balloon git's index).
+    Handles both new format (predictions/{date}.jsonl) and legacy format
+    (predictions/{date}/{pitcher}.json directories).
     Returns the number of outcomes newly recorded."""
     if not os.path.isdir(PREDICTIONS_DIR):
         return 0
+    import shutil
     today = date.today().isoformat()
-    archive_root = os.path.join(PREDICTIONS_DIR, '.processed')
     new_records = 0
 
-    for d in sorted(os.listdir(PREDICTIONS_DIR)):
-        if d.startswith('.') or not re.match(r'^\d{4}-\d{2}-\d{2}$', d):
-            continue
-        if d >= today:
-            continue  # game has not happened yet (or is happening now)
+    def _join_and_log(pred, outcome_dict):
+        pname = normalize_name(pred.get('name', ''))
+        outcome = outcome_dict.get(pname)
+        if not outcome:
+            joined = {**pred, 'actual_line': None, 'actual_pts': None,
+                      'residual': None, 'no_start': True}
+        else:
+            actual = actual_pitcher_pts(outcome)
+            pred_final = pred.get('predicted_pts') or 0
+            pred_raw = pred.get('predicted_pts_raw', pred_final)
+            joined = {
+                **pred,
+                'actual_line': outcome,
+                'actual_pts': round(actual, 2),
+                'residual_raw': round(actual - pred_raw, 2),
+                'residual': round(actual - pred_final, 2),
+                'no_start': False,
+            }
+        with open(OUTCOMES_LOG, 'a') as f:
+            f.write(json.dumps(joined) + '\n')
 
-        day_dir = os.path.join(PREDICTIONS_DIR, d)
-        outcomes = fetch_completed_starts_for_date(d, verbose=False)
-        if not outcomes:
-            continue  # try again on next run (postponed?)
+    for entry in sorted(os.listdir(PREDICTIONS_DIR)):
+        full_path = os.path.join(PREDICTIONS_DIR, entry)
 
-        added_today = 0
-        for fn in os.listdir(day_dir):
-            if not fn.endswith('.json'):
+        # Legacy: directory of per-pitcher JSON files
+        if os.path.isdir(full_path):
+            d = entry
+            if d.startswith('.') or not re.match(r'^\d{4}-\d{2}-\d{2}$', d):
+                # Scrub the old .processed/ tree if it exists
+                if entry == '.processed':
+                    try:
+                        shutil.rmtree(full_path)
+                    except Exception:
+                        pass
+                continue
+            if d >= today:
+                continue
+            outcomes = fetch_completed_starts_for_date(d, verbose=False)
+            if not outcomes:
+                continue
+            for fn in os.listdir(full_path):
+                if not fn.endswith('.json'):
+                    continue
+                try:
+                    with open(os.path.join(full_path, fn)) as f:
+                        pred = json.load(f)
+                except Exception:
+                    continue
+                _join_and_log(pred, outcomes)
+                new_records += 1
+            try:
+                shutil.rmtree(full_path)
+            except Exception:
+                pass
+
+        # New format: predictions/{date}.jsonl
+        elif entry.endswith('.jsonl'):
+            d = entry[:-len('.jsonl')]
+            if not re.match(r'^\d{4}-\d{2}-\d{2}$', d):
+                continue
+            if d >= today:
+                continue
+            outcomes = fetch_completed_starts_for_date(d, verbose=False)
+            if not outcomes:
                 continue
             try:
-                with open(os.path.join(day_dir, fn)) as f:
-                    pred = json.load(f)
+                with open(full_path) as f:
+                    for line in f:
+                        try:
+                            pred = json.loads(line)
+                        except Exception:
+                            continue
+                        _join_and_log(pred, outcomes)
+                        new_records += 1
             except Exception:
                 continue
-            pname = normalize_name(pred.get('name', ''))
-            outcome = outcomes.get(pname)
-            if not outcome:
-                # Pitcher didn't actually start — scratched, postponed, etc.
-                # Record as a non-start so we can audit later if needed.
-                joined = {
-                    **pred,
-                    'actual_line': None,
-                    'actual_pts': None,
-                    'residual': None,
-                    'no_start': True,
-                }
-            else:
-                actual = actual_pitcher_pts(outcome)
-                pred_final = pred.get('predicted_pts') or 0
-                pred_raw = pred.get('predicted_pts_raw', pred_final)
-                joined = {
-                    **pred,
-                    'actual_line': outcome,
-                    'actual_pts': round(actual, 2),
-                    # residual_raw drives bias detection (no feedback loop)
-                    'residual_raw': round(actual - pred_raw, 2),
-                    # residual is vs the final/learned prediction — measures
-                    # how much the learning has actually helped.
-                    'residual': round(actual - pred_final, 2),
-                    'no_start': False,
-                }
-            with open(OUTCOMES_LOG, 'a') as f:
-                f.write(json.dumps(joined) + '\n')
-            added_today += 1
-
-        new_records += added_today
-        # Archive the day's predictions (don't delete — useful for audits)
-        os.makedirs(archive_root, exist_ok=True)
-        archive_target = os.path.join(archive_root, d)
-        if os.path.exists(archive_target):
-            import shutil
-            shutil.rmtree(archive_target)
-        os.rename(day_dir, archive_target)
+            try:
+                os.remove(full_path)
+            except Exception:
+                pass
 
     return new_records
 
@@ -3639,6 +3798,8 @@ NUMERIC_AUTO_BUCKET_FEATURES = [
     'days_rest', 'last_pitch_count',
     # Bullpen
     'opp_bullpen_era', 'opp_bullpen_whip',
+    # Platoon splits (numeric so auto-bucketing can find aging-vet patterns)
+    'vs_l_ops_num', 'vs_r_ops_num', 'splits_l_r_diff', 'splits_window_years',
 ]
 
 
@@ -3936,6 +4097,21 @@ def _ft_report_paths():
     return git_dir, engine_dir
 
 
+def _clear_stale_git_locks(git_dir):
+    """Remove any stale .lock files in .git/. Defensive cleanup so a
+    previous timed-out git op doesn't wedge subsequent runs."""
+    git_internal = os.path.join(git_dir, '.git')
+    if not os.path.isdir(git_internal):
+        return
+    for fname in ('index.lock', 'HEAD.lock', 'refs/heads/main.lock'):
+        path = os.path.join(git_internal, fname)
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+
+
 def _mirror_dir(src, dst):
     """Copy any newer files from src into dst (one-way mirror, no deletes)."""
     import shutil
@@ -3964,10 +4140,11 @@ def _pull_from_github_repo():
         return
     try:
         import subprocess
+        _clear_stale_git_locks(git_dir)
         # Pull --rebase so a local commit doesn't block fast-forward
         result = subprocess.run(
             ['git', '-C', git_dir, 'pull', '--rebase', '--autostash', '--quiet'],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True, text=True, timeout=120,
         )
         if result.returncode != 0:
             print(f"  GitHub pull skipped: {result.stderr.strip() or 'non-zero exit'}")
@@ -4006,6 +4183,7 @@ def _push_to_github_repo():
         return
     try:
         import shutil, subprocess
+        _clear_stale_git_locks(git_dir)
 
         # Mirror local code + data into the engine dir
         this_file = os.path.abspath(__file__)
