@@ -1,58 +1,49 @@
 {
   "biases": {
-    "auto_barrel_pct_-inf_4.10": {
-      "basis": "auto:barrel_pct",
-      "key": "auto_barrel_pct_-inf_4.10",
-      "label": "when barrel_pct \u2264 4.10: -5.5 pts (n=15)",
-      "mean": -2.0,
-      "n": 15,
-      "std": 5.09,
-      "z": -4.23
-    },
-    "auto_bb_pct_savant_9.80_inf": {
+    "auto_bb_pct_savant_9.40_inf": {
       "basis": "auto:bb_pct_savant",
-      "key": "auto_bb_pct_savant_9.80_inf",
-      "label": "when bb_pct_savant \u2265 9.80: +7.0 pts (n=22)",
+      "key": "auto_bb_pct_savant_9.40_inf",
+      "label": "when bb_pct_savant \u2265 9.40: +6.7 pts (n=24)",
       "mean": 2.0,
-      "n": 22,
-      "std": 6.37,
-      "z": 5.16
+      "n": 24,
+      "std": 6.22,
+      "z": 5.26
     },
-    "auto_hard_hit_pct_39.40_42.20": {
+    "auto_hard_hit_pct_39.20_42.20": {
       "basis": "auto:hard_hit_pct",
-      "key": "auto_hard_hit_pct_39.40_42.20",
-      "label": "when hard_hit_pct in [39.40, 42.20): +8.4 pts (n=15)",
+      "key": "auto_hard_hit_pct_39.20_42.20",
+      "label": "when hard_hit_pct in [39.20, 42.20): +7.1 pts (n=17)",
       "mean": 2.0,
-      "n": 15,
-      "std": 5.18,
-      "z": 6.3
+      "n": 17,
+      "std": 6.37,
+      "z": 4.59
     },
-    "auto_last_pitch_count_101.00_inf": {
-      "basis": "auto:last_pitch_count",
-      "key": "auto_last_pitch_count_101.00_inf",
-      "label": "when last_pitch_count \u2265 101.00: +4.7 pts (n=41)",
-      "mean": 2.0,
-      "n": 41,
-      "std": 7.27,
-      "z": 4.13
-    },
-    "auto_recent_era_5.57_inf": {
-      "basis": "auto:recent_era",
-      "key": "auto_recent_era_5.57_inf",
-      "label": "when recent_era \u2265 5.57: -6.7 pts (n=77)",
+    "auto_park_factor_1.00_1.03": {
+      "basis": "auto:park_factor",
+      "key": "auto_park_factor_1.00_1.03",
+      "label": "when park_factor in [1.00, 1.03): -4.9 pts (n=78)",
       "mean": -2.0,
-      "n": 77,
-      "std": 11.48,
-      "z": -5.12
+      "n": 78,
+      "std": 10.31,
+      "z": -4.2
     },
-    "auto_whiff_pct_29.50_inf": {
-      "basis": "auto:whiff_pct",
-      "key": "auto_whiff_pct_29.50_inf",
-      "label": "when whiff_pct \u2265 29.50: +7.1 pts (n=27)",
-      "mean": 2.0,
-      "n": 27,
-      "std": 8.43,
-      "z": 4.37
+    "auto_recent_era_5.35_inf": {
+      "basis": "auto:recent_era",
+      "key": "auto_recent_era_5.35_inf",
+      "label": "when recent_era \u2265 5.35: -6.7 pts (n=79)",
+      "mean": -2.0,
+      "n": 79,
+      "std": 11.42,
+      "z": -5.23
+    },
+    "auto_vs_r_ops_num_0.62_0.72": {
+      "basis": "auto:vs_r_ops_num",
+      "key": "auto_vs_r_ops_num_0.62_0.72",
+      "label": "when vs_r_ops_num in [0.62, 0.72): -7.5 pts (n=30)",
+      "mean": -2.0,
+      "n": 30,
+      "std": 8.93,
+      "z": -4.61
     },
     "pitcher_aaron civale": {
       "basis": "pitcher",
@@ -150,19 +141,19 @@
       "label": "on cold streak: -8.5 pts (n=61)",
       "mean": -2.0,
       "n": 61,
-      "std": 11.81,
+      "std": 11.82,
       "z": -5.62
     },
     "trend_hot": {
       "basis": "trend",
       "key": "trend_hot",
-      "label": "on hot streak: +3.9 pts (n=125)",
+      "label": "on hot streak: +3.6 pts (n=129)",
       "mean": 2.0,
-      "n": 125,
-      "std": 7.71,
-      "z": 5.69
+      "n": 129,
+      "std": 8.42,
+      "z": 4.82
     }
   },
-  "count": 18,
-  "updated_at": "2026-05-05T12:44:36"
+  "count": 17,
+  "updated_at": "2026-05-05T09:26:29"
 }
