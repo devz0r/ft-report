@@ -1,6 +1,6 @@
 {
   "date": "2026-05-05",
-  "timestamp": "2026-05-05T05:26:28.831550",
+  "timestamp": "2026-05-05T07:30:30.959785",
   "players": [
     {
       "rank": 1,
@@ -6611,7 +6611,8 @@
       "rank": 451,
       "name": "Jasson Dominguez",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "NYY",
@@ -16237,8 +16238,7 @@
       "rank": 1103,
       "name": "Jesus Rodriguez",
       "positions": [
-        "C",
-        "3B"
+        "C"
       ],
       "displayPos": "C",
       "team": "SF",
