@@ -27,23 +27,32 @@
       "std": 5.18,
       "z": 6.3
     },
-    "auto_last_pitch_count_-inf_80.00": {
+    "auto_last_pitch_count_101.00_inf": {
       "basis": "auto:last_pitch_count",
-      "key": "auto_last_pitch_count_-inf_80.00",
-      "label": "when last_pitch_count \u2264 80.00: -9.1 pts (n=32)",
-      "mean": -2.0,
-      "n": 32,
-      "std": 9.78,
-      "z": -5.28
+      "key": "auto_last_pitch_count_101.00_inf",
+      "label": "when last_pitch_count \u2265 101.00: +4.7 pts (n=41)",
+      "mean": 2.0,
+      "n": 41,
+      "std": 7.27,
+      "z": 4.13
     },
-    "auto_recent_era_5.60_inf": {
+    "auto_recent_era_5.57_inf": {
       "basis": "auto:recent_era",
-      "key": "auto_recent_era_5.60_inf",
-      "label": "when recent_era \u2265 5.60: -7.0 pts (n=75)",
+      "key": "auto_recent_era_5.57_inf",
+      "label": "when recent_era \u2265 5.57: -6.7 pts (n=77)",
       "mean": -2.0,
-      "n": 75,
-      "std": 11.39,
-      "z": -5.36
+      "n": 77,
+      "std": 11.48,
+      "z": -5.12
+    },
+    "auto_whiff_pct_29.50_inf": {
+      "basis": "auto:whiff_pct",
+      "key": "auto_whiff_pct_29.50_inf",
+      "label": "when whiff_pct \u2265 29.50: +7.1 pts (n=27)",
+      "mean": 2.0,
+      "n": 27,
+      "std": 8.43,
+      "z": 4.37
     },
     "pitcher_aaron civale": {
       "basis": "pitcher",
@@ -138,22 +147,22 @@
     "trend_cold": {
       "basis": "trend",
       "key": "trend_cold",
-      "label": "on cold streak: -8.8 pts (n=60)",
+      "label": "on cold streak: -8.5 pts (n=61)",
       "mean": -2.0,
-      "n": 60,
-      "std": 11.62,
-      "z": -5.89
+      "n": 61,
+      "std": 11.81,
+      "z": -5.62
     },
     "trend_hot": {
       "basis": "trend",
       "key": "trend_hot",
-      "label": "on hot streak: +3.9 pts (n=121)",
+      "label": "on hot streak: +3.9 pts (n=125)",
       "mean": 2.0,
-      "n": 121,
-      "std": 7.66,
-      "z": 5.6
+      "n": 125,
+      "std": 7.71,
+      "z": 5.69
     }
   },
-  "count": 17,
-  "updated_at": "2026-05-04T23:45:03"
+  "count": 18,
+  "updated_at": "2026-05-05T02:05:14"
 }
