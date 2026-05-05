@@ -4,3 +4,7 @@ engine/tracker_report.html
 engine/__pycache__/
 *.pyc
 engine/predictions/.processed/
+.DS_Store
+.DS_Store
+
+.DS_Store
