@@ -25,6 +25,7 @@ import time
 import sys
 import os
 import re
+import math
 import argparse
 from datetime import datetime, date, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -107,6 +108,41 @@ PARK_FACTORS = {
     'HOU': 0.99, 'TOR': 0.99, 'DET': 0.99, 'KC': 0.98, 'CWS': 0.98,
     'WSH': 0.98, 'LAA': 0.97, 'PIT': 0.97, 'NYM': 0.96, 'SF': 0.96,
     'SD': 0.95, 'TB': 0.95, 'SEA': 0.95, 'MIA': 0.94, 'ATH': 0.96,
+}
+
+# Venue coordinates and roof type for pregame weather context. Center-field
+# bearing is left null until sourced reliably; wind out/in scores stay null.
+VENUE_ENV = {
+    'AZ': {'name': 'Chase Field', 'lat': 33.4455, 'lon': -112.0667, 'roof_type': 'retractable', 'cf_bearing': None},
+    'ATL': {'name': 'Truist Park', 'lat': 33.8907, 'lon': -84.4677, 'roof_type': 'open', 'cf_bearing': None},
+    'BAL': {'name': 'Oriole Park at Camden Yards', 'lat': 39.2839, 'lon': -76.6217, 'roof_type': 'open', 'cf_bearing': None},
+    'BOS': {'name': 'Fenway Park', 'lat': 42.3467, 'lon': -71.0972, 'roof_type': 'open', 'cf_bearing': None},
+    'CHC': {'name': 'Wrigley Field', 'lat': 41.9484, 'lon': -87.6553, 'roof_type': 'open', 'cf_bearing': None},
+    'CIN': {'name': 'Great American Ball Park', 'lat': 39.0979, 'lon': -84.5082, 'roof_type': 'open', 'cf_bearing': None},
+    'CLE': {'name': 'Progressive Field', 'lat': 41.4962, 'lon': -81.6852, 'roof_type': 'open', 'cf_bearing': None},
+    'COL': {'name': 'Coors Field', 'lat': 39.7561, 'lon': -104.9942, 'roof_type': 'open', 'cf_bearing': None},
+    'CWS': {'name': 'Rate Field', 'lat': 41.8300, 'lon': -87.6339, 'roof_type': 'open', 'cf_bearing': None},
+    'DET': {'name': 'Comerica Park', 'lat': 42.3390, 'lon': -83.0485, 'roof_type': 'open', 'cf_bearing': None},
+    'HOU': {'name': 'Daikin Park', 'lat': 29.7573, 'lon': -95.3555, 'roof_type': 'retractable', 'cf_bearing': None},
+    'KC': {'name': 'Kauffman Stadium', 'lat': 39.0517, 'lon': -94.4803, 'roof_type': 'open', 'cf_bearing': None},
+    'LAA': {'name': 'Angel Stadium', 'lat': 33.8003, 'lon': -117.8827, 'roof_type': 'open', 'cf_bearing': None},
+    'LAD': {'name': 'Dodger Stadium', 'lat': 34.0739, 'lon': -118.2400, 'roof_type': 'open', 'cf_bearing': None},
+    'MIA': {'name': 'loanDepot park', 'lat': 25.7781, 'lon': -80.2197, 'roof_type': 'retractable', 'cf_bearing': None},
+    'MIL': {'name': 'American Family Field', 'lat': 43.0280, 'lon': -87.9712, 'roof_type': 'retractable', 'cf_bearing': None},
+    'MIN': {'name': 'Target Field', 'lat': 44.9817, 'lon': -93.2776, 'roof_type': 'open', 'cf_bearing': None},
+    'NYM': {'name': 'Citi Field', 'lat': 40.7571, 'lon': -73.8458, 'roof_type': 'open', 'cf_bearing': None},
+    'NYY': {'name': 'Yankee Stadium', 'lat': 40.8296, 'lon': -73.9262, 'roof_type': 'open', 'cf_bearing': None},
+    'OAK': {'name': 'Sutter Health Park', 'lat': 38.5804, 'lon': -121.5133, 'roof_type': 'open', 'cf_bearing': None},
+    'PHI': {'name': 'Citizens Bank Park', 'lat': 39.9061, 'lon': -75.1665, 'roof_type': 'open', 'cf_bearing': None},
+    'PIT': {'name': 'PNC Park', 'lat': 40.4469, 'lon': -80.0057, 'roof_type': 'open', 'cf_bearing': None},
+    'SD': {'name': 'Petco Park', 'lat': 32.7076, 'lon': -117.1570, 'roof_type': 'open', 'cf_bearing': None},
+    'SEA': {'name': 'T-Mobile Park', 'lat': 47.5914, 'lon': -122.3325, 'roof_type': 'retractable', 'cf_bearing': None},
+    'SF': {'name': 'Oracle Park', 'lat': 37.7786, 'lon': -122.3893, 'roof_type': 'open', 'cf_bearing': None},
+    'STL': {'name': 'Busch Stadium', 'lat': 38.6226, 'lon': -90.1928, 'roof_type': 'open', 'cf_bearing': None},
+    'TB': {'name': 'Tropicana Field', 'lat': 27.7682, 'lon': -82.6534, 'roof_type': 'fixed_dome', 'cf_bearing': None},
+    'TEX': {'name': 'Globe Life Field', 'lat': 32.7473, 'lon': -97.0842, 'roof_type': 'retractable', 'cf_bearing': None},
+    'TOR': {'name': 'Rogers Centre', 'lat': 43.6414, 'lon': -79.3894, 'roof_type': 'retractable', 'cf_bearing': None},
+    'WSH': {'name': 'Nationals Park', 'lat': 38.8730, 'lon': -77.0074, 'roof_type': 'open', 'cf_bearing': None},
 }
 
 # Regression constant for opponent quality: PA worth of data before current season
@@ -577,6 +613,11 @@ def fetch_weekly_schedule(start_date, end_date):
             base = {
                 'date': game_date, 'day': day_label,
                 'game_time': game.get('gameDate', ''),
+                'game_pk': game.get('gamePk'),
+                'home_team': home_team,
+                'away_team': away_team,
+                'venue_id': game.get('venue', {}).get('id'),
+                'venue_name': game.get('venue', {}).get('name', ''),
             }
 
             if home_pp:
@@ -649,6 +690,243 @@ def fetch_espn_probables(start_date, end_date):
                     if team and nm:
                         out[(d.isoformat(), team)] = nm
     print(f"    {len(out)} ESPN probable assignments")
+    return out
+
+
+def _empty_weather_env(game, note):
+    park_team = game.get('home_team') or (game.get('pitcher_team') if game.get('home_away') == 'H' else game.get('opponent'))
+    venue = VENUE_ENV.get(park_team, {})
+    roof_type = venue.get('roof_type')
+    roof_status = 'open' if roof_type == 'open' else ('fixed_closed' if roof_type == 'fixed_dome' else None)
+    is_indoor = True if roof_type == 'fixed_dome' else (False if roof_type == 'open' else None)
+    return {
+        'game_datetime': game.get('game_time'),
+        'venue_name': game.get('venue_name') or venue.get('name'),
+        'venue_lat': venue.get('lat'),
+        'venue_lon': venue.get('lon'),
+        'roof_type': roof_type,
+        'roof_status': roof_status,
+        'is_indoor_or_dome': is_indoor,
+        'weather_source': None,
+        'weather_snapshot_time': None,
+        'weather_temp_f': None,
+        'weather_wind_speed_mph': None,
+        'weather_wind_direction': None,
+        'wind_out_to_cf_score': None,
+        'wind_in_from_cf_score': None,
+        'wind_cross_score': None,
+        'weather_precip_prob': None,
+        'weather_humidity': None,
+        'weather_pressure': None,
+        'weather_run_boost': 0.0 if roof_type == 'fixed_dome' else None,
+        'weather_hr_boost': 0.0 if roof_type == 'fixed_dome' else None,
+        'weather_note': note,
+    }
+
+
+def _weather_cache_path(cache_key):
+    cache_dir = os.path.join(STREAMING_CACHE_DIR, 'weather_open_meteo')
+    os.makedirs(cache_dir, exist_ok=True)
+    return os.path.join(cache_dir, f'{cache_key}.json')
+
+
+def _load_weather_cache(cache_key, max_age_hours=2):
+    path = _weather_cache_path(cache_key)
+    if os.path.exists(path):
+        age_hours = (time.time() - os.path.getmtime(path)) / 3600
+        if age_hours < max_age_hours:
+            try:
+                with open(path) as f:
+                    return json.load(f)
+            except Exception:
+                return None
+    return None
+
+
+def _save_weather_cache(cache_key, data):
+    try:
+        with open(_weather_cache_path(cache_key), 'w') as f:
+            json.dump(data, f)
+    except Exception:
+        pass
+
+
+def _nearest_hourly_weather(payload, game_dt_iso):
+    hourly = payload.get('hourly') or {}
+    times = hourly.get('time') or []
+    if not times or not game_dt_iso:
+        return None
+    try:
+        target = datetime.fromisoformat(game_dt_iso.replace('Z', '+00:00')).replace(tzinfo=None)
+    except Exception:
+        return None
+    best_idx = None
+    best_delta = None
+    for idx, t in enumerate(times):
+        try:
+            dt = datetime.fromisoformat(t)
+        except Exception:
+            continue
+        delta = abs((dt - target).total_seconds())
+        if best_delta is None or delta < best_delta:
+            best_delta = delta
+            best_idx = idx
+    if best_idx is None:
+        return None
+
+    def at(name):
+        vals = hourly.get(name) or []
+        return vals[best_idx] if best_idx < len(vals) else None
+
+    return {
+        'temp_f': _safe_float(at('temperature_2m')),
+        'wind_speed_mph': _safe_float(at('wind_speed_10m')),
+        'wind_direction': _safe_float(at('wind_direction_10m')),
+        'precip_prob': _safe_float(at('precipitation_probability')),
+        'humidity': _safe_float(at('relative_humidity_2m')),
+        'pressure': _safe_float(at('surface_pressure')),
+    }
+
+
+def _wind_scores(wind_speed, wind_direction, cf_bearing):
+    if wind_speed is None or wind_direction is None or cf_bearing is None:
+        return None, None, None
+    # Open-Meteo wind direction is where wind comes from; add 180 for where it blows.
+    blowing_to = (wind_direction + 180) % 360
+    diff = abs((blowing_to - cf_bearing + 180) % 360 - 180)
+    strength = min(1.0, max(0.0, wind_speed / 15.0))
+    along = math.cos(math.radians(diff)) * strength
+    cross = abs(math.sin(math.radians(diff))) * strength
+    return round(max(0.0, along), 2), round(max(0.0, -along), 2), round(cross, 2)
+
+
+def _weather_boosts(temp_f, wind_out, wind_in, precip_prob, roof_type):
+    if roof_type == 'fixed_dome':
+        return 0.0, 0.0
+    if temp_f is None and wind_out is None and wind_in is None and precip_prob is None:
+        return None, None
+    run_boost = 0.0
+    hr_boost = 0.0
+    if temp_f is not None:
+        run_boost += (temp_f - 70.0) / 100.0
+        hr_boost += (temp_f - 70.0) / 80.0
+    if wind_out is not None:
+        run_boost += wind_out * 0.08
+        hr_boost += wind_out * 0.15
+    if wind_in is not None:
+        run_boost -= wind_in * 0.06
+        hr_boost -= wind_in * 0.12
+    if precip_prob is not None and precip_prob >= 40:
+        run_boost -= 0.05
+        hr_boost -= 0.03
+    return round(max(-0.3, min(0.3, run_boost)), 3), round(max(-0.4, min(0.4, hr_boost)), 3)
+
+
+def fetch_weather_environment(schedule):
+    """Pregame-safe weather/roof context keyed by game_pk/date/home team."""
+    print("  Fetching weather/roof context (Open-Meteo, cached)...")
+    out = {}
+    fetched = 0
+    skipped = 0
+    for game in schedule:
+        game_key = game.get('game_pk') or f"{game.get('date')}|{game.get('home_team')}|{game.get('away_team')}"
+        if game_key in out:
+            continue
+        park_team = game.get('home_team') or (game.get('pitcher_team') if game.get('home_away') == 'H' else game.get('opponent'))
+        venue = VENUE_ENV.get(park_team)
+        if not venue:
+            out[game_key] = _empty_weather_env(game, 'Venue metadata unavailable')
+            skipped += 1
+            continue
+
+        roof_type = venue.get('roof_type')
+        if roof_type == 'fixed_dome':
+            out[game_key] = _empty_weather_env(game, 'Fixed dome; outdoor weather impact neutral')
+            skipped += 1
+            continue
+        if roof_type == 'retractable':
+            env = _empty_weather_env(game, 'Retractable roof; roof status unknown, weather impact not applied')
+            env['weather_source'] = 'static_venue'
+            out[game_key] = env
+            skipped += 1
+            continue
+
+        if not game.get('game_time') or venue.get('lat') is None or venue.get('lon') is None:
+            out[game_key] = _empty_weather_env(game, 'Missing game time or venue coordinates')
+            skipped += 1
+            continue
+
+        cache_key = re.sub(r'[^A-Za-z0-9_.-]+', '_', f"{game.get('date')}_{park_team}_{game.get('game_time')[:13]}")
+        payload = _load_weather_cache(cache_key)
+        if payload is None:
+            try:
+                resp = requests.get(
+                    'https://api.open-meteo.com/v1/forecast',
+                    params={
+                        'latitude': venue['lat'],
+                        'longitude': venue['lon'],
+                        'hourly': 'temperature_2m,relative_humidity_2m,precipitation_probability,surface_pressure,wind_speed_10m,wind_direction_10m',
+                        'temperature_unit': 'fahrenheit',
+                        'wind_speed_unit': 'mph',
+                        'precipitation_unit': 'inch',
+                        'timezone': 'UTC',
+                        'start_date': game['date'],
+                        'end_date': game['date'],
+                    },
+                    headers={'User-Agent': 'Mozilla/5.0'},
+                    timeout=12,
+                )
+                resp.raise_for_status()
+                payload = resp.json()
+                payload['_fetched_at'] = datetime.now().isoformat(timespec='seconds')
+                _save_weather_cache(cache_key, payload)
+                fetched += 1
+            except Exception as e:
+                out[game_key] = _empty_weather_env(game, f'Open-Meteo unavailable: {e}')
+                skipped += 1
+                continue
+
+        weather = _nearest_hourly_weather(payload, game.get('game_time'))
+        if not weather:
+            out[game_key] = _empty_weather_env(game, 'Open-Meteo hourly forecast unavailable for game time')
+            skipped += 1
+            continue
+
+        wind_out, wind_in, wind_cross = _wind_scores(
+            weather.get('wind_speed_mph'),
+            weather.get('wind_direction'),
+            venue.get('cf_bearing'),
+        )
+        run_boost, hr_boost = _weather_boosts(
+            weather.get('temp_f'), wind_out, wind_in, weather.get('precip_prob'), roof_type
+        )
+        note = 'Open-air park; Open-Meteo hourly forecast'
+        if venue.get('cf_bearing') is None:
+            note += '; CF bearing unavailable so directional wind scores are null'
+        out[game_key] = {
+            'game_datetime': game.get('game_time'),
+            'venue_name': game.get('venue_name') or venue.get('name'),
+            'venue_lat': venue.get('lat'),
+            'venue_lon': venue.get('lon'),
+            'roof_type': roof_type,
+            'roof_status': 'open',
+            'is_indoor_or_dome': False,
+            'weather_source': 'open-meteo',
+            'weather_snapshot_time': payload.get('_fetched_at'),
+            'weather_temp_f': weather.get('temp_f'),
+            'weather_wind_speed_mph': weather.get('wind_speed_mph'),
+            'weather_wind_direction': weather.get('wind_direction'),
+            'wind_out_to_cf_score': wind_out,
+            'wind_in_from_cf_score': wind_in,
+            'wind_cross_score': wind_cross,
+            'weather_precip_prob': weather.get('precip_prob'),
+            'weather_humidity': weather.get('humidity'),
+            'weather_pressure': weather.get('pressure'),
+            'weather_run_boost': run_boost,
+            'weather_hr_boost': hr_boost,
+            'weather_note': note,
+        }
+    print(f"    Weather context: {len(out)} games ({fetched} fetched, {skipped} skipped/static)")
     return out
 
 
@@ -2432,7 +2710,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                          global_emerging=None, espn_probables=None,
                          learned_biases=None, savant_advanced=None,
                          fg_pitching_plus=None, team_bullpens=None,
-                         pitcher_workload=None):
+                         pitcher_workload=None, weather_env=None):
     """Build the full streaming dataset for the week."""
     # Build lookup from FG name to ESPN match data
     espn_id_to_roster = roster_map or {}
@@ -2651,6 +2929,9 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         if learned_adj_total != 0:
             tier = classify_tier(final_pts - pitch_adj, pitch_matchup_score)
 
+        weather_key = game.get('game_pk') or f"{game.get('date')}|{game.get('home_team')}|{game.get('away_team')}"
+        wenv = (weather_env or {}).get(weather_key, _empty_weather_env(game, 'Weather context not loaded'))
+
         entry = {
             'date': game['date'], 'day': game['day'],
             'name': fg_name, 'team': pitcher_team,
@@ -2703,6 +2984,28 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'emerging': emerging,
             'opp_il': opp_il,
             'opp_il_returns': opp_il_returns,
+            # Weather / roof run environment (logging only)
+            'game_datetime': wenv.get('game_datetime'),
+            'venue_name': wenv.get('venue_name'),
+            'venue_lat': wenv.get('venue_lat'),
+            'venue_lon': wenv.get('venue_lon'),
+            'roof_type': wenv.get('roof_type'),
+            'roof_status': wenv.get('roof_status'),
+            'is_indoor_or_dome': wenv.get('is_indoor_or_dome'),
+            'weather_source': wenv.get('weather_source'),
+            'weather_snapshot_time': wenv.get('weather_snapshot_time'),
+            'weather_temp_f': wenv.get('weather_temp_f'),
+            'weather_wind_speed_mph': wenv.get('weather_wind_speed_mph'),
+            'weather_wind_direction': wenv.get('weather_wind_direction'),
+            'wind_out_to_cf_score': wenv.get('wind_out_to_cf_score'),
+            'wind_in_from_cf_score': wenv.get('wind_in_from_cf_score'),
+            'wind_cross_score': wenv.get('wind_cross_score'),
+            'weather_precip_prob': wenv.get('weather_precip_prob'),
+            'weather_humidity': wenv.get('weather_humidity'),
+            'weather_pressure': wenv.get('weather_pressure'),
+            'weather_run_boost': wenv.get('weather_run_boost'),
+            'weather_hr_boost': wenv.get('weather_hr_boost'),
+            'weather_note': wenv.get('weather_note'),
         }
 
         # Phase 2 enrichment: attach advanced features for auto-correlation
@@ -3640,6 +3943,27 @@ FEATURE_REGISTRY = {
     'emerging': _feature_meta('feature', 'features', ['report'], 'pregame_snapshot'),
     'opp_il_count': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
     'opp_il_returns_count': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'game_datetime': _feature_meta('feature', 'features', ['audit'], 'pregame_schedule'),
+    'venue_name': _feature_meta('feature', 'features', ['audit'], 'pregame_schedule'),
+    'venue_lat': _feature_meta('feature', 'features', ['audit'], 'static_venue'),
+    'venue_lon': _feature_meta('feature', 'features', ['audit'], 'static_venue'),
+    'roof_type': _feature_meta('feature', 'features', ['audit'], 'static_venue'),
+    'roof_status': _feature_meta('feature', 'features', ['audit'], 'pregame_roof'),
+    'is_indoor_or_dome': _feature_meta('feature', 'features', ['audit'], 'pregame_roof'),
+    'weather_source': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'weather_snapshot_time': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'weather_temp_f': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'weather_wind_speed_mph': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'weather_wind_direction': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'wind_out_to_cf_score': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'wind_in_from_cf_score': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'wind_cross_score': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'weather_precip_prob': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'weather_humidity': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'weather_pressure': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
+    'weather_run_boost': _feature_meta('feature', 'features', ['audit'], 'derived_pregame_weather'),
+    'weather_hr_boost': _feature_meta('feature', 'features', ['audit'], 'derived_pregame_weather'),
+    'weather_note': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
     'xera': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
     'xwoba': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
     'xba': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
@@ -3907,6 +4231,28 @@ def log_prediction(entry):
                 'emerging': entry.get('emerging'),
                 'opp_il_count': len(entry.get('opp_il', []) or []),
                 'opp_il_returns_count': len(entry.get('opp_il_returns', []) or []),
+                # Weather / roof run environment
+                'game_datetime': entry.get('game_datetime'),
+                'venue_name': entry.get('venue_name'),
+                'venue_lat': entry.get('venue_lat'),
+                'venue_lon': entry.get('venue_lon'),
+                'roof_type': entry.get('roof_type'),
+                'roof_status': entry.get('roof_status'),
+                'is_indoor_or_dome': entry.get('is_indoor_or_dome'),
+                'weather_source': entry.get('weather_source'),
+                'weather_snapshot_time': entry.get('weather_snapshot_time'),
+                'weather_temp_f': entry.get('weather_temp_f'),
+                'weather_wind_speed_mph': entry.get('weather_wind_speed_mph'),
+                'weather_wind_direction': entry.get('weather_wind_direction'),
+                'wind_out_to_cf_score': entry.get('wind_out_to_cf_score'),
+                'wind_in_from_cf_score': entry.get('wind_in_from_cf_score'),
+                'wind_cross_score': entry.get('wind_cross_score'),
+                'weather_precip_prob': entry.get('weather_precip_prob'),
+                'weather_humidity': entry.get('weather_humidity'),
+                'weather_pressure': entry.get('weather_pressure'),
+                'weather_run_boost': entry.get('weather_run_boost'),
+                'weather_hr_boost': entry.get('weather_hr_boost'),
+                'weather_note': entry.get('weather_note'),
                 # Statcast advanced (Phase 2)
                 'xera': entry.get('xera'),
                 'xwoba': entry.get('xwoba'),
@@ -4921,6 +5267,7 @@ def main():
         today_lines = fetch_todays_completed_starts()
         blend_today_into_recent(recent_form, today_lines, baseline_recent=prior_day_recent)
         schedule = fetch_weekly_schedule(week_start, week_end)
+        weather_env = fetch_weather_environment(schedule)
         espn_probables = fetch_espn_probables(week_start, week_end)
         projected_team_ops = fetch_fg_projected_team_batting()
         team_offense, league_avg_ops = fetch_team_offense(projected_team_ops)
@@ -4962,6 +5309,7 @@ def main():
             fg_pitching_plus=fg_pitching_plus,
             team_bullpens=team_bullpens,
             pitcher_workload=pitcher_workload,
+            weather_env=weather_env,
         )
         fa_count = sum(1 for s in streaming_data if s.get('status') == 'FA' and not s.get('tbd'))
         mine_count = sum(1 for s in streaming_data if s.get('status') == 'MY ROSTER')
