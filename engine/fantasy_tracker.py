@@ -2622,6 +2622,38 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
 # HTML REPORT GENERATION
 # =============================================================================
 
+def prediction_feature_log_status():
+    """Summarize whether the newest prediction log contains future-learning fields."""
+    workload_fields = {
+        'days_rest', 'last_start_ip', 'last_start_pitch_count',
+        'avg_ip_last_3_starts', 'avg_pitch_count_last_3_starts',
+        'workload_risk_score', 'workload_note',
+    }
+    weather_fields = {
+        'game_datetime', 'venue_name', 'roof_type', 'roof_status',
+        'is_indoor_or_dome', 'weather_source', 'weather_temp_f',
+        'weather_run_boost', 'weather_hr_boost', 'weather_note',
+    }
+    try:
+        files = _recent_prediction_files(limit=1)
+        if not files:
+            return "Newest prediction log: not found."
+        seen = set()
+        with open(files[0]) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    seen.update((json.loads(line).get('features') or {}).keys())
+                except Exception:
+                    continue
+        workload = 'yes' if seen & workload_fields else 'no'
+        weather = 'yes' if seen & weather_fields else 'no'
+        return f"Newest prediction log includes workload fields: {workload}; weather/roof fields: {weather}."
+    except Exception:
+        return "Newest prediction log field status unavailable."
+
+
 def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster_map,
                           streaming_data=None, cum_deltas=None, oldest_date=None,
                           global_emerging=None, hold_asof_label=None,
@@ -2887,6 +2919,7 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 <!-- ===== ACCURACY TAB ===== -->
 <div class="tab-view" id="tab-accuracy">
 <div class="stream-note">How well are predictions tracking actual results? Every scheduled SP gets logged each run; outcomes get joined the next morning. As more data accrues, we'll see which features the model is over/under-weighting.</div>
+<div class="stream-note">Workload and weather/roof features are currently logged for learning and audit only. They do not directly change projected points unless the learned-correction system later activates a statistically safe bucket. $FEATURE_LOG_STATUS</div>
 <div id="accuracyContent"></div>
 </div><!-- end tab-accuracy -->
 
@@ -3355,6 +3388,7 @@ renderAccuracy();
         CALIBRATION_JSON=json.dumps(calibration) if calibration else 'null',
         LEARNED_BIASES_JSON=json.dumps(load_learned_biases() or {}),
         LEARNED_CANDIDATES_JSON=json.dumps(learned_candidates or []),
+        FEATURE_LOG_STATUS=prediction_feature_log_status(),
     )
 
     with open(OUTPUT_HTML, 'w') as f:
