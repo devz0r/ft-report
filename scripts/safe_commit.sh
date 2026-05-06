@@ -11,6 +11,19 @@ fi
 
 MSG="$1"
 
+echo "Cleaning generated files before commit..."
+scripts/clean_generated.sh
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  allowed_regex='^.. (engine/fantasy_tracker\.py|engine/requirements\.txt|scripts/.*|README\.md|CODEX_PROJECT_BRIEF\.md|\.gitignore)$'
+  unexpected="$(git status --porcelain | grep -Ev "$allowed_regex" || true)"
+  if [[ -n "$unexpected" ]]; then
+    echo "Unstaged changes remain after cleanup. Review them before committing:"
+    git status --short
+    exit 1
+  fi
+fi
+
 scripts/preflight.sh
 
 echo "Current diff:"
