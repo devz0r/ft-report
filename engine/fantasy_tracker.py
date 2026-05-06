@@ -25,7 +25,10 @@ import time
 import sys
 import os
 import re
+import math
 import argparse
+import fnmatch
+import subprocess
 from datetime import datetime, date, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -3281,15 +3284,17 @@ function renderAccuracy() {
   // yet auto-applied. Lets the user see what's about to kick in.
   if (LEARNED_CANDIDATES && LEARNED_CANDIDATES.length) {
     h += '<div class="day-card" style="margin:8px 0">';
-    h += '<div class="day-header"><span>Emerging signals (not yet applied)</span><span style="color:#777;font-size:11px">close to significance — auto-activate when z &gt; threshold</span></div>';
+    h += '<div class="day-header"><span>Emerging signals (not yet applied)</span><span style="color:#777;font-size:11px">not active until sample, variance, and z-score checks pass</span></div>';
     h += '<div style="padding:6px 16px">';
     LEARNED_CANDIDATES.forEach(function(b) {
       var dCls = b.mean > 0 ? 'opp-easy' : 'opp-hard';
+      var zText = (b.z === null || b.z === undefined) ? 'invalid' : b.z.toFixed(2);
+      var reason = b.ineligible_reason ? ' &middot; not eligible: ' + b.ineligible_reason : ' &middot; not eligible yet';
       h += '<div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px">';
       h += '<div style="opacity:0.85">' + b.label + '</div>';
       h += '<div style="color:#777;font-size:11px;margin-top:2px">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
       h += 'mean residual <span class="' + dCls + '">' + (b.mean >= 0 ? '+' : '') + (b.mean || 0).toFixed(2) + '</span> &middot; ';
-      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + (b.z || 0).toFixed(2) + ' (need higher)';
+      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + zText + reason;
       h += '</div></div>';
     });
     h += '</div></div>';
@@ -3302,14 +3307,17 @@ function renderAccuracy() {
     h += '<div class="day-header"><span>Active learned corrections</span><span style="color:#777;font-size:11px">' + biasKeys.length + ' bucket(s) auto-applied to predictions</span></div>';
     h += '<div style="padding:6px 16px">';
     var sortedBiases = biasKeys.map(function(k) { return LEARNED_BIASES[k]; })
-      .sort(function(a, b) { return Math.abs(b.mean) - Math.abs(a.mean); });
+      .sort(function(a, b) { return Math.abs(b.applied_delta || 0) - Math.abs(a.applied_delta || 0); });
     sortedBiases.forEach(function(b) {
       var dCls = b.mean > 0 ? 'opp-easy' : 'opp-hard';
+      var applied = b.applied_delta !== undefined ? b.applied_delta : b.mean;
+      var aCls = applied > 0 ? 'opp-easy' : 'opp-hard';
+      var zText = (b.z === null || b.z === undefined) ? 'invalid' : b.z.toFixed(2);
       h += '<div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px">';
       h += '<div>' + b.label + '</div>';
       h += '<div style="color:#777;font-size:11px;margin-top:2px">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
       h += 'mean residual <span class="' + dCls + '">' + (b.mean >= 0 ? '+' : '') + b.mean.toFixed(2) + '</span> &middot; ';
-      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + (b.z || 0).toFixed(2);
+      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + zText + ' &middot; applied <span class="' + aCls + '">' + (applied >= 0 ? '+' : '') + applied.toFixed(2) + '</span>';
       h += '</div></div>';
     });
     h += '</div></div>';
@@ -3410,6 +3418,198 @@ PARK_BRACKETS = [
     (0.96, 1.04, 'neutral parks'),
     (1.04, 99.0, 'hitter-friendly parks'),
 ]
+
+
+FEATURE_REGISTRY = {}
+
+
+def _register_features(names, category, used_by=None, leakage_status='pregame_safe', logged=True):
+    """Register prediction-log feature metadata for audit coverage."""
+    for name in names:
+        FEATURE_REGISTRY[name] = {
+            'category': category,
+            'used_by': list(used_by or ['prediction_log', 'feature_audit']),
+            'leakage_status': leakage_status,
+            'logged': logged,
+        }
+
+
+_register_features([
+    'proj_era', 'proj_whip', 'proj_k9',
+    'proj_ip', 'proj_gs', 'proj_w', 'proj_l', 'proj_so',
+    'proj_h', 'proj_er', 'proj_bb', 'proj_bb9',
+], 'projection', ['base_projection', 'learned_bias_scan', 'prediction_log'])
+
+_register_features([
+    'opp_ops', 'opp_ops_raw', 'opp_rank', 'opp_k_pct',
+    'park_factor', 'park', 'platoon', 'opp_hand',
+    'vs_l_ops', 'vs_r_ops', 'vs_l_ops_num', 'vs_r_ops_num',
+    'splits_window_years', 'splits_l_r_diff',
+    'combined_factor', 'opp_factor', 'pitch_matchup_score',
+], 'matchup', ['base_projection', 'learned_bias_scan', 'prediction_log'])
+
+_register_features([
+    'tag', 'trend', 'recent_era', 'recent_ip', 'recent_k9',
+    'fb_velo', 'pitch_count', 'emerging',
+], 'form_and_pitcher_context', ['base_projection', 'learned_bias_scan', 'prediction_log'])
+
+_register_features([
+    'opp_il_count', 'opp_il_returns_count',
+    'opp_bullpen_era', 'opp_bullpen_whip',
+], 'opponent_context', ['base_projection', 'learned_bias_scan', 'prediction_log'])
+
+_register_features([
+    'xera', 'xwoba', 'xba', 'xslg', 'barrel_pct', 'hard_hit_pct',
+    'whiff_pct', 'k_pct_savant', 'bb_pct_savant', 'chase_pct',
+    'gb_pct', 'fb_pct', 'ld_pct',
+], 'statcast', ['learned_bias_scan', 'prediction_log'])
+
+_register_features([
+    'stuff_plus', 'location_plus', 'pitching_plus',
+    'fip', 'xfip', 'siera',
+], 'fangraphs_advanced', ['learned_bias_scan', 'prediction_log'])
+
+_register_features([
+    'days_rest', 'last_pitch_count', 'last_start_ip', 'last_start_pitch_count',
+    'avg_ip_last_3_starts', 'avg_pitch_count_last_3_starts',
+    'max_pitch_count_last_5_starts', 'season_avg_ip_per_start',
+    'season_avg_pitches_per_start', 'short_rest_flag', 'extra_rest_flag',
+    'workload_risk_score', 'workload_note',
+], 'workload', ['learned_bias_scan', 'prediction_log', 'future_model'])
+
+_register_features([
+    'game_datetime', 'venue_name', 'venue_lat', 'venue_lon',
+    'roof_type', 'roof_status', 'is_indoor_or_dome',
+    'weather_source', 'weather_snapshot_time', 'weather_temp_f',
+    'weather_wind_speed_mph', 'weather_wind_direction',
+    'wind_out_to_cf_score', 'wind_in_from_cf_score', 'wind_cross_score',
+    'weather_precip_prob', 'weather_humidity', 'weather_pressure',
+    'weather_run_boost', 'weather_hr_boost', 'weather_note',
+], 'weather_roof_environment', ['prediction_log', 'feature_audit', 'future_model'])
+
+
+def _recent_prediction_files(limit=5):
+    if not os.path.isdir(PREDICTIONS_DIR):
+        return []
+    files = [
+        os.path.join(PREDICTIONS_DIR, fn)
+        for fn in os.listdir(PREDICTIONS_DIR)
+        if fn.endswith('.jsonl')
+    ]
+    return sorted(files, reverse=True)[:limit]
+
+
+def _modified_generated_files():
+    patterns = [
+        'engine/espn_players.json',
+        'engine/learned_biases.json',
+        'engine/predictions/*.jsonl',
+        'engine/tracker_snapshots/*.json',
+        'engine/streaming_cache/*.json',
+        'engine/streaming_cache/**/*.json',
+        'index.html',
+        'tracker_report.html',
+    ]
+    try:
+        res = subprocess.run(
+            ['git', 'status', '--porcelain'],
+            cwd=os.path.dirname(SCRIPT_DIR),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return []
+    out = []
+    for line in res.stdout.splitlines():
+        if not line:
+            continue
+        path = line[3:].strip()
+        if ' -> ' in path:
+            path = path.split(' -> ', 1)[1].strip()
+        if any(fnmatch.fnmatch(path, pat) for pat in patterns):
+            out.append(line)
+    return out
+
+
+def audit_features():
+    """Read recent prediction logs and report registry/logging consistency."""
+    prediction_files = _recent_prediction_files(limit=5)
+    observed = set()
+    null_counts = {}
+    total_records = 0
+
+    for path in prediction_files:
+        try:
+            with open(path) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except Exception:
+                        continue
+                    features = rec.get('features') or {}
+                    total_records += 1
+                    observed.update(features.keys())
+                    for field in FEATURE_REGISTRY:
+                        val = features.get(field)
+                        if val is None or val == '':
+                            null_counts[field] = null_counts.get(field, 0) + 1
+        except Exception:
+            continue
+
+    registered = set(FEATURE_REGISTRY)
+    used = {k for k, v in FEATURE_REGISTRY.items() if v.get('used_by')}
+    logged = {k for k, v in FEATURE_REGISTRY.items() if v.get('logged')}
+    known_leakage = {'pregame_safe', 'context', 'identifier', 'derived_pregame'}
+
+    used_not_logged = sorted(used - logged)
+    logged_not_used = sorted(logged - used)
+    unknown_leakage = sorted(
+        k for k, v in FEATURE_REGISTRY.items()
+        if v.get('leakage_status') not in known_leakage
+    )
+    fields_missing_registry = sorted(observed - registered)
+    registry_missing_recent = sorted(registered - observed)
+    null_heavy = []
+    if total_records:
+        for field in sorted(registered & observed):
+            n_null = null_counts.get(field, 0)
+            if n_null / total_records >= 0.70:
+                null_heavy.append((field, n_null, total_records, round(100 * n_null / total_records)))
+
+    def print_list(title, items, formatter=None):
+        print(f"\n{title}")
+        if not items:
+            print("  None")
+            return
+        for item in items:
+            print(f"  - {formatter(item) if formatter else item}")
+
+    print("FEATURE AUDIT")
+    print("=" * 60)
+    print(f"Registry entries: {len(FEATURE_REGISTRY)}")
+    print(f"Prediction files scanned: {len(prediction_files)}")
+    for path in prediction_files:
+        print(f"  - {path}")
+    print(f"Prediction records scanned: {total_records}")
+    print(f"Observed feature fields: {len(observed)}")
+
+    print_list("Features used but not logged", used_not_logged)
+    print_list("Features logged but not used", logged_not_used)
+    print_list("Features with unknown leakage status", unknown_leakage)
+    print_list("Prediction log fields missing from registry", fields_missing_registry)
+    print_list("Registry features missing from recent predictions", registry_missing_recent)
+    print_list(
+        "Null-heavy features (threshold >= 70%)",
+        null_heavy,
+        lambda x: f"{x[0]}: {x[3]}% null/missing ({x[1]}/{x[2]})",
+    )
+    print_list(
+        "Generated/cache files modified but probably should not be committed",
+        _modified_generated_files(),
+    )
 
 
 def log_prediction(entry):
@@ -3768,12 +3968,20 @@ def _residual_stats(samples, residual_key='residual_raw'):
         return None
     mean = sum(rs) / n
     if n < 2:
-        return {'n': n, 'mean': round(mean, 2), 'std': 0.0, 'z': 0.0}
+        return {'n': n, 'mean': round(mean, 2), 'std': 0.0, 'se': None, 'z': None}
     var = sum((r - mean) ** 2 for r in rs) / (n - 1)
     std = var ** 0.5
-    se = std / (n ** 0.5)
-    z = mean / se if se > 0 else 0.0
-    return {'n': n, 'mean': round(mean, 2), 'std': round(std, 2), 'z': round(z, 2)}
+    se = std / (n ** 0.5) if std >= MIN_RESIDUAL_STD else None
+    z = mean / se if se and se > 0 else None
+    if z is not None and (not math.isfinite(z) or abs(z) > MAX_ABS_LEARNED_Z):
+        z = None
+    return {
+        'n': n,
+        'mean': round(mean, 2),
+        'std': round(std, 2),
+        'se': round(se, 4) if se is not None else None,
+        'z': round(z, 2) if z is not None and math.isfinite(z) else None,
+    }
 
 
 def _load_outcomes_for_learning():
@@ -3796,7 +4004,14 @@ def _load_outcomes_for_learning():
     return out
 
 
-MAX_BUCKET_DELTA = 2.0   # cap any single bucket's adjustment at ±2 pts
+GENERAL_BUCKET_MIN_SAMPLES = 20
+TREND_BUCKET_MIN_SAMPLES = 20
+PITCHER_BUCKET_MIN_SAMPLES = 12
+MIN_RESIDUAL_STD = 1.0
+MAX_ABS_LEARNED_Z = 8.0
+MAX_LEARNED_ADJ = 5.0
+GENERAL_SHRINK_N = 60
+PITCHER_SHRINK_N = 48
 NUMERIC_AUTO_BUCKET_FEATURES = [
     # Core projection features
     'proj_era', 'proj_whip', 'proj_k9',
@@ -3854,34 +4069,37 @@ def _auto_bucket_continuous(samples, fname, n_buckets=4):
     return out
 
 
-def compute_learned_biases(min_samples=12, min_abs_delta=0.5, base_alpha=0.01):
+def compute_learned_biases(min_samples=GENERAL_BUCKET_MIN_SAMPLES, min_abs_delta=0.5, base_alpha=0.01):
     """Scan accumulated outcomes for systematic biases in feature buckets.
 
     Statistical rigor (so we don't fire on noise):
       - Multiple-comparisons correction: z threshold scales with #buckets tested
-        via approximate Bonferroni. With 50 tests at α=0.01, effective z ≈ 3.0.
+        via approximate Bonferroni. With 50 tests at α=0.01, effective z ≈ 4.1.
         With more features, the bar gets stricter — protects against the
         "data dredging" failure mode.
-      - Each bucket's adjustment is clamped to ±MAX_BUCKET_DELTA, so no single
-        noisy correlation can dominate a prediction.
-      - Per-pitcher buckets evaluated separately (n>=3) since individual
-        pitchers accrue starts slowly; they get a higher delta floor.
+      - Each bucket's adjustment is shrunk toward zero, then clamped to
+        ±MAX_LEARNED_ADJ, so no single correlation can dominate.
+      - Per-pitcher buckets require a larger sample than before and get
+        stronger shrinkage because individual starts are noisy.
     """
     samples = _load_outcomes_for_learning()
     if not samples:
         return {}
 
     biases = {}
-    candidates = []  # (key, stats, basis, label) — close to threshold but not yet
+    candidates = []  # close to threshold, too-small, or otherwise ineligible
     test_count = 0
 
     def passes_threshold(z, n_tests):
+        if z is None or not isinstance(z, (int, float)) or not math.isfinite(z):
+            return False
+        if abs(z) > MAX_ABS_LEARNED_Z:
+            return False
         # Bonferroni-style: more tests → higher bar. Floor at 2.5 for sanity.
         if n_tests <= 1:
             return abs(z) >= 2.5
         # Approx z for Bonferroni-corrected α/n_tests, two-tailed.
-        # For α=0.01 and ~50 tests: z ≈ 3.0. For ~100 tests: z ≈ 3.3.
-        import math
+        # For α=0.01 and ~50 tests: z ≈ 4.1. For ~100 tests: z ≈ 4.3.
         # Use simple formula z = sqrt(2 * ln(n_tests / α))
         try:
             corrected_z = math.sqrt(2 * math.log(n_tests / base_alpha))
@@ -3889,26 +4107,66 @@ def compute_learned_biases(min_samples=12, min_abs_delta=0.5, base_alpha=0.01):
             corrected_z = 3.0
         return abs(z) >= max(2.5, corrected_z)
 
-    def maybe_add(key, bucket, basis, label_tmpl):
+    def min_n_for_basis(basis):
+        if basis == 'pitcher':
+            return max(PITCHER_BUCKET_MIN_SAMPLES, 12)
+        if basis == 'trend':
+            return max(TREND_BUCKET_MIN_SAMPLES, 20)
+        return max(min_samples, GENERAL_BUCKET_MIN_SAMPLES, 20)
+
+    def shrink_delta(mean, n, basis):
+        shrink_n = PITCHER_SHRINK_N if basis == 'pitcher' else GENERAL_SHRINK_N
+        shrunk = mean * (n / (n + shrink_n)) if n > 0 else 0.0
+        return round(max(-MAX_LEARNED_ADJ, min(MAX_LEARNED_ADJ, shrunk)), 2)
+
+    def ineligible_reasons(st, basis, n_tests, min_abs):
+        reasons = []
+        min_n = min_n_for_basis(basis)
+        if st['n'] < min_n:
+            reasons.append(f'n<{min_n}')
+        if abs(st['mean']) < min_abs:
+            reasons.append(f'|mean|<{min_abs}')
+        if st.get('std') is None or st.get('std') < MIN_RESIDUAL_STD:
+            reasons.append(f'std<{MIN_RESIDUAL_STD:g}')
+        se = st.get('se')
+        if se is None or not isinstance(se, (int, float)) or not math.isfinite(se) or se <= 0:
+            reasons.append('invalid standard error')
+        z = st.get('z')
+        if z is None or not isinstance(z, (int, float)) or not math.isfinite(z):
+            reasons.append('invalid z-score')
+        elif abs(z) > MAX_ABS_LEARNED_Z:
+            reasons.append(f'abs(z)>{MAX_ABS_LEARNED_Z:g}')
+        elif not passes_threshold(z, n_tests):
+            reasons.append('z below activation threshold')
+        return reasons
+
+    def maybe_add(key, bucket, basis, label_tmpl, min_abs=None):
         nonlocal test_count
         test_count += 1
+        min_abs = min_abs_delta if min_abs is None else min_abs
         st = _residual_stats(bucket)
-        if not st or st['n'] < min_samples:
+        if not st:
             return
-        if abs(st['mean']) < min_abs_delta:
-            return
-        # We track candidates separately: 1.5 < |z| < threshold so the user
-        # can see what's "almost there"
         label = label_tmpl.format(delta=st['mean'], n=st['n'])
         rec = {**st, 'basis': basis, 'key': key, 'label': label}
-        if abs(st.get('z', 0)) >= 1.5 and not passes_threshold(st['z'], 50):
-            # close but not yet — surface as candidate
-            candidates.append(rec)
-        if not passes_threshold(st.get('z', 0), 50):
+        reasons = ineligible_reasons(st, basis, 50, min_abs)
+        if reasons:
+            rec['eligible'] = False
+            rec['ineligible_reason'] = ', '.join(reasons)
+            # Keep interesting-but-unsafe buckets visible without activating
+            # them, including small-n or low-variance pitcher buckets.
+            if abs(st['mean']) >= min_abs and st['n'] >= max(3, min_n_for_basis(basis) // 2):
+                rec['applied_delta'] = 0.0
+                candidates.append(rec)
+            elif st.get('z') is not None and abs(st['z']) >= 1.5:
+                rec['applied_delta'] = 0.0
+                candidates.append(rec)
             return
-        # Clamp delta magnitude
-        clamped = max(-MAX_BUCKET_DELTA, min(MAX_BUCKET_DELTA, st['mean']))
-        rec['mean'] = clamped
+
+        rec['eligible'] = True
+        rec['applied_delta'] = shrink_delta(st['mean'], st['n'], basis)
+        # Keep mean as the raw residual mean; applied_delta is the actual
+        # shrunk/capped learned adjustment.
         biases[key] = rec
 
     # 1. Per-tier bias
@@ -3957,32 +4215,20 @@ def compute_learned_biases(min_samples=12, min_abs_delta=0.5, base_alpha=0.01):
         maybe_add(f'home_away_{ha}', bucket, 'home_away',
                    f'{"home" if ha == "H" else "road"} starts: {{delta:+.1f}} pts (n={{n}})')
 
-    # 8. Per-pitcher: ≥3 starts AND z-score >= 2.0 (no longer auto-fires
-    #    on any pitcher with high mean — small samples with high variance
-    #    are rejected by the statistical check)
+    # 8. Per-pitcher: requires larger sample and valid variance. Small
+    # samples with huge/invalid z-scores are surfaced as ineligible candidates.
     by_pitcher = {}
     for s in samples:
         nm = normalize_name(s.get('name', ''))
         if nm:
             by_pitcher.setdefault(nm, []).append(s)
     for nm, bucket in by_pitcher.items():
-        test_count += 1
-        if len(bucket) < 5:
-            continue
-        st = _residual_stats(bucket)
-        if not st or abs(st['mean']) < 0.8:
-            continue
         display_name = bucket[-1].get('name', nm)
-        rec = {
-            **st, 'basis': 'pitcher', 'key': f'pitcher_{nm}',
-            'label': f'{display_name} historically {st["mean"]:+.1f} pts vs prediction (n={st["n"]})',
-        }
-        # Per-pitcher uses slightly looser bar (z>=2.0) since data is sparse
-        if abs(st.get('z', 0)) >= 2.0:
-            rec['mean'] = max(-MAX_BUCKET_DELTA, min(MAX_BUCKET_DELTA, st['mean']))
-            biases[f'pitcher_{nm}'] = rec
-        elif abs(st.get('z', 0)) >= 1.2:
-            candidates.append(rec)
+        maybe_add(
+            f'pitcher_{nm}', bucket, 'pitcher',
+            f'{display_name} historically {{delta:+.1f}} pts vs prediction (n={{n}})',
+            min_abs=0.8,
+        )
 
     # 9. Auto-discover correlations in any numeric feature we have data on.
     #    This is the engine that finds unexpected signals: drop any new feature
@@ -3994,8 +4240,8 @@ def compute_learned_biases(min_samples=12, min_abs_delta=0.5, base_alpha=0.01):
             maybe_add(key, bucket, f'auto:{fname}',
                       f'when {lbl}: {{delta:+.1f}} pts (n={{n}})')
 
-    # Sort candidates (close-to-significant) by |z| desc, keep top 12 for display
-    candidates.sort(key=lambda c: -abs(c.get('z', 0)))
+    # Sort candidates (close-to-significant or unsafe) by |z| then |mean|.
+    candidates.sort(key=lambda c: (-(abs(c.get('z') or 0)), -(abs(c.get('mean') or 0))))
     return {
         'biases': biases,
         'candidates': candidates[:12],
@@ -4047,7 +4293,7 @@ def apply_learned_biases(entry, biases, damping=0.6):
     pkey = f'pitcher_{pname}'
     if pkey in biases:
         b = dict(biases[pkey])
-        b['delta_applied'] = b['mean']
+        b['delta_applied'] = b.get('applied_delta', b.get('mean', 0.0))
         applied.append(b)
 
     # Categorical buckets — collect all that apply
@@ -4097,7 +4343,8 @@ def apply_learned_biases(entry, biases, damping=0.6):
         scale = 1.0 if len(bucket_hits) == 1 else damping
         for b in bucket_hits:
             b2 = dict(b)
-            b2['delta_applied'] = round(b['mean'] * scale, 2)
+            base_delta = b.get('applied_delta', b.get('mean', 0.0))
+            b2['delta_applied'] = round(base_delta * scale, 2)
             applied.append(b2)
 
     total = round(sum(b['delta_applied'] for b in applied), 2)
@@ -4298,8 +4545,13 @@ def _push_to_github_repo():
 def main():
     parser = argparse.ArgumentParser(description='Fantasy Baseball In-Season Tracker')
     parser.add_argument('--setup', action='store_true', help='Configure ESPN authentication')
+    parser.add_argument('--audit-features', action='store_true', help='Audit prediction feature registry/log consistency')
     parser.add_argument('--top', type=int, default=30, help='Show top N in console')
     args = parser.parse_args()
+
+    if args.audit_features:
+        audit_features()
+        return
 
     if args.setup:
         run_setup()
@@ -4335,11 +4587,16 @@ def main():
             # recompute returns empty, we want predictions to NOT use stale
             # corrections from old/looser thresholds.
             save_learned_biases(learned_biases)
+            def fmt_z(rec):
+                z = rec.get('z')
+                return f'{z:.2f}' if isinstance(z, (int, float)) and math.isfinite(z) else 'invalid'
             for k, b in sorted(learned_biases.items(),
-                               key=lambda kv: -abs(kv[1].get('mean', 0)))[:6]:
-                print(f"    [active]    {b.get('label', k)}  (z={b.get('z', 0):.2f})")
+                               key=lambda kv: -abs(kv[1].get('applied_delta', kv[1].get('mean', 0))))[:6]:
+                print(f"    [active]    {b.get('label', k)}  (z={fmt_z(b)})")
             for c in learned_candidates[:4]:
-                print(f"    [candidate] {c.get('label', '')}  (z={c.get('z', 0):.2f})")
+                reason = c.get('ineligible_reason')
+                suffix = f"; not eligible: {reason}" if reason else ""
+                print(f"    [candidate] {c.get('label', '')}  (z={fmt_z(c)}{suffix})")
         else:
             # Old return shape (just dict of biases) — support legacy
             learned_biases = result or {}
