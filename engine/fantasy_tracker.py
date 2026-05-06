@@ -3412,6 +3412,254 @@ PARK_BRACKETS = [
 ]
 
 
+def _feature_meta(kind, logged_as=None, used_by=None, leakage_status='pregame_snapshot', description=''):
+    return {
+        'kind': kind,
+        'logged_as': logged_as,
+        'used_by': used_by or [],
+        'leakage_status': leakage_status,
+        'description': description,
+    }
+
+
+FEATURE_REGISTRY = {
+    # Top-level prediction record fields.
+    'logged_at': _feature_meta('prediction_field', 'top_level', ['audit'], 'run_metadata'),
+    'date': _feature_meta('prediction_field', 'top_level', ['outcome_join', 'audit'], 'pregame_schedule'),
+    'name': _feature_meta('prediction_field', 'top_level', ['outcome_join', 'learner', 'audit'], 'pregame_identity'),
+    'team': _feature_meta('prediction_field', 'top_level', ['audit'], 'pregame_schedule'),
+    'opponent': _feature_meta('prediction_field', 'top_level', ['report', 'audit'], 'pregame_schedule'),
+    'home_away': _feature_meta('prediction_field', 'top_level', ['scoring', 'learner'], 'pregame_schedule'),
+    'predicted_pts': _feature_meta('prediction_field', 'top_level', ['outcome_join', 'calibration'], 'model_output'),
+    'predicted_pts_raw': _feature_meta('prediction_field', 'top_level', ['learner'], 'model_output'),
+    'adj_total': _feature_meta('prediction_field', 'top_level', ['report', 'audit'], 'model_output'),
+    'adjustments': _feature_meta('prediction_field', 'top_level', ['report'], 'model_output'),
+    'base_pts': _feature_meta('prediction_field', 'top_level', ['report', 'audit'], 'model_output'),
+    'tier': _feature_meta('prediction_field', 'top_level', ['learner', 'report'], 'model_output'),
+    'status': _feature_meta('prediction_field', 'top_level', ['report'], 'pregame_roster'),
+    'features': _feature_meta('prediction_field', 'top_level', ['audit'], 'container'),
+
+    # Logged model/audit features.
+    'proj_era': _feature_meta('feature', 'features', ['scoring', 'learner'], 'pregame_projection'),
+    'proj_whip': _feature_meta('feature', 'features', ['tagging', 'learner'], 'pregame_projection'),
+    'proj_k9': _feature_meta('feature', 'features', ['tagging', 'learner'], 'pregame_projection'),
+    'opp_ops': _feature_meta('feature', 'features', ['scoring', 'report'], 'pregame_snapshot'),
+    'opp_ops_raw': _feature_meta('feature', 'features', ['audit', 'report'], 'pregame_snapshot'),
+    'opp_rank': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
+    'opp_k_pct': _feature_meta('feature', 'features', ['report'], 'pregame_snapshot'),
+    'park_factor': _feature_meta('feature', 'features', ['scoring', 'learner', 'report'], 'pregame_static'),
+    'park': _feature_meta('feature', 'features', ['report'], 'pregame_schedule'),
+    'platoon': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
+    'opp_hand': _feature_meta('feature', 'features', ['platoon', 'report'], 'pregame_snapshot'),
+    'vs_l_ops': _feature_meta('feature', 'features', ['platoon', 'report'], 'pregame_snapshot'),
+    'vs_r_ops': _feature_meta('feature', 'features', ['platoon', 'report'], 'pregame_snapshot'),
+    'vs_l_ops_num': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'vs_r_ops_num': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'splits_window_years': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
+    'splits_l_r_diff': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'tag': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_projection'),
+    'trend': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
+    'recent_era': _feature_meta('feature', 'features', ['trend', 'learner', 'report'], 'pregame_snapshot'),
+    'fb_velo': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
+    'pitch_count': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
+    'emerging': _feature_meta('feature', 'features', ['report'], 'pregame_snapshot'),
+    'opp_il_count': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'opp_il_returns_count': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'xera': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'xwoba': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'xba': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'xslg': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'barrel_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'hard_hit_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'whiff_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'k_pct_savant': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'bb_pct_savant': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'chase_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'gb_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'fb_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'ld_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'stuff_plus': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'location_plus': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'pitching_plus': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'fip': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'xfip': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'siera': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'opp_bullpen_era': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'opp_bullpen_whip': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
+    'days_rest': _feature_meta('feature', 'features', ['learner'], 'pregame_historical'),
+    'last_pitch_count': _feature_meta('feature', 'features', ['learner'], 'pregame_historical'),
+
+    # Used internally but not currently logged as prediction features.
+    'proj_gs': _feature_meta('derived_feature', None, ['filtering', 'scoring'], 'pregame_projection'),
+    'proj_ip': _feature_meta('derived_feature', None, ['scoring'], 'pregame_projection'),
+    'proj_h': _feature_meta('derived_feature', None, ['scoring'], 'pregame_projection'),
+    'proj_er': _feature_meta('derived_feature', None, ['scoring'], 'pregame_projection'),
+    'proj_bb': _feature_meta('derived_feature', None, ['scoring'], 'pregame_projection'),
+    'proj_so': _feature_meta('derived_feature', None, ['scoring'], 'pregame_projection'),
+    'proj_w': _feature_meta('derived_feature', None, ['scoring'], 'pregame_projection'),
+    'proj_l': _feature_meta('derived_feature', None, ['scoring'], 'pregame_projection'),
+    'proj_bb9': _feature_meta('derived_feature', None, ['tagging'], 'pregame_projection'),
+    'opp_factor': _feature_meta('derived_feature', None, ['scoring'], 'derived_pregame'),
+    'combined_factor': _feature_meta('derived_feature', None, ['scoring'], 'derived_pregame'),
+    'pitch_matchup_score': _feature_meta('derived_feature', None, ['scoring', 'tier'], 'pregame_snapshot'),
+    'recent_ip': _feature_meta('derived_feature', None, ['emerging'], 'pregame_snapshot'),
+    'recent_k9': _feature_meta('derived_feature', None, ['trend', 'emerging'], 'pregame_snapshot'),
+}
+
+
+def _prediction_jsonl_files(max_files=5):
+    if not os.path.isdir(PREDICTIONS_DIR):
+        return []
+    files = [
+        os.path.join(PREDICTIONS_DIR, fn)
+        for fn in os.listdir(PREDICTIONS_DIR)
+        if fn.endswith('.jsonl') and re.match(r'^\d{4}-\d{2}-\d{2}\.jsonl$', fn)
+    ]
+    return sorted(files, reverse=True)[:max_files]
+
+
+def _load_recent_prediction_records(max_files=5):
+    records = []
+    files = _prediction_jsonl_files(max_files=max_files)
+    for path in files:
+        try:
+            with open(path) as f:
+                for line in f:
+                    try:
+                        records.append(json.loads(line))
+                    except Exception:
+                        continue
+        except Exception:
+            continue
+    return records, files
+
+
+def _nullish(value):
+    return value is None or value == '' or value == '?' or value == [] or value == {}
+
+
+def _probably_uncommittable_generated(path):
+    path = path.strip()
+    local_only = (
+        path == '.DS_Store' or
+        path.endswith('/.DS_Store') or
+        path.endswith('.pyc') or
+        '__pycache__/' in path or
+        path in ('tracker_report.html', 'engine/tracker_report.html') or
+        path in ('engine/tracker_config.json', 'engine/.ft-report-password') or
+        path.startswith('engine/predictions/.processed/')
+    )
+    return local_only
+
+
+def _modified_generated_cache_files():
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['git', 'status', '--porcelain', '--untracked-files=all'],
+            cwd=os.path.dirname(SCRIPT_DIR),
+            capture_output=True, text=True, timeout=30,
+        )
+    except Exception as e:
+        return [f'git status unavailable: {e}']
+    if result.returncode != 0:
+        return [f'git status unavailable: {result.stderr.strip() or "non-zero exit"}']
+
+    flagged = []
+    for line in result.stdout.splitlines():
+        if not line:
+            continue
+        path = line[3:].strip()
+        if ' -> ' in path:
+            path = path.split(' -> ', 1)[1].strip()
+        if _probably_uncommittable_generated(path):
+            flagged.append(line)
+    return flagged
+
+
+def _print_audit_section(title, items, empty_msg='None'):
+    print(f"\n{title}")
+    if not items:
+        print(f"  {empty_msg}")
+        return
+    for item in items:
+        print(f"  - {item}")
+
+
+def audit_features(max_prediction_files=5, null_threshold=0.70):
+    records, files = _load_recent_prediction_records(max_files=max_prediction_files)
+    observed_top = set()
+    observed_features = set()
+    feature_values = {}
+
+    for rec in records:
+        observed_top.update(rec.keys())
+        features = rec.get('features') or {}
+        if isinstance(features, dict):
+            observed_features.update(features.keys())
+            for key, value in features.items():
+                feature_values.setdefault(key, []).append(value)
+
+    logged_registry_features = {
+        name for name, meta in FEATURE_REGISTRY.items()
+        if meta.get('kind') == 'feature' and meta.get('logged_as') == 'features'
+    }
+    used_registry_features = {
+        name for name, meta in FEATURE_REGISTRY.items()
+        if meta.get('kind') in ('feature', 'derived_feature') and meta.get('used_by')
+    }
+
+    features_used_not_logged = sorted(
+        name for name in used_registry_features
+        if not FEATURE_REGISTRY[name].get('logged_as')
+    )
+    features_logged_not_used = sorted(
+        name for name in observed_features
+        if not FEATURE_REGISTRY.get(name, {}).get('used_by')
+    )
+    unknown_leakage = sorted(
+        name for name, meta in FEATURE_REGISTRY.items()
+        if meta.get('kind') in ('feature', 'derived_feature', 'prediction_field')
+        and meta.get('leakage_status') in (None, '', 'unknown')
+    )
+    missing_registry_fields = sorted(
+        [name for name in observed_top if name not in FEATURE_REGISTRY] +
+        [f'features.{name}' for name in observed_features if name not in FEATURE_REGISTRY]
+    )
+    registry_missing_recent = sorted(logged_registry_features - observed_features)
+
+    null_heavy = []
+    total_records = len(records)
+    if total_records:
+        for name in sorted(observed_features):
+            values = feature_values.get(name, [])
+            null_count = sum(1 for value in values if _nullish(value))
+            missing_count = total_records - len(values)
+            null_rate = (null_count + missing_count) / total_records
+            if null_rate >= null_threshold:
+                null_heavy.append(f'{name}: {null_rate:.0%} null/missing ({null_count + missing_count}/{total_records})')
+
+    print("FEATURE AUDIT")
+    print("=" * 60)
+    print(f"Registry entries: {len(FEATURE_REGISTRY)}")
+    print(f"Prediction files scanned: {len(files)}")
+    for path in files:
+        print(f"  - {os.path.relpath(path, os.path.dirname(SCRIPT_DIR))}")
+    print(f"Prediction records scanned: {len(records)}")
+    print(f"Observed feature fields: {len(observed_features)}")
+
+    _print_audit_section("Features used but not logged", features_used_not_logged)
+    _print_audit_section("Features logged but not used", features_logged_not_used)
+    _print_audit_section("Features with unknown leakage status", unknown_leakage)
+    _print_audit_section("Prediction log fields missing from registry", missing_registry_fields)
+    _print_audit_section("Registry features missing from recent predictions", registry_missing_recent)
+    _print_audit_section(f"Null-heavy features (threshold >= {null_threshold:.0%})", null_heavy)
+    _print_audit_section(
+        "Generated/cache files modified but probably should not be committed",
+        _modified_generated_cache_files(),
+    )
+
+
 def log_prediction(entry):
     """Buffer a game-level prediction in memory; write to disk via
     flush_predictions() at the end of the run. Latest run wins for the same
@@ -4299,7 +4547,13 @@ def main():
     parser = argparse.ArgumentParser(description='Fantasy Baseball In-Season Tracker')
     parser.add_argument('--setup', action='store_true', help='Configure ESPN authentication')
     parser.add_argument('--top', type=int, default=30, help='Show top N in console')
+    parser.add_argument('--audit-features', action='store_true',
+                        help='Audit feature registry coverage using recent prediction logs')
     args = parser.parse_args()
+
+    if args.audit_features:
+        audit_features()
+        return
 
     if args.setup:
         run_setup()
