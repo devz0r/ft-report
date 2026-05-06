@@ -25,7 +25,6 @@ import time
 import sys
 import os
 import re
-import math
 import argparse
 from datetime import datetime, date, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -108,41 +107,6 @@ PARK_FACTORS = {
     'HOU': 0.99, 'TOR': 0.99, 'DET': 0.99, 'KC': 0.98, 'CWS': 0.98,
     'WSH': 0.98, 'LAA': 0.97, 'PIT': 0.97, 'NYM': 0.96, 'SF': 0.96,
     'SD': 0.95, 'TB': 0.95, 'SEA': 0.95, 'MIA': 0.94, 'ATH': 0.96,
-}
-
-# Venue coordinates and roof type for pregame weather context. Center-field
-# bearing is left null until sourced reliably; wind out/in scores stay null.
-VENUE_ENV = {
-    'AZ': {'name': 'Chase Field', 'lat': 33.4455, 'lon': -112.0667, 'roof_type': 'retractable', 'cf_bearing': None},
-    'ATL': {'name': 'Truist Park', 'lat': 33.8907, 'lon': -84.4677, 'roof_type': 'open', 'cf_bearing': None},
-    'BAL': {'name': 'Oriole Park at Camden Yards', 'lat': 39.2839, 'lon': -76.6217, 'roof_type': 'open', 'cf_bearing': None},
-    'BOS': {'name': 'Fenway Park', 'lat': 42.3467, 'lon': -71.0972, 'roof_type': 'open', 'cf_bearing': None},
-    'CHC': {'name': 'Wrigley Field', 'lat': 41.9484, 'lon': -87.6553, 'roof_type': 'open', 'cf_bearing': None},
-    'CIN': {'name': 'Great American Ball Park', 'lat': 39.0979, 'lon': -84.5082, 'roof_type': 'open', 'cf_bearing': None},
-    'CLE': {'name': 'Progressive Field', 'lat': 41.4962, 'lon': -81.6852, 'roof_type': 'open', 'cf_bearing': None},
-    'COL': {'name': 'Coors Field', 'lat': 39.7561, 'lon': -104.9942, 'roof_type': 'open', 'cf_bearing': None},
-    'CWS': {'name': 'Rate Field', 'lat': 41.8300, 'lon': -87.6339, 'roof_type': 'open', 'cf_bearing': None},
-    'DET': {'name': 'Comerica Park', 'lat': 42.3390, 'lon': -83.0485, 'roof_type': 'open', 'cf_bearing': None},
-    'HOU': {'name': 'Daikin Park', 'lat': 29.7573, 'lon': -95.3555, 'roof_type': 'retractable', 'cf_bearing': None},
-    'KC': {'name': 'Kauffman Stadium', 'lat': 39.0517, 'lon': -94.4803, 'roof_type': 'open', 'cf_bearing': None},
-    'LAA': {'name': 'Angel Stadium', 'lat': 33.8003, 'lon': -117.8827, 'roof_type': 'open', 'cf_bearing': None},
-    'LAD': {'name': 'Dodger Stadium', 'lat': 34.0739, 'lon': -118.2400, 'roof_type': 'open', 'cf_bearing': None},
-    'MIA': {'name': 'loanDepot park', 'lat': 25.7781, 'lon': -80.2197, 'roof_type': 'retractable', 'cf_bearing': None},
-    'MIL': {'name': 'American Family Field', 'lat': 43.0280, 'lon': -87.9712, 'roof_type': 'retractable', 'cf_bearing': None},
-    'MIN': {'name': 'Target Field', 'lat': 44.9817, 'lon': -93.2776, 'roof_type': 'open', 'cf_bearing': None},
-    'NYM': {'name': 'Citi Field', 'lat': 40.7571, 'lon': -73.8458, 'roof_type': 'open', 'cf_bearing': None},
-    'NYY': {'name': 'Yankee Stadium', 'lat': 40.8296, 'lon': -73.9262, 'roof_type': 'open', 'cf_bearing': None},
-    'OAK': {'name': 'Sutter Health Park', 'lat': 38.5804, 'lon': -121.5133, 'roof_type': 'open', 'cf_bearing': None},
-    'PHI': {'name': 'Citizens Bank Park', 'lat': 39.9061, 'lon': -75.1665, 'roof_type': 'open', 'cf_bearing': None},
-    'PIT': {'name': 'PNC Park', 'lat': 40.4469, 'lon': -80.0057, 'roof_type': 'open', 'cf_bearing': None},
-    'SD': {'name': 'Petco Park', 'lat': 32.7076, 'lon': -117.1570, 'roof_type': 'open', 'cf_bearing': None},
-    'SEA': {'name': 'T-Mobile Park', 'lat': 47.5914, 'lon': -122.3325, 'roof_type': 'retractable', 'cf_bearing': None},
-    'SF': {'name': 'Oracle Park', 'lat': 37.7786, 'lon': -122.3893, 'roof_type': 'open', 'cf_bearing': None},
-    'STL': {'name': 'Busch Stadium', 'lat': 38.6226, 'lon': -90.1928, 'roof_type': 'open', 'cf_bearing': None},
-    'TB': {'name': 'Tropicana Field', 'lat': 27.7682, 'lon': -82.6534, 'roof_type': 'fixed_dome', 'cf_bearing': None},
-    'TEX': {'name': 'Globe Life Field', 'lat': 32.7473, 'lon': -97.0842, 'roof_type': 'retractable', 'cf_bearing': None},
-    'TOR': {'name': 'Rogers Centre', 'lat': 43.6414, 'lon': -79.3894, 'roof_type': 'retractable', 'cf_bearing': None},
-    'WSH': {'name': 'Nationals Park', 'lat': 38.8730, 'lon': -77.0074, 'roof_type': 'open', 'cf_bearing': None},
 }
 
 # Regression constant for opponent quality: PA worth of data before current season
@@ -613,11 +577,6 @@ def fetch_weekly_schedule(start_date, end_date):
             base = {
                 'date': game_date, 'day': day_label,
                 'game_time': game.get('gameDate', ''),
-                'game_pk': game.get('gamePk'),
-                'home_team': home_team,
-                'away_team': away_team,
-                'venue_id': game.get('venue', {}).get('id'),
-                'venue_name': game.get('venue', {}).get('name', ''),
             }
 
             if home_pp:
@@ -690,243 +649,6 @@ def fetch_espn_probables(start_date, end_date):
                     if team and nm:
                         out[(d.isoformat(), team)] = nm
     print(f"    {len(out)} ESPN probable assignments")
-    return out
-
-
-def _empty_weather_env(game, note):
-    park_team = game.get('home_team') or (game.get('pitcher_team') if game.get('home_away') == 'H' else game.get('opponent'))
-    venue = VENUE_ENV.get(park_team, {})
-    roof_type = venue.get('roof_type')
-    roof_status = 'open' if roof_type == 'open' else ('fixed_closed' if roof_type == 'fixed_dome' else None)
-    is_indoor = True if roof_type == 'fixed_dome' else (False if roof_type == 'open' else None)
-    return {
-        'game_datetime': game.get('game_time'),
-        'venue_name': game.get('venue_name') or venue.get('name'),
-        'venue_lat': venue.get('lat'),
-        'venue_lon': venue.get('lon'),
-        'roof_type': roof_type,
-        'roof_status': roof_status,
-        'is_indoor_or_dome': is_indoor,
-        'weather_source': None,
-        'weather_snapshot_time': None,
-        'weather_temp_f': None,
-        'weather_wind_speed_mph': None,
-        'weather_wind_direction': None,
-        'wind_out_to_cf_score': None,
-        'wind_in_from_cf_score': None,
-        'wind_cross_score': None,
-        'weather_precip_prob': None,
-        'weather_humidity': None,
-        'weather_pressure': None,
-        'weather_run_boost': 0.0 if roof_type == 'fixed_dome' else None,
-        'weather_hr_boost': 0.0 if roof_type == 'fixed_dome' else None,
-        'weather_note': note,
-    }
-
-
-def _weather_cache_path(cache_key):
-    cache_dir = os.path.join(STREAMING_CACHE_DIR, 'weather_open_meteo')
-    os.makedirs(cache_dir, exist_ok=True)
-    return os.path.join(cache_dir, f'{cache_key}.json')
-
-
-def _load_weather_cache(cache_key, max_age_hours=2):
-    path = _weather_cache_path(cache_key)
-    if os.path.exists(path):
-        age_hours = (time.time() - os.path.getmtime(path)) / 3600
-        if age_hours < max_age_hours:
-            try:
-                with open(path) as f:
-                    return json.load(f)
-            except Exception:
-                return None
-    return None
-
-
-def _save_weather_cache(cache_key, data):
-    try:
-        with open(_weather_cache_path(cache_key), 'w') as f:
-            json.dump(data, f)
-    except Exception:
-        pass
-
-
-def _nearest_hourly_weather(payload, game_dt_iso):
-    hourly = payload.get('hourly') or {}
-    times = hourly.get('time') or []
-    if not times or not game_dt_iso:
-        return None
-    try:
-        target = datetime.fromisoformat(game_dt_iso.replace('Z', '+00:00')).replace(tzinfo=None)
-    except Exception:
-        return None
-    best_idx = None
-    best_delta = None
-    for idx, t in enumerate(times):
-        try:
-            dt = datetime.fromisoformat(t)
-        except Exception:
-            continue
-        delta = abs((dt - target).total_seconds())
-        if best_delta is None or delta < best_delta:
-            best_delta = delta
-            best_idx = idx
-    if best_idx is None:
-        return None
-
-    def at(name):
-        vals = hourly.get(name) or []
-        return vals[best_idx] if best_idx < len(vals) else None
-
-    return {
-        'temp_f': _safe_float(at('temperature_2m')),
-        'wind_speed_mph': _safe_float(at('wind_speed_10m')),
-        'wind_direction': _safe_float(at('wind_direction_10m')),
-        'precip_prob': _safe_float(at('precipitation_probability')),
-        'humidity': _safe_float(at('relative_humidity_2m')),
-        'pressure': _safe_float(at('surface_pressure')),
-    }
-
-
-def _wind_scores(wind_speed, wind_direction, cf_bearing):
-    if wind_speed is None or wind_direction is None or cf_bearing is None:
-        return None, None, None
-    # Open-Meteo wind direction is where wind comes from; add 180 for where it blows.
-    blowing_to = (wind_direction + 180) % 360
-    diff = abs((blowing_to - cf_bearing + 180) % 360 - 180)
-    strength = min(1.0, max(0.0, wind_speed / 15.0))
-    along = math.cos(math.radians(diff)) * strength
-    cross = abs(math.sin(math.radians(diff))) * strength
-    return round(max(0.0, along), 2), round(max(0.0, -along), 2), round(cross, 2)
-
-
-def _weather_boosts(temp_f, wind_out, wind_in, precip_prob, roof_type):
-    if roof_type == 'fixed_dome':
-        return 0.0, 0.0
-    if temp_f is None and wind_out is None and wind_in is None and precip_prob is None:
-        return None, None
-    run_boost = 0.0
-    hr_boost = 0.0
-    if temp_f is not None:
-        run_boost += (temp_f - 70.0) / 100.0
-        hr_boost += (temp_f - 70.0) / 80.0
-    if wind_out is not None:
-        run_boost += wind_out * 0.08
-        hr_boost += wind_out * 0.15
-    if wind_in is not None:
-        run_boost -= wind_in * 0.06
-        hr_boost -= wind_in * 0.12
-    if precip_prob is not None and precip_prob >= 40:
-        run_boost -= 0.05
-        hr_boost -= 0.03
-    return round(max(-0.3, min(0.3, run_boost)), 3), round(max(-0.4, min(0.4, hr_boost)), 3)
-
-
-def fetch_weather_environment(schedule):
-    """Pregame-safe weather/roof context keyed by game_pk/date/home team."""
-    print("  Fetching weather/roof context (Open-Meteo, cached)...")
-    out = {}
-    fetched = 0
-    skipped = 0
-    for game in schedule:
-        game_key = game.get('game_pk') or f"{game.get('date')}|{game.get('home_team')}|{game.get('away_team')}"
-        if game_key in out:
-            continue
-        park_team = game.get('home_team') or (game.get('pitcher_team') if game.get('home_away') == 'H' else game.get('opponent'))
-        venue = VENUE_ENV.get(park_team)
-        if not venue:
-            out[game_key] = _empty_weather_env(game, 'Venue metadata unavailable')
-            skipped += 1
-            continue
-
-        roof_type = venue.get('roof_type')
-        if roof_type == 'fixed_dome':
-            out[game_key] = _empty_weather_env(game, 'Fixed dome; outdoor weather impact neutral')
-            skipped += 1
-            continue
-        if roof_type == 'retractable':
-            env = _empty_weather_env(game, 'Retractable roof; roof status unknown, weather impact not applied')
-            env['weather_source'] = 'static_venue'
-            out[game_key] = env
-            skipped += 1
-            continue
-
-        if not game.get('game_time') or venue.get('lat') is None or venue.get('lon') is None:
-            out[game_key] = _empty_weather_env(game, 'Missing game time or venue coordinates')
-            skipped += 1
-            continue
-
-        cache_key = re.sub(r'[^A-Za-z0-9_.-]+', '_', f"{game.get('date')}_{park_team}_{game.get('game_time')[:13]}")
-        payload = _load_weather_cache(cache_key)
-        if payload is None:
-            try:
-                resp = requests.get(
-                    'https://api.open-meteo.com/v1/forecast',
-                    params={
-                        'latitude': venue['lat'],
-                        'longitude': venue['lon'],
-                        'hourly': 'temperature_2m,relative_humidity_2m,precipitation_probability,surface_pressure,wind_speed_10m,wind_direction_10m',
-                        'temperature_unit': 'fahrenheit',
-                        'wind_speed_unit': 'mph',
-                        'precipitation_unit': 'inch',
-                        'timezone': 'UTC',
-                        'start_date': game['date'],
-                        'end_date': game['date'],
-                    },
-                    headers={'User-Agent': 'Mozilla/5.0'},
-                    timeout=12,
-                )
-                resp.raise_for_status()
-                payload = resp.json()
-                payload['_fetched_at'] = datetime.now().isoformat(timespec='seconds')
-                _save_weather_cache(cache_key, payload)
-                fetched += 1
-            except Exception as e:
-                out[game_key] = _empty_weather_env(game, f'Open-Meteo unavailable: {e}')
-                skipped += 1
-                continue
-
-        weather = _nearest_hourly_weather(payload, game.get('game_time'))
-        if not weather:
-            out[game_key] = _empty_weather_env(game, 'Open-Meteo hourly forecast unavailable for game time')
-            skipped += 1
-            continue
-
-        wind_out, wind_in, wind_cross = _wind_scores(
-            weather.get('wind_speed_mph'),
-            weather.get('wind_direction'),
-            venue.get('cf_bearing'),
-        )
-        run_boost, hr_boost = _weather_boosts(
-            weather.get('temp_f'), wind_out, wind_in, weather.get('precip_prob'), roof_type
-        )
-        note = 'Open-air park; Open-Meteo hourly forecast'
-        if venue.get('cf_bearing') is None:
-            note += '; CF bearing unavailable so directional wind scores are null'
-        out[game_key] = {
-            'game_datetime': game.get('game_time'),
-            'venue_name': game.get('venue_name') or venue.get('name'),
-            'venue_lat': venue.get('lat'),
-            'venue_lon': venue.get('lon'),
-            'roof_type': roof_type,
-            'roof_status': 'open',
-            'is_indoor_or_dome': False,
-            'weather_source': 'open-meteo',
-            'weather_snapshot_time': payload.get('_fetched_at'),
-            'weather_temp_f': weather.get('temp_f'),
-            'weather_wind_speed_mph': weather.get('wind_speed_mph'),
-            'weather_wind_direction': weather.get('wind_direction'),
-            'wind_out_to_cf_score': wind_out,
-            'wind_in_from_cf_score': wind_in,
-            'wind_cross_score': wind_cross,
-            'weather_precip_prob': weather.get('precip_prob'),
-            'weather_humidity': weather.get('humidity'),
-            'weather_pressure': weather.get('pressure'),
-            'weather_run_boost': run_boost,
-            'weather_hr_boost': hr_boost,
-            'weather_note': note,
-        }
-    print(f"    Weather context: {len(out)} games ({fetched} fetched, {skipped} skipped/static)")
     return out
 
 
@@ -1027,7 +749,6 @@ def fetch_completed_starts_for_date(date_iso, verbose=True):
                             'BB': stats.get('baseOnBalls', 0) or 0,
                             'K': stats.get('strikeOuts', 0) or 0,
                             'H': stats.get('hits', 0) or 0,
-                            'pitch_count': _extract_pitch_count(stats),
                             'decision': decision,
                         }
     if verbose:
@@ -1912,180 +1633,44 @@ def fetch_team_bullpens():
     return out
 
 
-def _extract_pitch_count(line_data):
-    """Return an exact pitch count when historical data contains one."""
-    if not isinstance(line_data, dict):
-        return None
-    for key in ('pitch_count', 'pitchCount', 'pitches', 'numberOfPitches', 'pitchesThrown'):
-        val = line_data.get(key)
-        try:
-            if val is not None and val != '':
-                return int(float(val))
-        except (ValueError, TypeError):
-            continue
-    return None
-
-
 def compute_pitcher_workload(predictions_dir, outcomes_log):
-    """Load prior-start workload history from our joined outcomes log.
-
-    This intentionally returns raw prior starts rather than target-game metrics.
-    Each prediction computes workload against its own game date so same-day
-    outcomes and future starts cannot leak into pregame features.
+    """Derive days-rest-since-last-start and last-start pitch count for each
+    pitcher from our own historical predictions+outcomes (no extra API calls).
+    Returns dict {normalized_name: {last_start_date, last_pitch_count, days_rest_to_next}}.
     """
-    del predictions_dir  # Kept in the signature for backwards compatibility.
     workload = {}
-    if not os.path.exists(outcomes_log):
-        return workload
 
-    try:
-        with open(outcomes_log) as f:
-            for line in f:
-                try:
-                    s = json.loads(line)
-                except Exception:
-                    continue
-                if s.get('no_start'):
-                    continue
-                pname = normalize_name(s.get('name', ''))
-                sdate = s.get('date')
-                if not pname or not sdate:
-                    continue
-                line_data = s.get('actual_line') or {}
-                ip = _safe_float(line_data.get('IP'))
-                if ip is None:
-                    continue
-                workload.setdefault(pname, []).append({
-                    'date': sdate,
-                    'ip': round(ip, 1),
-                    'pitch_count': _extract_pitch_count(line_data),
-                })
-    except Exception:
-        return workload
-
-    for pname, starts in list(workload.items()):
-        by_date = {}
-        for st in starts:
-            by_date[st.get('date', '')] = st
-        workload[pname] = sorted(by_date.values(), key=lambda st: st.get('date', ''))
+    # 1. Past outcomes give us actual start dates + IP (proxy for pitch count)
+    if os.path.exists(outcomes_log):
+        try:
+            with open(outcomes_log) as f:
+                for line in f:
+                    try:
+                        s = json.loads(line)
+                    except Exception:
+                        continue
+                    if s.get('no_start'):
+                        continue
+                    pname = normalize_name(s.get('name', ''))
+                    if not pname:
+                        continue
+                    sdate = s.get('date')
+                    if not sdate:
+                        continue
+                    line_data = s.get('actual_line') or {}
+                    ip = line_data.get('IP', 0) or 0
+                    # Approximate pitch count from IP: ~16 pitches/inning league avg
+                    approx_pc = round(ip * 16)
+                    prev = workload.get(pname)
+                    if prev is None or sdate > prev.get('last_start_date', '0'):
+                        workload[pname] = {
+                            'last_start_date': sdate,
+                            'last_ip': round(ip, 1),
+                            'last_pitch_count': approx_pc,
+                        }
+        except Exception:
+            pass
     return workload
-
-
-def _avg(values):
-    vals = [v for v in values if v is not None]
-    return round(sum(vals) / len(vals), 1) if vals else None
-
-
-def summarize_workload_for_start(workload_history, pitcher_norm, game_date):
-    """Compute pregame-safe workload/leash features for one target start."""
-    starts = [
-        st for st in (workload_history or {}).get(pitcher_norm, [])
-        if st.get('date') and st['date'] < game_date
-    ]
-    starts.sort(key=lambda st: st['date'])
-    empty = {
-        'days_rest': None,
-        'last_start_ip': None,
-        'last_start_pitch_count': None,
-        'last_pitch_count': None,  # Back-compat alias; exact only when available.
-        'avg_ip_last_3_starts': None,
-        'avg_pitch_count_last_3_starts': None,
-        'max_pitch_count_last_5_starts': None,
-        'season_avg_ip_per_start': None,
-        'season_avg_pitches_per_start': None,
-        'short_rest_flag': False,
-        'extra_rest_flag': False,
-        'workload_risk_score': 0.0,
-        'workload_note': 'No prior starts in outcome log before game date',
-    }
-    if not starts:
-        return empty
-
-    last = starts[-1]
-    last3 = starts[-3:]
-    last5 = starts[-5:]
-    season = game_date[:4]
-    season_starts = [st for st in starts if st.get('date', '').startswith(season)]
-
-    days_rest = None
-    try:
-        days_rest = (date.fromisoformat(game_date) - date.fromisoformat(last['date'])).days
-    except Exception:
-        pass
-
-    def _complete_pitch_counts(items):
-        vals = [st.get('pitch_count') for st in items]
-        return vals if vals and all(v is not None for v in vals) else None
-
-    last3_pitches = _complete_pitch_counts(last3)
-    last5_pitches = _complete_pitch_counts(last5)
-    season_pitches = _complete_pitch_counts(season_starts)
-
-    short_rest = days_rest is not None and days_rest < 5
-    extra_rest = days_rest is not None and days_rest >= 7
-    avg_ip_last3 = _avg([st.get('ip') for st in last3])
-    season_avg_ip = _avg([st.get('ip') for st in season_starts])
-    avg_pc_last3 = _avg(last3_pitches) if last3_pitches else None
-    max_pc_last5 = max(last5_pitches) if last5_pitches else None
-    season_avg_pc = _avg(season_pitches) if season_pitches else None
-
-    score = 0.0
-    reasons = []
-    if days_rest is not None:
-        reasons.append(f'{days_rest}d rest')
-    if short_rest:
-        score += 0.45
-        reasons.append('short rest')
-    elif extra_rest:
-        reasons.append('extra rest')
-
-    last_ip = last.get('ip')
-    if last_ip is not None:
-        reasons.append(f'last start {last_ip:.1f} IP')
-        if last_ip < 4.0:
-            score += 0.25
-            reasons.append('recent short outing')
-        elif last_ip >= 7.0:
-            score += 0.10
-            reasons.append('recent deep outing')
-    if avg_ip_last3 is not None:
-        if avg_ip_last3 < 4.5:
-            score += 0.25
-            reasons.append(f'last 3 avg {avg_ip_last3:.1f} IP')
-        elif avg_ip_last3 >= 6.5:
-            score += 0.10
-            reasons.append(f'last 3 avg {avg_ip_last3:.1f} IP')
-    if season_avg_ip is not None and season_avg_ip < 4.8:
-        score += 0.20
-        reasons.append(f'season avg {season_avg_ip:.1f} IP/start')
-    if avg_pc_last3 is not None and avg_pc_last3 >= 100:
-        score += 0.15
-        reasons.append(f'last 3 avg {avg_pc_last3:.0f} pitches')
-    if max_pc_last5 is not None and max_pc_last5 >= 105:
-        score += 0.25
-        reasons.append(f'max last 5 {max_pc_last5} pitches')
-    elif max_pc_last5 is not None and max_pc_last5 >= 95:
-        score += 0.10
-        reasons.append(f'max last 5 {max_pc_last5} pitches')
-
-    if last.get('pitch_count') is None:
-        reasons.append('exact pitch counts unavailable')
-
-    return {
-        'days_rest': days_rest,
-        'last_start_ip': last_ip,
-        'last_start_pitch_count': last.get('pitch_count'),
-        'last_pitch_count': last.get('pitch_count'),
-        'avg_ip_last_3_starts': avg_ip_last3,
-        'avg_pitch_count_last_3_starts': avg_pc_last3,
-        'max_pitch_count_last_5_starts': max_pc_last5,
-        'season_avg_ip_per_start': season_avg_ip,
-        'season_avg_pitches_per_start': season_avg_pc,
-        'short_rest_flag': short_rest,
-        'extra_rest_flag': extra_rest,
-        'workload_risk_score': round(max(0.0, min(1.0, score)), 2),
-        'workload_note': '; '.join(reasons[:5]) if reasons else '',
-    }
 
 
 # =============================================================================
@@ -2710,7 +2295,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                          global_emerging=None, espn_probables=None,
                          learned_biases=None, savant_advanced=None,
                          fg_pitching_plus=None, team_bullpens=None,
-                         pitcher_workload=None, weather_env=None):
+                         pitcher_workload=None):
     """Build the full streaming dataset for the week."""
     # Build lookup from FG name to ESPN match data
     espn_id_to_roster = roster_map or {}
@@ -2929,9 +2514,6 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         if learned_adj_total != 0:
             tier = classify_tier(final_pts - pitch_adj, pitch_matchup_score)
 
-        weather_key = game.get('game_pk') or f"{game.get('date')}|{game.get('home_team')}|{game.get('away_team')}"
-        wenv = (weather_env or {}).get(weather_key, _empty_weather_env(game, 'Weather context not loaded'))
-
         entry = {
             'date': game['date'], 'day': game['day'],
             'name': fg_name, 'team': pitcher_team,
@@ -2945,23 +2527,12 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                 for a in adjustments_applied
             ],
             'base_pts': round(adj_pts, 1),
-            'proj_gs': proj.get('GS'),
-            'proj_ip': proj.get('IP'),
-            'proj_h': proj.get('H'),
-            'proj_er': proj.get('ER'),
-            'proj_bb': proj.get('BB'),
-            'proj_so': proj.get('SO'),
-            'proj_w': proj.get('W'),
-            'proj_l': proj.get('L'),
             'era': round(proj['ERA'], 2), 'whip': round(proj['WHIP'], 3),
             'k9': round(proj['K9'], 1),
-            'bb9': round(proj['BB9'], 1),
             'opp_ops': f"{opp_ops:.3f}",
             'opp_ops_raw': f"{opp_stats.get('ops', league_avg_ops):.3f}",
             'opp_rank': opp_stats.get('ops_rank', 15),
             'opp_k_pct': f"{opp_stats.get('k_pct', 0.20):.1%}",
-            'opp_factor': round(opp_factor, 4),
-            'combined_factor': round(combined_factor, 4),
             'park': home_team,
             'park_factor': park_factor,
             'platoon': platoon,
@@ -2971,41 +2542,16 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'tag': tag,
             'trend': trend,
             'recent_era': round(recent['ERA'], 2) if recent else None,
-            'recent_ip': round(recent['IP'], 1) if recent else None,
-            'recent_k9': round(recent['K9'], 1) if recent else None,
             'fb_velo': details.get('fb_velo'),
             'pitch_count': details.get('pitch_count', 0),
             'status': status,
             'tbd': False,
             'tier': tier,
             'tier_label': TIER_LABELS.get(tier, ''),
-            'pitch_matchup_score': pitch_matchup_score,
             'pitch_analysis': pitch_analysis,
             'emerging': emerging,
             'opp_il': opp_il,
             'opp_il_returns': opp_il_returns,
-            # Weather / roof run environment (logging only)
-            'game_datetime': wenv.get('game_datetime'),
-            'venue_name': wenv.get('venue_name'),
-            'venue_lat': wenv.get('venue_lat'),
-            'venue_lon': wenv.get('venue_lon'),
-            'roof_type': wenv.get('roof_type'),
-            'roof_status': wenv.get('roof_status'),
-            'is_indoor_or_dome': wenv.get('is_indoor_or_dome'),
-            'weather_source': wenv.get('weather_source'),
-            'weather_snapshot_time': wenv.get('weather_snapshot_time'),
-            'weather_temp_f': wenv.get('weather_temp_f'),
-            'weather_wind_speed_mph': wenv.get('weather_wind_speed_mph'),
-            'weather_wind_direction': wenv.get('weather_wind_direction'),
-            'wind_out_to_cf_score': wenv.get('wind_out_to_cf_score'),
-            'wind_in_from_cf_score': wenv.get('wind_in_from_cf_score'),
-            'wind_cross_score': wenv.get('wind_cross_score'),
-            'weather_precip_prob': wenv.get('weather_precip_prob'),
-            'weather_humidity': wenv.get('weather_humidity'),
-            'weather_pressure': wenv.get('weather_pressure'),
-            'weather_run_boost': wenv.get('weather_run_boost'),
-            'weather_hr_boost': wenv.get('weather_hr_boost'),
-            'weather_note': wenv.get('weather_note'),
         }
 
         # Phase 2 enrichment: attach advanced features for auto-correlation
@@ -3017,9 +2563,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             fg_pp_key = f"{normalize_name(fg_name)}|{pitcher_team}"
             fpp = (fg_pitching_plus or {}).get(fg_pp_key, {})
             opp_bp = (team_bullpens or {}).get(opp, {})
-            wl = summarize_workload_for_start(
-                pitcher_workload, normalize_name(fg_name), game['date']
-            )
+            wl = (pitcher_workload or {}).get(normalize_name(fg_name), {})
 
             entry.update({
                 # Statcast advanced
@@ -3047,19 +2591,11 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                 'opp_bullpen_era': opp_bp.get('era'),
                 'opp_bullpen_whip': opp_bp.get('whip'),
                 # Workload
-                'days_rest': wl.get('days_rest'),
-                'last_start_ip': wl.get('last_start_ip'),
-                'last_start_pitch_count': wl.get('last_start_pitch_count'),
                 'last_pitch_count': wl.get('last_pitch_count'),
-                'avg_ip_last_3_starts': wl.get('avg_ip_last_3_starts'),
-                'avg_pitch_count_last_3_starts': wl.get('avg_pitch_count_last_3_starts'),
-                'max_pitch_count_last_5_starts': wl.get('max_pitch_count_last_5_starts'),
-                'season_avg_ip_per_start': wl.get('season_avg_ip_per_start'),
-                'season_avg_pitches_per_start': wl.get('season_avg_pitches_per_start'),
-                'short_rest_flag': wl.get('short_rest_flag'),
-                'extra_rest_flag': wl.get('extra_rest_flag'),
-                'workload_risk_score': wl.get('workload_risk_score'),
-                'workload_note': wl.get('workload_note'),
+                'days_rest': (
+                    (date.fromisoformat(game['date']) - date.fromisoformat(wl['last_start_date'])).days
+                    if wl.get('last_start_date') else None
+                ),
             })
         except Exception:
             pass
@@ -3745,17 +3281,15 @@ function renderAccuracy() {
   // yet auto-applied. Lets the user see what's about to kick in.
   if (LEARNED_CANDIDATES && LEARNED_CANDIDATES.length) {
     h += '<div class="day-card" style="margin:8px 0">';
-    h += '<div class="day-header"><span>Emerging signals (not yet applied)</span><span style="color:#777;font-size:11px">not active until sample, variance, and z-score checks pass</span></div>';
+    h += '<div class="day-header"><span>Emerging signals (not yet applied)</span><span style="color:#777;font-size:11px">close to significance — auto-activate when z &gt; threshold</span></div>';
     h += '<div style="padding:6px 16px">';
     LEARNED_CANDIDATES.forEach(function(b) {
       var dCls = b.mean > 0 ? 'opp-easy' : 'opp-hard';
-      var zText = (b.z === null || b.z === undefined) ? 'invalid' : b.z.toFixed(2);
-      var reason = b.ineligible_reason ? ' &middot; not eligible: ' + b.ineligible_reason : ' &middot; not eligible yet';
       h += '<div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px">';
       h += '<div style="opacity:0.85">' + b.label + '</div>';
       h += '<div style="color:#777;font-size:11px;margin-top:2px">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
       h += 'mean residual <span class="' + dCls + '">' + (b.mean >= 0 ? '+' : '') + (b.mean || 0).toFixed(2) + '</span> &middot; ';
-      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + zText + reason;
+      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + (b.z || 0).toFixed(2) + ' (need higher)';
       h += '</div></div>';
     });
     h += '</div></div>';
@@ -3768,17 +3302,14 @@ function renderAccuracy() {
     h += '<div class="day-header"><span>Active learned corrections</span><span style="color:#777;font-size:11px">' + biasKeys.length + ' bucket(s) auto-applied to predictions</span></div>';
     h += '<div style="padding:6px 16px">';
     var sortedBiases = biasKeys.map(function(k) { return LEARNED_BIASES[k]; })
-      .sort(function(a, b) { return Math.abs(b.applied_delta || 0) - Math.abs(a.applied_delta || 0); });
+      .sort(function(a, b) { return Math.abs(b.mean) - Math.abs(a.mean); });
     sortedBiases.forEach(function(b) {
       var dCls = b.mean > 0 ? 'opp-easy' : 'opp-hard';
-      var applied = b.applied_delta !== undefined ? b.applied_delta : b.mean;
-      var aCls = applied > 0 ? 'opp-easy' : 'opp-hard';
-      var zText = (b.z === null || b.z === undefined) ? 'invalid' : b.z.toFixed(2);
       h += '<div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px">';
       h += '<div>' + b.label + '</div>';
       h += '<div style="color:#777;font-size:11px;margin-top:2px">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
       h += 'mean residual <span class="' + dCls + '">' + (b.mean >= 0 ? '+' : '') + b.mean.toFixed(2) + '</span> &middot; ';
-      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + zText + ' &middot; applied <span class="' + aCls + '">' + (applied >= 0 ? '+' : '') + applied.toFixed(2) + '</span>';
+      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + (b.z || 0).toFixed(2);
       h += '</div></div>';
     });
     h += '</div></div>';
@@ -3881,285 +3412,6 @@ PARK_BRACKETS = [
 ]
 
 
-def _feature_meta(kind, logged_as=None, used_by=None, leakage_status='pregame_snapshot', description=''):
-    return {
-        'kind': kind,
-        'logged_as': logged_as,
-        'used_by': used_by or [],
-        'leakage_status': leakage_status,
-        'description': description,
-    }
-
-
-FEATURE_REGISTRY = {
-    # Top-level prediction record fields.
-    'logged_at': _feature_meta('prediction_field', 'top_level', ['audit'], 'run_metadata'),
-    'date': _feature_meta('prediction_field', 'top_level', ['outcome_join', 'audit'], 'pregame_schedule'),
-    'name': _feature_meta('prediction_field', 'top_level', ['outcome_join', 'learner', 'audit'], 'pregame_identity'),
-    'team': _feature_meta('prediction_field', 'top_level', ['audit'], 'pregame_schedule'),
-    'opponent': _feature_meta('prediction_field', 'top_level', ['report', 'audit'], 'pregame_schedule'),
-    'home_away': _feature_meta('prediction_field', 'top_level', ['scoring', 'learner'], 'pregame_schedule'),
-    'predicted_pts': _feature_meta('prediction_field', 'top_level', ['outcome_join', 'calibration'], 'model_output'),
-    'predicted_pts_raw': _feature_meta('prediction_field', 'top_level', ['learner'], 'model_output'),
-    'adj_total': _feature_meta('prediction_field', 'top_level', ['report', 'audit'], 'model_output'),
-    'adjustments': _feature_meta('prediction_field', 'top_level', ['report'], 'model_output'),
-    'base_pts': _feature_meta('prediction_field', 'top_level', ['report', 'audit'], 'model_output'),
-    'tier': _feature_meta('prediction_field', 'top_level', ['learner', 'report'], 'model_output'),
-    'status': _feature_meta('prediction_field', 'top_level', ['report'], 'pregame_roster'),
-    'features': _feature_meta('prediction_field', 'top_level', ['audit'], 'container'),
-
-    # Logged model/audit features.
-    'proj_gs': _feature_meta('feature', 'features', ['filtering', 'scoring'], 'pregame_projection'),
-    'proj_ip': _feature_meta('feature', 'features', ['scoring'], 'pregame_projection'),
-    'proj_h': _feature_meta('feature', 'features', ['scoring'], 'pregame_projection'),
-    'proj_er': _feature_meta('feature', 'features', ['scoring'], 'pregame_projection'),
-    'proj_bb': _feature_meta('feature', 'features', ['scoring'], 'pregame_projection'),
-    'proj_so': _feature_meta('feature', 'features', ['scoring'], 'pregame_projection'),
-    'proj_w': _feature_meta('feature', 'features', ['scoring'], 'pregame_projection'),
-    'proj_l': _feature_meta('feature', 'features', ['scoring'], 'pregame_projection'),
-    'proj_era': _feature_meta('feature', 'features', ['scoring', 'learner'], 'pregame_projection'),
-    'proj_whip': _feature_meta('feature', 'features', ['tagging', 'learner'], 'pregame_projection'),
-    'proj_k9': _feature_meta('feature', 'features', ['tagging', 'learner'], 'pregame_projection'),
-    'proj_bb9': _feature_meta('feature', 'features', ['tagging'], 'pregame_projection'),
-    'opp_ops': _feature_meta('feature', 'features', ['scoring', 'report'], 'pregame_snapshot'),
-    'opp_ops_raw': _feature_meta('feature', 'features', ['audit', 'report'], 'pregame_snapshot'),
-    'opp_rank': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
-    'opp_k_pct': _feature_meta('feature', 'features', ['report'], 'pregame_snapshot'),
-    'opp_factor': _feature_meta('feature', 'features', ['scoring'], 'derived_pregame'),
-    'combined_factor': _feature_meta('feature', 'features', ['scoring'], 'derived_pregame'),
-    'park_factor': _feature_meta('feature', 'features', ['scoring', 'learner', 'report'], 'pregame_static'),
-    'park': _feature_meta('feature', 'features', ['report'], 'pregame_schedule'),
-    'platoon': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
-    'opp_hand': _feature_meta('feature', 'features', ['platoon', 'report'], 'pregame_snapshot'),
-    'vs_l_ops': _feature_meta('feature', 'features', ['platoon', 'report'], 'pregame_snapshot'),
-    'vs_r_ops': _feature_meta('feature', 'features', ['platoon', 'report'], 'pregame_snapshot'),
-    'vs_l_ops_num': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'vs_r_ops_num': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'splits_window_years': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
-    'splits_l_r_diff': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'tag': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_projection'),
-    'trend': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
-    'recent_era': _feature_meta('feature', 'features', ['trend', 'learner', 'report'], 'pregame_snapshot'),
-    'recent_ip': _feature_meta('feature', 'features', ['emerging'], 'pregame_snapshot'),
-    'recent_k9': _feature_meta('feature', 'features', ['trend', 'emerging'], 'pregame_snapshot'),
-    'fb_velo': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
-    'pitch_count': _feature_meta('feature', 'features', ['learner', 'report'], 'pregame_snapshot'),
-    'pitch_matchup_score': _feature_meta('feature', 'features', ['scoring', 'tier'], 'pregame_snapshot'),
-    'emerging': _feature_meta('feature', 'features', ['report'], 'pregame_snapshot'),
-    'opp_il_count': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'opp_il_returns_count': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'game_datetime': _feature_meta('feature', 'features', ['audit'], 'pregame_schedule'),
-    'venue_name': _feature_meta('feature', 'features', ['audit'], 'pregame_schedule'),
-    'venue_lat': _feature_meta('feature', 'features', ['audit'], 'static_venue'),
-    'venue_lon': _feature_meta('feature', 'features', ['audit'], 'static_venue'),
-    'roof_type': _feature_meta('feature', 'features', ['audit'], 'static_venue'),
-    'roof_status': _feature_meta('feature', 'features', ['audit'], 'pregame_roof'),
-    'is_indoor_or_dome': _feature_meta('feature', 'features', ['audit'], 'pregame_roof'),
-    'weather_source': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'weather_snapshot_time': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'weather_temp_f': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'weather_wind_speed_mph': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'weather_wind_direction': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'wind_out_to_cf_score': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'wind_in_from_cf_score': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'wind_cross_score': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'weather_precip_prob': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'weather_humidity': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'weather_pressure': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'weather_run_boost': _feature_meta('feature', 'features', ['audit'], 'derived_pregame_weather'),
-    'weather_hr_boost': _feature_meta('feature', 'features', ['audit'], 'derived_pregame_weather'),
-    'weather_note': _feature_meta('feature', 'features', ['audit'], 'pregame_weather'),
-    'xera': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'xwoba': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'xba': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'xslg': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'barrel_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'hard_hit_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'whiff_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'k_pct_savant': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'bb_pct_savant': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'chase_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'gb_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'fb_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'ld_pct': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'stuff_plus': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'location_plus': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'pitching_plus': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'fip': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'xfip': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'siera': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'opp_bullpen_era': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'opp_bullpen_whip': _feature_meta('feature', 'features', ['learner'], 'pregame_snapshot'),
-    'days_rest': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'last_start_ip': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'last_start_pitch_count': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'last_pitch_count': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'avg_ip_last_3_starts': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'avg_pitch_count_last_3_starts': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'max_pitch_count_last_5_starts': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'season_avg_ip_per_start': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'season_avg_pitches_per_start': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'short_rest_flag': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'extra_rest_flag': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'workload_risk_score': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-    'workload_note': _feature_meta('feature', 'features', ['audit'], 'pregame_historical'),
-
-}
-
-
-def _prediction_jsonl_files(max_files=5):
-    if not os.path.isdir(PREDICTIONS_DIR):
-        return []
-    files = [
-        os.path.join(PREDICTIONS_DIR, fn)
-        for fn in os.listdir(PREDICTIONS_DIR)
-        if fn.endswith('.jsonl') and re.match(r'^\d{4}-\d{2}-\d{2}\.jsonl$', fn)
-    ]
-    return sorted(files, reverse=True)[:max_files]
-
-
-def _load_recent_prediction_records(max_files=5):
-    records = []
-    files = _prediction_jsonl_files(max_files=max_files)
-    for path in files:
-        try:
-            with open(path) as f:
-                for line in f:
-                    try:
-                        records.append(json.loads(line))
-                    except Exception:
-                        continue
-        except Exception:
-            continue
-    return records, files
-
-
-def _nullish(value):
-    return value is None or value == '' or value == '?' or value == [] or value == {}
-
-
-def _probably_uncommittable_generated(path):
-    path = path.strip()
-    local_only = (
-        path == '.DS_Store' or
-        path.endswith('/.DS_Store') or
-        path.endswith('.pyc') or
-        '__pycache__/' in path or
-        path in ('tracker_report.html', 'engine/tracker_report.html') or
-        path in ('engine/tracker_config.json', 'engine/.ft-report-password') or
-        path.startswith('engine/predictions/.processed/')
-    )
-    return local_only
-
-
-def _modified_generated_cache_files():
-    try:
-        import subprocess
-        result = subprocess.run(
-            ['git', 'status', '--porcelain', '--untracked-files=all'],
-            cwd=os.path.dirname(SCRIPT_DIR),
-            capture_output=True, text=True, timeout=30,
-        )
-    except Exception as e:
-        return [f'git status unavailable: {e}']
-    if result.returncode != 0:
-        return [f'git status unavailable: {result.stderr.strip() or "non-zero exit"}']
-
-    flagged = []
-    for line in result.stdout.splitlines():
-        if not line:
-            continue
-        path = line[3:].strip()
-        if ' -> ' in path:
-            path = path.split(' -> ', 1)[1].strip()
-        if _probably_uncommittable_generated(path):
-            flagged.append(line)
-    return flagged
-
-
-def _print_audit_section(title, items, empty_msg='None'):
-    print(f"\n{title}")
-    if not items:
-        print(f"  {empty_msg}")
-        return
-    for item in items:
-        print(f"  - {item}")
-
-
-def audit_features(max_prediction_files=5, null_threshold=0.70):
-    records, files = _load_recent_prediction_records(max_files=max_prediction_files)
-    observed_top = set()
-    observed_features = set()
-    feature_values = {}
-
-    for rec in records:
-        observed_top.update(rec.keys())
-        features = rec.get('features') or {}
-        if isinstance(features, dict):
-            observed_features.update(features.keys())
-            for key, value in features.items():
-                feature_values.setdefault(key, []).append(value)
-
-    logged_registry_features = {
-        name for name, meta in FEATURE_REGISTRY.items()
-        if meta.get('kind') == 'feature' and meta.get('logged_as') == 'features'
-    }
-    used_registry_features = {
-        name for name, meta in FEATURE_REGISTRY.items()
-        if meta.get('kind') in ('feature', 'derived_feature') and meta.get('used_by')
-    }
-
-    features_used_not_logged = sorted(
-        name for name in used_registry_features
-        if not FEATURE_REGISTRY[name].get('logged_as')
-    )
-    features_logged_not_used = sorted(
-        name for name in observed_features
-        if not FEATURE_REGISTRY.get(name, {}).get('used_by')
-    )
-    unknown_leakage = sorted(
-        name for name, meta in FEATURE_REGISTRY.items()
-        if meta.get('kind') in ('feature', 'derived_feature', 'prediction_field')
-        and meta.get('leakage_status') in (None, '', 'unknown')
-    )
-    missing_registry_fields = sorted(
-        [name for name in observed_top if name not in FEATURE_REGISTRY] +
-        [f'features.{name}' for name in observed_features if name not in FEATURE_REGISTRY]
-    )
-    registry_missing_recent = sorted(logged_registry_features - observed_features)
-
-    null_heavy = []
-    total_records = len(records)
-    if total_records:
-        for name in sorted(observed_features):
-            values = feature_values.get(name, [])
-            null_count = sum(1 for value in values if _nullish(value))
-            missing_count = total_records - len(values)
-            null_rate = (null_count + missing_count) / total_records
-            if null_rate >= null_threshold:
-                null_heavy.append(f'{name}: {null_rate:.0%} null/missing ({null_count + missing_count}/{total_records})')
-
-    print("FEATURE AUDIT")
-    print("=" * 60)
-    print(f"Registry entries: {len(FEATURE_REGISTRY)}")
-    print(f"Prediction files scanned: {len(files)}")
-    for path in files:
-        print(f"  - {os.path.relpath(path, os.path.dirname(SCRIPT_DIR))}")
-    print(f"Prediction records scanned: {len(records)}")
-    print(f"Observed feature fields: {len(observed_features)}")
-
-    _print_audit_section("Features used but not logged", features_used_not_logged)
-    _print_audit_section("Features logged but not used", features_logged_not_used)
-    _print_audit_section("Features with unknown leakage status", unknown_leakage)
-    _print_audit_section("Prediction log fields missing from registry", missing_registry_fields)
-    _print_audit_section("Registry features missing from recent predictions", registry_missing_recent)
-    _print_audit_section(f"Null-heavy features (threshold >= {null_threshold:.0%})", null_heavy)
-    _print_audit_section(
-        "Generated/cache files modified but probably should not be committed",
-        _modified_generated_cache_files(),
-    )
-
-
 def log_prediction(entry):
     """Buffer a game-level prediction in memory; write to disk via
     flush_predictions() at the end of the run. Latest run wins for the same
@@ -4191,25 +3443,14 @@ def log_prediction(entry):
             'status': entry.get('status'),
             'features': {
                 # Core projection
-                'proj_gs': entry.get('proj_gs'),
-                'proj_ip': entry.get('proj_ip'),
-                'proj_h': entry.get('proj_h'),
-                'proj_er': entry.get('proj_er'),
-                'proj_bb': entry.get('proj_bb'),
-                'proj_so': entry.get('proj_so'),
-                'proj_w': entry.get('proj_w'),
-                'proj_l': entry.get('proj_l'),
                 'proj_era': entry.get('era'),
                 'proj_whip': entry.get('whip'),
                 'proj_k9': entry.get('k9'),
-                'proj_bb9': entry.get('bb9'),
                 # Matchup
                 'opp_ops': entry.get('opp_ops'),
                 'opp_ops_raw': entry.get('opp_ops_raw'),
                 'opp_rank': entry.get('opp_rank'),
                 'opp_k_pct': entry.get('opp_k_pct'),
-                'opp_factor': entry.get('opp_factor'),
-                'combined_factor': entry.get('combined_factor'),
                 'park_factor': entry.get('park_factor'),
                 'park': entry.get('park'),
                 'platoon': entry.get('platoon'),
@@ -4228,36 +3469,11 @@ def log_prediction(entry):
                 'tag': entry.get('tag'),
                 'trend': entry.get('trend'),
                 'recent_era': entry.get('recent_era'),
-                'recent_ip': entry.get('recent_ip'),
-                'recent_k9': entry.get('recent_k9'),
                 'fb_velo': entry.get('fb_velo'),
                 'pitch_count': entry.get('pitch_count'),
-                'pitch_matchup_score': entry.get('pitch_matchup_score'),
                 'emerging': entry.get('emerging'),
                 'opp_il_count': len(entry.get('opp_il', []) or []),
                 'opp_il_returns_count': len(entry.get('opp_il_returns', []) or []),
-                # Weather / roof run environment
-                'game_datetime': entry.get('game_datetime'),
-                'venue_name': entry.get('venue_name'),
-                'venue_lat': entry.get('venue_lat'),
-                'venue_lon': entry.get('venue_lon'),
-                'roof_type': entry.get('roof_type'),
-                'roof_status': entry.get('roof_status'),
-                'is_indoor_or_dome': entry.get('is_indoor_or_dome'),
-                'weather_source': entry.get('weather_source'),
-                'weather_snapshot_time': entry.get('weather_snapshot_time'),
-                'weather_temp_f': entry.get('weather_temp_f'),
-                'weather_wind_speed_mph': entry.get('weather_wind_speed_mph'),
-                'weather_wind_direction': entry.get('weather_wind_direction'),
-                'wind_out_to_cf_score': entry.get('wind_out_to_cf_score'),
-                'wind_in_from_cf_score': entry.get('wind_in_from_cf_score'),
-                'wind_cross_score': entry.get('wind_cross_score'),
-                'weather_precip_prob': entry.get('weather_precip_prob'),
-                'weather_humidity': entry.get('weather_humidity'),
-                'weather_pressure': entry.get('weather_pressure'),
-                'weather_run_boost': entry.get('weather_run_boost'),
-                'weather_hr_boost': entry.get('weather_hr_boost'),
-                'weather_note': entry.get('weather_note'),
                 # Statcast advanced (Phase 2)
                 'xera': entry.get('xera'),
                 'xwoba': entry.get('xwoba'),
@@ -4283,18 +3499,7 @@ def log_prediction(entry):
                 'opp_bullpen_era': entry.get('opp_bullpen_era'),
                 'opp_bullpen_whip': entry.get('opp_bullpen_whip'),
                 'days_rest': entry.get('days_rest'),
-                'last_start_ip': entry.get('last_start_ip'),
-                'last_start_pitch_count': entry.get('last_start_pitch_count'),
                 'last_pitch_count': entry.get('last_pitch_count'),
-                'avg_ip_last_3_starts': entry.get('avg_ip_last_3_starts'),
-                'avg_pitch_count_last_3_starts': entry.get('avg_pitch_count_last_3_starts'),
-                'max_pitch_count_last_5_starts': entry.get('max_pitch_count_last_5_starts'),
-                'season_avg_ip_per_start': entry.get('season_avg_ip_per_start'),
-                'season_avg_pitches_per_start': entry.get('season_avg_pitches_per_start'),
-                'short_rest_flag': entry.get('short_rest_flag'),
-                'extra_rest_flag': entry.get('extra_rest_flag'),
-                'workload_risk_score': entry.get('workload_risk_score'),
-                'workload_note': entry.get('workload_note'),
             },
         }
         # Buffer in memory; flush_predictions() writes one JSONL per date at
@@ -4563,18 +3768,12 @@ def _residual_stats(samples, residual_key='residual_raw'):
         return None
     mean = sum(rs) / n
     if n < 2:
-        return {'n': n, 'mean': round(mean, 2), 'std': 0.0, 'se': None, 'z': None}
+        return {'n': n, 'mean': round(mean, 2), 'std': 0.0, 'z': 0.0}
     var = sum((r - mean) ** 2 for r in rs) / (n - 1)
     std = var ** 0.5
-    se = std / (n ** 0.5) if std >= MIN_RESIDUAL_STD else None
-    z = mean / se if se and se > 0 else None
-    return {
-        'n': n,
-        'mean': round(mean, 2),
-        'std': round(std, 2),
-        'se': round(se, 4) if se is not None else None,
-        'z': round(z, 2) if z is not None and math.isfinite(z) else None,
-    }
+    se = std / (n ** 0.5)
+    z = mean / se if se > 0 else 0.0
+    return {'n': n, 'mean': round(mean, 2), 'std': round(std, 2), 'z': round(z, 2)}
 
 
 def _load_outcomes_for_learning():
@@ -4597,14 +3796,7 @@ def _load_outcomes_for_learning():
     return out
 
 
-GENERAL_BUCKET_MIN_SAMPLES = 20
-TREND_BUCKET_MIN_SAMPLES = 20
-PITCHER_BUCKET_MIN_SAMPLES = 12
-MIN_RESIDUAL_STD = 1.0
-MAX_REASONABLE_ABS_Z = 8.0
-MAX_LEARNED_ADJUSTMENT = 5.0
-GENERAL_SHRINKAGE_N = 60
-PITCHER_SHRINKAGE_N = 48
+MAX_BUCKET_DELTA = 2.0   # cap any single bucket's adjustment at ±2 pts
 NUMERIC_AUTO_BUCKET_FEATURES = [
     # Core projection features
     'proj_era', 'proj_whip', 'proj_k9',
@@ -4662,35 +3854,34 @@ def _auto_bucket_continuous(samples, fname, n_buckets=4):
     return out
 
 
-def compute_learned_biases(min_samples=GENERAL_BUCKET_MIN_SAMPLES, min_abs_delta=0.5, base_alpha=0.01):
+def compute_learned_biases(min_samples=12, min_abs_delta=0.5, base_alpha=0.01):
     """Scan accumulated outcomes for systematic biases in feature buckets.
 
     Statistical rigor (so we don't fire on noise):
       - Multiple-comparisons correction: z threshold scales with #buckets tested
-        via approximate Bonferroni. With 50 tests at α=0.01, effective z ≈ 4.1.
+        via approximate Bonferroni. With 50 tests at α=0.01, effective z ≈ 3.0.
         With more features, the bar gets stricter — protects against the
         "data dredging" failure mode.
-      - Each bucket's adjustment is shrunk toward zero, then clamped to
-        ±MAX_LEARNED_ADJUSTMENT, so no single correlation can dominate.
-      - Per-pitcher buckets require a larger sample than before and get
-        stronger shrinkage because individual starts are noisy.
+      - Each bucket's adjustment is clamped to ±MAX_BUCKET_DELTA, so no single
+        noisy correlation can dominate a prediction.
+      - Per-pitcher buckets evaluated separately (n>=3) since individual
+        pitchers accrue starts slowly; they get a higher delta floor.
     """
     samples = _load_outcomes_for_learning()
     if not samples:
         return {}
 
     biases = {}
-    candidates = []  # close to threshold, too-small, or otherwise ineligible
+    candidates = []  # (key, stats, basis, label) — close to threshold but not yet
     test_count = 0
 
     def passes_threshold(z, n_tests):
-        if z is None or not isinstance(z, (int, float)) or not math.isfinite(z) or abs(z) > MAX_REASONABLE_ABS_Z:
-            return False
         # Bonferroni-style: more tests → higher bar. Floor at 2.5 for sanity.
         if n_tests <= 1:
             return abs(z) >= 2.5
         # Approx z for Bonferroni-corrected α/n_tests, two-tailed.
-        # For α=0.01 and ~50 tests: z ≈ 4.1. For ~100 tests: z ≈ 4.3.
+        # For α=0.01 and ~50 tests: z ≈ 3.0. For ~100 tests: z ≈ 3.3.
+        import math
         # Use simple formula z = sqrt(2 * ln(n_tests / α))
         try:
             corrected_z = math.sqrt(2 * math.log(n_tests / base_alpha))
@@ -4698,66 +3889,26 @@ def compute_learned_biases(min_samples=GENERAL_BUCKET_MIN_SAMPLES, min_abs_delta
             corrected_z = 3.0
         return abs(z) >= max(2.5, corrected_z)
 
-    def min_n_for_basis(basis):
-        if basis == 'pitcher':
-            return max(PITCHER_BUCKET_MIN_SAMPLES, 12)
-        if basis == 'trend':
-            return max(TREND_BUCKET_MIN_SAMPLES, 20)
-        return max(min_samples, GENERAL_BUCKET_MIN_SAMPLES, 20)
-
-    def shrink_delta(mean, n, basis):
-        shrink_n = PITCHER_SHRINKAGE_N if basis == 'pitcher' else GENERAL_SHRINKAGE_N
-        shrunk = mean * (n / (n + shrink_n)) if n > 0 else 0.0
-        return round(max(-MAX_LEARNED_ADJUSTMENT, min(MAX_LEARNED_ADJUSTMENT, shrunk)), 2)
-
-    def ineligible_reasons(st, basis, n_tests, min_abs):
-        reasons = []
-        min_n = min_n_for_basis(basis)
-        if st['n'] < min_n:
-            reasons.append(f'n<{min_n}')
-        if abs(st['mean']) < min_abs:
-            reasons.append(f'|mean|<{min_abs}')
-        if st.get('std') is None or st.get('std') < MIN_RESIDUAL_STD:
-            reasons.append(f'std<{MIN_RESIDUAL_STD:g}')
-        se = st.get('se')
-        if se is None or not isinstance(se, (int, float)) or not math.isfinite(se) or se <= 0:
-            reasons.append('invalid standard error')
-        z = st.get('z')
-        if z is None or not isinstance(z, (int, float)) or not math.isfinite(z):
-            reasons.append('invalid z-score')
-        elif abs(z) > MAX_REASONABLE_ABS_Z:
-            reasons.append(f'abs(z)>{MAX_REASONABLE_ABS_Z:g}')
-        elif not passes_threshold(z, n_tests):
-            reasons.append('z below activation threshold')
-        return reasons
-
-    def maybe_add(key, bucket, basis, label_tmpl, min_abs=None):
+    def maybe_add(key, bucket, basis, label_tmpl):
         nonlocal test_count
         test_count += 1
-        min_abs = min_abs_delta if min_abs is None else min_abs
         st = _residual_stats(bucket)
-        if not st:
+        if not st or st['n'] < min_samples:
             return
+        if abs(st['mean']) < min_abs_delta:
+            return
+        # We track candidates separately: 1.5 < |z| < threshold so the user
+        # can see what's "almost there"
         label = label_tmpl.format(delta=st['mean'], n=st['n'])
         rec = {**st, 'basis': basis, 'key': key, 'label': label}
-        reasons = ineligible_reasons(st, basis, 50, min_abs)
-        if reasons:
-            rec['eligible'] = False
-            rec['ineligible_reason'] = ', '.join(reasons)
-            # Preserve visibility for interesting-but-unsafe buckets, including
-            # small-n and zero-variance cases that used to auto-activate.
-            if abs(st['mean']) >= min_abs and st['n'] >= max(3, min_n_for_basis(basis) // 2):
-                rec['applied_delta'] = 0.0
-                candidates.append(rec)
-            elif st.get('z') is not None and abs(st['z']) >= 1.5:
-                rec['applied_delta'] = 0.0
-                candidates.append(rec)
+        if abs(st.get('z', 0)) >= 1.5 and not passes_threshold(st['z'], 50):
+            # close but not yet — surface as candidate
+            candidates.append(rec)
+        if not passes_threshold(st.get('z', 0), 50):
             return
-
-        applied_delta = shrink_delta(st['mean'], st['n'], basis)
-        rec['eligible'] = True
-        rec['applied_delta'] = applied_delta
-        # Keep mean as the actual residual mean for accurate display.
+        # Clamp delta magnitude
+        clamped = max(-MAX_BUCKET_DELTA, min(MAX_BUCKET_DELTA, st['mean']))
+        rec['mean'] = clamped
         biases[key] = rec
 
     # 1. Per-tier bias
@@ -4806,20 +3957,32 @@ def compute_learned_biases(min_samples=GENERAL_BUCKET_MIN_SAMPLES, min_abs_delta
         maybe_add(f'home_away_{ha}', bucket, 'home_away',
                    f'{"home" if ha == "H" else "road"} starts: {{delta:+.1f}} pts (n={{n}})')
 
-    # 8. Per-pitcher: requires a larger sample and valid variance. Small
-    # samples with huge/invalid z-scores are surfaced as ineligible candidates.
+    # 8. Per-pitcher: ≥3 starts AND z-score >= 2.0 (no longer auto-fires
+    #    on any pitcher with high mean — small samples with high variance
+    #    are rejected by the statistical check)
     by_pitcher = {}
     for s in samples:
         nm = normalize_name(s.get('name', ''))
         if nm:
             by_pitcher.setdefault(nm, []).append(s)
     for nm, bucket in by_pitcher.items():
+        test_count += 1
+        if len(bucket) < 5:
+            continue
+        st = _residual_stats(bucket)
+        if not st or abs(st['mean']) < 0.8:
+            continue
         display_name = bucket[-1].get('name', nm)
-        maybe_add(
-            f'pitcher_{nm}', bucket, 'pitcher',
-            f'{display_name} historically {{delta:+.1f}} pts vs prediction (n={{n}})',
-            min_abs=0.8,
-        )
+        rec = {
+            **st, 'basis': 'pitcher', 'key': f'pitcher_{nm}',
+            'label': f'{display_name} historically {st["mean"]:+.1f} pts vs prediction (n={st["n"]})',
+        }
+        # Per-pitcher uses slightly looser bar (z>=2.0) since data is sparse
+        if abs(st.get('z', 0)) >= 2.0:
+            rec['mean'] = max(-MAX_BUCKET_DELTA, min(MAX_BUCKET_DELTA, st['mean']))
+            biases[f'pitcher_{nm}'] = rec
+        elif abs(st.get('z', 0)) >= 1.2:
+            candidates.append(rec)
 
     # 9. Auto-discover correlations in any numeric feature we have data on.
     #    This is the engine that finds unexpected signals: drop any new feature
@@ -4831,8 +3994,8 @@ def compute_learned_biases(min_samples=GENERAL_BUCKET_MIN_SAMPLES, min_abs_delta
             maybe_add(key, bucket, f'auto:{fname}',
                       f'when {lbl}: {{delta:+.1f}} pts (n={{n}})')
 
-    # Sort candidates (close-to-significant or unsafe) by |z| then |mean|.
-    candidates.sort(key=lambda c: (-(abs(c.get('z') or 0)), -(abs(c.get('mean') or 0))))
+    # Sort candidates (close-to-significant) by |z| desc, keep top 12 for display
+    candidates.sort(key=lambda c: -abs(c.get('z', 0)))
     return {
         'biases': biases,
         'candidates': candidates[:12],
@@ -4884,7 +4047,7 @@ def apply_learned_biases(entry, biases, damping=0.6):
     pkey = f'pitcher_{pname}'
     if pkey in biases:
         b = dict(biases[pkey])
-        b['delta_applied'] = b.get('applied_delta', b.get('mean', 0.0))
+        b['delta_applied'] = b['mean']
         applied.append(b)
 
     # Categorical buckets — collect all that apply
@@ -4934,8 +4097,7 @@ def apply_learned_biases(entry, biases, damping=0.6):
         scale = 1.0 if len(bucket_hits) == 1 else damping
         for b in bucket_hits:
             b2 = dict(b)
-            base_delta = b.get('applied_delta', b.get('mean', 0.0))
-            b2['delta_applied'] = round(base_delta * scale, 2)
+            b2['delta_applied'] = round(b['mean'] * scale, 2)
             applied.append(b2)
 
     total = round(sum(b['delta_applied'] for b in applied), 2)
@@ -5137,13 +4299,7 @@ def main():
     parser = argparse.ArgumentParser(description='Fantasy Baseball In-Season Tracker')
     parser.add_argument('--setup', action='store_true', help='Configure ESPN authentication')
     parser.add_argument('--top', type=int, default=30, help='Show top N in console')
-    parser.add_argument('--audit-features', action='store_true',
-                        help='Audit feature registry coverage using recent prediction logs')
     args = parser.parse_args()
-
-    if args.audit_features:
-        audit_features()
-        return
 
     if args.setup:
         run_setup()
@@ -5179,16 +4335,11 @@ def main():
             # recompute returns empty, we want predictions to NOT use stale
             # corrections from old/looser thresholds.
             save_learned_biases(learned_biases)
-            def fmt_z(rec):
-                z = rec.get('z')
-                return f'{z:.2f}' if isinstance(z, (int, float)) and math.isfinite(z) else 'invalid'
             for k, b in sorted(learned_biases.items(),
-                               key=lambda kv: -abs(kv[1].get('applied_delta', kv[1].get('mean', 0))))[:6]:
-                print(f"    [active]    {b.get('label', k)}  (z={fmt_z(b)})")
+                               key=lambda kv: -abs(kv[1].get('mean', 0)))[:6]:
+                print(f"    [active]    {b.get('label', k)}  (z={b.get('z', 0):.2f})")
             for c in learned_candidates[:4]:
-                reason = c.get('ineligible_reason')
-                suffix = f"; not eligible: {reason}" if reason else ""
-                print(f"    [candidate] {c.get('label', '')}  (z={fmt_z(c)}{suffix})")
+                print(f"    [candidate] {c.get('label', '')}  (z={c.get('z', 0):.2f})")
         else:
             # Old return shape (just dict of biases) — support legacy
             learned_biases = result or {}
@@ -5320,7 +4471,6 @@ def main():
         today_lines = fetch_todays_completed_starts()
         blend_today_into_recent(recent_form, today_lines, baseline_recent=prior_day_recent)
         schedule = fetch_weekly_schedule(week_start, week_end)
-        weather_env = fetch_weather_environment(schedule)
         espn_probables = fetch_espn_probables(week_start, week_end)
         projected_team_ops = fetch_fg_projected_team_batting()
         team_offense, league_avg_ops = fetch_team_offense(projected_team_ops)
@@ -5362,7 +4512,6 @@ def main():
             fg_pitching_plus=fg_pitching_plus,
             team_bullpens=team_bullpens,
             pitcher_workload=pitcher_workload,
-            weather_env=weather_env,
         )
         fa_count = sum(1 for s in streaming_data if s.get('status') == 'FA' and not s.get('tbd'))
         mine_count = sum(1 for s in streaming_data if s.get('status') == 'MY ROSTER')

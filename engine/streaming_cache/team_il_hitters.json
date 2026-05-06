@@ -1,4 +1,12 @@
 {
+  "DET": [
+    {
+      "name": "Gleyber Torres",
+      "rank": 159,
+      "dollars": 4.9,
+      "il_type": "IL-10-Day"
+    }
+  ],
   "LAD": [
     {
       "name": "Mookie Betts",
