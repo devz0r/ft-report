@@ -1,49 +1,40 @@
 {
   "biases": {
-    "auto_bb_pct_savant_9.40_inf": {
-      "basis": "auto:bb_pct_savant",
-      "key": "auto_bb_pct_savant_9.40_inf",
-      "label": "when bb_pct_savant \u2265 9.40: +6.7 pts (n=24)",
-      "mean": 2.0,
-      "n": 24,
-      "std": 6.22,
-      "z": 5.26
-    },
-    "auto_hard_hit_pct_39.20_42.20": {
-      "basis": "auto:hard_hit_pct",
-      "key": "auto_hard_hit_pct_39.20_42.20",
-      "label": "when hard_hit_pct in [39.20, 42.20): +7.1 pts (n=17)",
-      "mean": 2.0,
-      "n": 17,
-      "std": 6.37,
-      "z": 4.59
-    },
     "auto_park_factor_1.00_1.03": {
       "basis": "auto:park_factor",
       "key": "auto_park_factor_1.00_1.03",
-      "label": "when park_factor in [1.00, 1.03): -4.9 pts (n=78)",
-      "mean": -2.0,
-      "n": 78,
-      "std": 10.31,
-      "z": -4.2
-    },
-    "auto_recent_era_5.35_inf": {
-      "basis": "auto:recent_era",
-      "key": "auto_recent_era_5.35_inf",
-      "label": "when recent_era \u2265 5.35: -6.7 pts (n=79)",
+      "label": "when park_factor in [1.00, 1.03): -5.0 pts (n=79)",
       "mean": -2.0,
       "n": 79,
-      "std": 11.42,
+      "std": 10.29,
+      "z": -4.33
+    },
+    "auto_recent_era_5.11_inf": {
+      "basis": "auto:recent_era",
+      "key": "auto_recent_era_5.11_inf",
+      "label": "when recent_era \u2265 5.11: -6.6 pts (n=82)",
+      "mean": -2.0,
+      "n": 82,
+      "std": 11.46,
       "z": -5.23
     },
     "auto_vs_r_ops_num_0.62_0.72": {
       "basis": "auto:vs_r_ops_num",
       "key": "auto_vs_r_ops_num_0.62_0.72",
-      "label": "when vs_r_ops_num in [0.62, 0.72): -7.5 pts (n=30)",
+      "label": "when vs_r_ops_num in [0.62, 0.72): -8.5 pts (n=32)",
       "mean": -2.0,
-      "n": 30,
-      "std": 8.93,
-      "z": -4.61
+      "n": 32,
+      "std": 9.92,
+      "z": -4.84
+    },
+    "auto_vs_r_ops_num_0.72_0.76": {
+      "basis": "auto:vs_r_ops_num",
+      "key": "auto_vs_r_ops_num_0.72_0.76",
+      "label": "when vs_r_ops_num in [0.72, 0.76): +5.7 pts (n=29)",
+      "mean": 2.0,
+      "n": 29,
+      "std": 6.49,
+      "z": 4.69
     },
     "pitcher_aaron civale": {
       "basis": "pitcher",
@@ -147,13 +138,13 @@
     "trend_hot": {
       "basis": "trend",
       "key": "trend_hot",
-      "label": "on hot streak: +3.6 pts (n=129)",
+      "label": "on hot streak: +3.2 pts (n=132)",
       "mean": 2.0,
-      "n": 129,
-      "std": 8.42,
-      "z": 4.82
+      "n": 132,
+      "std": 8.67,
+      "z": 4.24
     }
   },
-  "count": 17,
-  "updated_at": "2026-05-05T23:41:15"
+  "count": 16,
+  "updated_at": "2026-05-06T02:04:50"
 }
