@@ -1,57 +1,41 @@
 {
-  "CIN": [
-    {
-      "name": "Eugenio Su\u00e1rez",
-      "rank": 184,
-      "dollars": 2.5,
-      "il_type": "IL-10-Day"
-    }
-  ],
   "LAD": [
     {
       "name": "Mookie Betts",
       "rank": 85,
-      "dollars": 12.1,
+      "dollars": 12.8,
       "il_type": "IL-10-Day"
     }
   ],
   "NYM": [
     {
       "name": "Francisco Lindor",
-      "rank": 162,
-      "dollars": 4.6,
+      "rank": 179,
+      "dollars": 2.7,
       "il_type": "IL-10-Day"
     }
   ],
-  "OAK": [
+  "SEA": [
     {
-      "name": "Brent Rooker",
-      "rank": 72,
-      "dollars": 13.8,
+      "name": "Brendan Donovan",
+      "rank": 186,
+      "dollars": 1.8,
       "il_type": "IL-10-Day"
     }
   ],
   "TEX": [
     {
       "name": "Wyatt Langford",
-      "rank": 152,
-      "dollars": 5.8,
+      "rank": 158,
+      "dollars": 5.1,
       "il_type": "IL-10-Day"
     }
   ],
-  "TOR": [
+  "ATL": [
     {
-      "name": "George Springer",
-      "rank": 54,
+      "name": "Ronald Acu\u00f1a Jr.",
+      "rank": 58,
       "dollars": 16.9,
-      "il_type": "IL-10-Day"
-    }
-  ],
-  "MIL": [
-    {
-      "name": "Jackson Chourio",
-      "rank": 109,
-      "dollars": 10.0,
       "il_type": "IL-10-Day"
     }
   ]

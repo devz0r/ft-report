@@ -1,40 +1,13 @@
 {
   "biases": {
-    "auto_park_factor_1.00_1.03": {
-      "basis": "auto:park_factor",
-      "key": "auto_park_factor_1.00_1.03",
-      "label": "when park_factor in [1.00, 1.03): -5.0 pts (n=79)",
-      "mean": -2.0,
-      "n": 79,
-      "std": 10.29,
-      "z": -4.33
-    },
-    "auto_recent_era_5.11_inf": {
+    "auto_recent_era_5.00_inf": {
       "basis": "auto:recent_era",
-      "key": "auto_recent_era_5.11_inf",
-      "label": "when recent_era \u2265 5.11: -6.6 pts (n=82)",
+      "key": "auto_recent_era_5.00_inf",
+      "label": "when recent_era \u2265 5.00: -5.8 pts (n=88)",
       "mean": -2.0,
-      "n": 82,
-      "std": 11.46,
-      "z": -5.23
-    },
-    "auto_vs_r_ops_num_0.62_0.72": {
-      "basis": "auto:vs_r_ops_num",
-      "key": "auto_vs_r_ops_num_0.62_0.72",
-      "label": "when vs_r_ops_num in [0.62, 0.72): -8.5 pts (n=32)",
-      "mean": -2.0,
-      "n": 32,
-      "std": 9.92,
-      "z": -4.84
-    },
-    "auto_vs_r_ops_num_0.72_0.76": {
-      "basis": "auto:vs_r_ops_num",
-      "key": "auto_vs_r_ops_num_0.72_0.76",
-      "label": "when vs_r_ops_num in [0.72, 0.76): +5.7 pts (n=29)",
-      "mean": 2.0,
-      "n": 29,
-      "std": 6.49,
-      "z": 4.69
+      "n": 88,
+      "std": 11.58,
+      "z": -4.7
     },
     "pitcher_aaron civale": {
       "basis": "pitcher",
@@ -129,22 +102,13 @@
     "trend_cold": {
       "basis": "trend",
       "key": "trend_cold",
-      "label": "on cold streak: -8.5 pts (n=61)",
+      "label": "on cold streak: -8.2 pts (n=63)",
       "mean": -2.0,
-      "n": 61,
-      "std": 11.82,
-      "z": -5.62
-    },
-    "trend_hot": {
-      "basis": "trend",
-      "key": "trend_hot",
-      "label": "on hot streak: +3.2 pts (n=132)",
-      "mean": 2.0,
-      "n": 132,
-      "std": 8.67,
-      "z": 4.24
+      "n": 63,
+      "std": 11.77,
+      "z": -5.56
     }
   },
-  "count": 16,
-  "updated_at": "2026-05-06T08:12:02"
+  "count": 12,
+  "updated_at": "2026-05-06T05:48:44"
 }
