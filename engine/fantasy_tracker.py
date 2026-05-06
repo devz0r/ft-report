@@ -3745,15 +3745,17 @@ function renderAccuracy() {
   // yet auto-applied. Lets the user see what's about to kick in.
   if (LEARNED_CANDIDATES && LEARNED_CANDIDATES.length) {
     h += '<div class="day-card" style="margin:8px 0">';
-    h += '<div class="day-header"><span>Emerging signals (not yet applied)</span><span style="color:#777;font-size:11px">close to significance — auto-activate when z &gt; threshold</span></div>';
+    h += '<div class="day-header"><span>Emerging signals (not yet applied)</span><span style="color:#777;font-size:11px">not active until sample, variance, and z-score checks pass</span></div>';
     h += '<div style="padding:6px 16px">';
     LEARNED_CANDIDATES.forEach(function(b) {
       var dCls = b.mean > 0 ? 'opp-easy' : 'opp-hard';
+      var zText = (b.z === null || b.z === undefined) ? 'invalid' : b.z.toFixed(2);
+      var reason = b.ineligible_reason ? ' &middot; not eligible: ' + b.ineligible_reason : ' &middot; not eligible yet';
       h += '<div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px">';
       h += '<div style="opacity:0.85">' + b.label + '</div>';
       h += '<div style="color:#777;font-size:11px;margin-top:2px">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
       h += 'mean residual <span class="' + dCls + '">' + (b.mean >= 0 ? '+' : '') + (b.mean || 0).toFixed(2) + '</span> &middot; ';
-      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + (b.z || 0).toFixed(2) + ' (need higher)';
+      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + zText + reason;
       h += '</div></div>';
     });
     h += '</div></div>';
@@ -3766,14 +3768,17 @@ function renderAccuracy() {
     h += '<div class="day-header"><span>Active learned corrections</span><span style="color:#777;font-size:11px">' + biasKeys.length + ' bucket(s) auto-applied to predictions</span></div>';
     h += '<div style="padding:6px 16px">';
     var sortedBiases = biasKeys.map(function(k) { return LEARNED_BIASES[k]; })
-      .sort(function(a, b) { return Math.abs(b.mean) - Math.abs(a.mean); });
+      .sort(function(a, b) { return Math.abs(b.applied_delta || 0) - Math.abs(a.applied_delta || 0); });
     sortedBiases.forEach(function(b) {
       var dCls = b.mean > 0 ? 'opp-easy' : 'opp-hard';
+      var applied = b.applied_delta !== undefined ? b.applied_delta : b.mean;
+      var aCls = applied > 0 ? 'opp-easy' : 'opp-hard';
+      var zText = (b.z === null || b.z === undefined) ? 'invalid' : b.z.toFixed(2);
       h += '<div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px">';
       h += '<div>' + b.label + '</div>';
       h += '<div style="color:#777;font-size:11px;margin-top:2px">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
       h += 'mean residual <span class="' + dCls + '">' + (b.mean >= 0 ? '+' : '') + b.mean.toFixed(2) + '</span> &middot; ';
-      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + (b.z || 0).toFixed(2);
+      h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + zText + ' &middot; applied <span class="' + aCls + '">' + (applied >= 0 ? '+' : '') + applied.toFixed(2) + '</span>';
       h += '</div></div>';
     });
     h += '</div></div>';
@@ -4558,12 +4563,18 @@ def _residual_stats(samples, residual_key='residual_raw'):
         return None
     mean = sum(rs) / n
     if n < 2:
-        return {'n': n, 'mean': round(mean, 2), 'std': 0.0, 'z': 0.0}
+        return {'n': n, 'mean': round(mean, 2), 'std': 0.0, 'se': None, 'z': None}
     var = sum((r - mean) ** 2 for r in rs) / (n - 1)
     std = var ** 0.5
-    se = std / (n ** 0.5)
-    z = mean / se if se > 0 else 0.0
-    return {'n': n, 'mean': round(mean, 2), 'std': round(std, 2), 'z': round(z, 2)}
+    se = std / (n ** 0.5) if std >= MIN_RESIDUAL_STD else None
+    z = mean / se if se and se > 0 else None
+    return {
+        'n': n,
+        'mean': round(mean, 2),
+        'std': round(std, 2),
+        'se': round(se, 4) if se is not None else None,
+        'z': round(z, 2) if z is not None and math.isfinite(z) else None,
+    }
 
 
 def _load_outcomes_for_learning():
@@ -4586,7 +4597,14 @@ def _load_outcomes_for_learning():
     return out
 
 
-MAX_BUCKET_DELTA = 2.0   # cap any single bucket's adjustment at ±2 pts
+GENERAL_BUCKET_MIN_SAMPLES = 20
+TREND_BUCKET_MIN_SAMPLES = 20
+PITCHER_BUCKET_MIN_SAMPLES = 12
+MIN_RESIDUAL_STD = 1.0
+MAX_REASONABLE_ABS_Z = 8.0
+MAX_LEARNED_ADJUSTMENT = 5.0
+GENERAL_SHRINKAGE_N = 60
+PITCHER_SHRINKAGE_N = 48
 NUMERIC_AUTO_BUCKET_FEATURES = [
     # Core projection features
     'proj_era', 'proj_whip', 'proj_k9',
@@ -4644,34 +4662,35 @@ def _auto_bucket_continuous(samples, fname, n_buckets=4):
     return out
 
 
-def compute_learned_biases(min_samples=12, min_abs_delta=0.5, base_alpha=0.01):
+def compute_learned_biases(min_samples=GENERAL_BUCKET_MIN_SAMPLES, min_abs_delta=0.5, base_alpha=0.01):
     """Scan accumulated outcomes for systematic biases in feature buckets.
 
     Statistical rigor (so we don't fire on noise):
       - Multiple-comparisons correction: z threshold scales with #buckets tested
-        via approximate Bonferroni. With 50 tests at α=0.01, effective z ≈ 3.0.
+        via approximate Bonferroni. With 50 tests at α=0.01, effective z ≈ 4.1.
         With more features, the bar gets stricter — protects against the
         "data dredging" failure mode.
-      - Each bucket's adjustment is clamped to ±MAX_BUCKET_DELTA, so no single
-        noisy correlation can dominate a prediction.
-      - Per-pitcher buckets evaluated separately (n>=3) since individual
-        pitchers accrue starts slowly; they get a higher delta floor.
+      - Each bucket's adjustment is shrunk toward zero, then clamped to
+        ±MAX_LEARNED_ADJUSTMENT, so no single correlation can dominate.
+      - Per-pitcher buckets require a larger sample than before and get
+        stronger shrinkage because individual starts are noisy.
     """
     samples = _load_outcomes_for_learning()
     if not samples:
         return {}
 
     biases = {}
-    candidates = []  # (key, stats, basis, label) — close to threshold but not yet
+    candidates = []  # close to threshold, too-small, or otherwise ineligible
     test_count = 0
 
     def passes_threshold(z, n_tests):
+        if z is None or not isinstance(z, (int, float)) or not math.isfinite(z) or abs(z) > MAX_REASONABLE_ABS_Z:
+            return False
         # Bonferroni-style: more tests → higher bar. Floor at 2.5 for sanity.
         if n_tests <= 1:
             return abs(z) >= 2.5
         # Approx z for Bonferroni-corrected α/n_tests, two-tailed.
-        # For α=0.01 and ~50 tests: z ≈ 3.0. For ~100 tests: z ≈ 3.3.
-        import math
+        # For α=0.01 and ~50 tests: z ≈ 4.1. For ~100 tests: z ≈ 4.3.
         # Use simple formula z = sqrt(2 * ln(n_tests / α))
         try:
             corrected_z = math.sqrt(2 * math.log(n_tests / base_alpha))
@@ -4679,26 +4698,66 @@ def compute_learned_biases(min_samples=12, min_abs_delta=0.5, base_alpha=0.01):
             corrected_z = 3.0
         return abs(z) >= max(2.5, corrected_z)
 
-    def maybe_add(key, bucket, basis, label_tmpl):
+    def min_n_for_basis(basis):
+        if basis == 'pitcher':
+            return max(PITCHER_BUCKET_MIN_SAMPLES, 12)
+        if basis == 'trend':
+            return max(TREND_BUCKET_MIN_SAMPLES, 20)
+        return max(min_samples, GENERAL_BUCKET_MIN_SAMPLES, 20)
+
+    def shrink_delta(mean, n, basis):
+        shrink_n = PITCHER_SHRINKAGE_N if basis == 'pitcher' else GENERAL_SHRINKAGE_N
+        shrunk = mean * (n / (n + shrink_n)) if n > 0 else 0.0
+        return round(max(-MAX_LEARNED_ADJUSTMENT, min(MAX_LEARNED_ADJUSTMENT, shrunk)), 2)
+
+    def ineligible_reasons(st, basis, n_tests, min_abs):
+        reasons = []
+        min_n = min_n_for_basis(basis)
+        if st['n'] < min_n:
+            reasons.append(f'n<{min_n}')
+        if abs(st['mean']) < min_abs:
+            reasons.append(f'|mean|<{min_abs}')
+        if st.get('std') is None or st.get('std') < MIN_RESIDUAL_STD:
+            reasons.append(f'std<{MIN_RESIDUAL_STD:g}')
+        se = st.get('se')
+        if se is None or not isinstance(se, (int, float)) or not math.isfinite(se) or se <= 0:
+            reasons.append('invalid standard error')
+        z = st.get('z')
+        if z is None or not isinstance(z, (int, float)) or not math.isfinite(z):
+            reasons.append('invalid z-score')
+        elif abs(z) > MAX_REASONABLE_ABS_Z:
+            reasons.append(f'abs(z)>{MAX_REASONABLE_ABS_Z:g}')
+        elif not passes_threshold(z, n_tests):
+            reasons.append('z below activation threshold')
+        return reasons
+
+    def maybe_add(key, bucket, basis, label_tmpl, min_abs=None):
         nonlocal test_count
         test_count += 1
+        min_abs = min_abs_delta if min_abs is None else min_abs
         st = _residual_stats(bucket)
-        if not st or st['n'] < min_samples:
+        if not st:
             return
-        if abs(st['mean']) < min_abs_delta:
-            return
-        # We track candidates separately: 1.5 < |z| < threshold so the user
-        # can see what's "almost there"
         label = label_tmpl.format(delta=st['mean'], n=st['n'])
         rec = {**st, 'basis': basis, 'key': key, 'label': label}
-        if abs(st.get('z', 0)) >= 1.5 and not passes_threshold(st['z'], 50):
-            # close but not yet — surface as candidate
-            candidates.append(rec)
-        if not passes_threshold(st.get('z', 0), 50):
+        reasons = ineligible_reasons(st, basis, 50, min_abs)
+        if reasons:
+            rec['eligible'] = False
+            rec['ineligible_reason'] = ', '.join(reasons)
+            # Preserve visibility for interesting-but-unsafe buckets, including
+            # small-n and zero-variance cases that used to auto-activate.
+            if abs(st['mean']) >= min_abs and st['n'] >= max(3, min_n_for_basis(basis) // 2):
+                rec['applied_delta'] = 0.0
+                candidates.append(rec)
+            elif st.get('z') is not None and abs(st['z']) >= 1.5:
+                rec['applied_delta'] = 0.0
+                candidates.append(rec)
             return
-        # Clamp delta magnitude
-        clamped = max(-MAX_BUCKET_DELTA, min(MAX_BUCKET_DELTA, st['mean']))
-        rec['mean'] = clamped
+
+        applied_delta = shrink_delta(st['mean'], st['n'], basis)
+        rec['eligible'] = True
+        rec['applied_delta'] = applied_delta
+        # Keep mean as the actual residual mean for accurate display.
         biases[key] = rec
 
     # 1. Per-tier bias
@@ -4747,32 +4806,20 @@ def compute_learned_biases(min_samples=12, min_abs_delta=0.5, base_alpha=0.01):
         maybe_add(f'home_away_{ha}', bucket, 'home_away',
                    f'{"home" if ha == "H" else "road"} starts: {{delta:+.1f}} pts (n={{n}})')
 
-    # 8. Per-pitcher: ≥3 starts AND z-score >= 2.0 (no longer auto-fires
-    #    on any pitcher with high mean — small samples with high variance
-    #    are rejected by the statistical check)
+    # 8. Per-pitcher: requires a larger sample and valid variance. Small
+    # samples with huge/invalid z-scores are surfaced as ineligible candidates.
     by_pitcher = {}
     for s in samples:
         nm = normalize_name(s.get('name', ''))
         if nm:
             by_pitcher.setdefault(nm, []).append(s)
     for nm, bucket in by_pitcher.items():
-        test_count += 1
-        if len(bucket) < 5:
-            continue
-        st = _residual_stats(bucket)
-        if not st or abs(st['mean']) < 0.8:
-            continue
         display_name = bucket[-1].get('name', nm)
-        rec = {
-            **st, 'basis': 'pitcher', 'key': f'pitcher_{nm}',
-            'label': f'{display_name} historically {st["mean"]:+.1f} pts vs prediction (n={st["n"]})',
-        }
-        # Per-pitcher uses slightly looser bar (z>=2.0) since data is sparse
-        if abs(st.get('z', 0)) >= 2.0:
-            rec['mean'] = max(-MAX_BUCKET_DELTA, min(MAX_BUCKET_DELTA, st['mean']))
-            biases[f'pitcher_{nm}'] = rec
-        elif abs(st.get('z', 0)) >= 1.2:
-            candidates.append(rec)
+        maybe_add(
+            f'pitcher_{nm}', bucket, 'pitcher',
+            f'{display_name} historically {{delta:+.1f}} pts vs prediction (n={{n}})',
+            min_abs=0.8,
+        )
 
     # 9. Auto-discover correlations in any numeric feature we have data on.
     #    This is the engine that finds unexpected signals: drop any new feature
@@ -4784,8 +4831,8 @@ def compute_learned_biases(min_samples=12, min_abs_delta=0.5, base_alpha=0.01):
             maybe_add(key, bucket, f'auto:{fname}',
                       f'when {lbl}: {{delta:+.1f}} pts (n={{n}})')
 
-    # Sort candidates (close-to-significant) by |z| desc, keep top 12 for display
-    candidates.sort(key=lambda c: -abs(c.get('z', 0)))
+    # Sort candidates (close-to-significant or unsafe) by |z| then |mean|.
+    candidates.sort(key=lambda c: (-(abs(c.get('z') or 0)), -(abs(c.get('mean') or 0))))
     return {
         'biases': biases,
         'candidates': candidates[:12],
@@ -4837,7 +4884,7 @@ def apply_learned_biases(entry, biases, damping=0.6):
     pkey = f'pitcher_{pname}'
     if pkey in biases:
         b = dict(biases[pkey])
-        b['delta_applied'] = b['mean']
+        b['delta_applied'] = b.get('applied_delta', b.get('mean', 0.0))
         applied.append(b)
 
     # Categorical buckets — collect all that apply
@@ -4887,7 +4934,8 @@ def apply_learned_biases(entry, biases, damping=0.6):
         scale = 1.0 if len(bucket_hits) == 1 else damping
         for b in bucket_hits:
             b2 = dict(b)
-            b2['delta_applied'] = round(b['mean'] * scale, 2)
+            base_delta = b.get('applied_delta', b.get('mean', 0.0))
+            b2['delta_applied'] = round(base_delta * scale, 2)
             applied.append(b2)
 
     total = round(sum(b['delta_applied'] for b in applied), 2)
@@ -5131,11 +5179,16 @@ def main():
             # recompute returns empty, we want predictions to NOT use stale
             # corrections from old/looser thresholds.
             save_learned_biases(learned_biases)
+            def fmt_z(rec):
+                z = rec.get('z')
+                return f'{z:.2f}' if isinstance(z, (int, float)) and math.isfinite(z) else 'invalid'
             for k, b in sorted(learned_biases.items(),
-                               key=lambda kv: -abs(kv[1].get('mean', 0)))[:6]:
-                print(f"    [active]    {b.get('label', k)}  (z={b.get('z', 0):.2f})")
+                               key=lambda kv: -abs(kv[1].get('applied_delta', kv[1].get('mean', 0))))[:6]:
+                print(f"    [active]    {b.get('label', k)}  (z={fmt_z(b)})")
             for c in learned_candidates[:4]:
-                print(f"    [candidate] {c.get('label', '')}  (z={c.get('z', 0):.2f})")
+                reason = c.get('ineligible_reason')
+                suffix = f"; not eligible: {reason}" if reason else ""
+                print(f"    [candidate] {c.get('label', '')}  (z={fmt_z(c)}{suffix})")
         else:
             # Old return shape (just dict of biases) — support legacy
             learned_biases = result or {}
