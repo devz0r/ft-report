@@ -1,6 +1,6 @@
 {
   "date": "2026-05-07",
-  "timestamp": "2026-05-07T08:20:35.938031",
+  "timestamp": "2026-05-07T10:38:48.430189",
   "players": [
     {
       "rank": 1,
@@ -11306,7 +11306,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "TB",
+      "team": "MIN",
       "dollars": -35.6,
       "rpts": 66.0,
       "type": "pitcher",
@@ -11933,7 +11933,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "KC",
       "dollars": -37.0,
       "rpts": 60.0,
       "type": "pitcher",
@@ -13744,7 +13744,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "MIA",
       "dollars": -41.4,
       "rpts": 42.0,
       "type": "pitcher",
@@ -15216,7 +15216,7 @@
         "SS"
       ],
       "displayPos": "SS",
-      "team": "",
+      "team": "ATL",
       "dollars": -47.6,
       "rpts": 22.4,
       "type": "hitter",
