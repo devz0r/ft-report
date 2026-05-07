@@ -1,6 +1,7 @@
 engine/tracker_config.json
 engine/.ft-report-password
 engine/tracker_report.html
+engine/local_preview/
 engine/__pycache__/
 *.pyc
 engine/predictions/.processed/

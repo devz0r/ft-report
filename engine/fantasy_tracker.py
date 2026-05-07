@@ -44,6 +44,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TRACKER_DIR = os.path.join(SCRIPT_DIR, "tracker_snapshots")
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "tracker_config.json")
 OUTPUT_HTML = os.path.join(SCRIPT_DIR, "tracker_report.html")
+LOCAL_PREVIEW_DIR = os.path.join(SCRIPT_DIR, "local_preview")
+PREVIEW_LOCAL = False
 
 # FanGraphs Auction Calculator API (RoS projections)
 FG_AUCTION_URL = "https://www.fangraphs.com/api/fantasy/auction-calculator/data"
@@ -313,6 +315,9 @@ def fetch_espn_players():
     data = resp.json()
     active = [p for p in data if p.get('eligibleSlots')]
     print(f"  Retrieved {len(data)} total, {len(active)} with position eligibility")
+    if PREVIEW_LOCAL:
+        print("  Local preview mode: skipping ESPN player cache write")
+        return active
     with open(cache_file, 'w') as f:
         json.dump(active, f)
     return active
@@ -419,6 +424,9 @@ def _load_streaming_cache(filename, max_age_hours=24):
 
 
 def _save_streaming_cache(filename, data):
+    if PREVIEW_LOCAL:
+        print(f"  Local preview mode: skipping cache write {filename}")
+        return
     os.makedirs(STREAMING_CACHE_DIR, exist_ok=True)
     filepath = os.path.join(STREAMING_CACHE_DIR, filename)
     with open(filepath, 'w') as f:
@@ -771,6 +779,9 @@ def save_recent_raw_snapshot(recent):
     """Persist today's raw (pre-blend) FG L14D once per day. Used next day to
     determine whether FG has caught up with today's games (so we don't
     double-count on the blend)."""
+    if PREVIEW_LOCAL:
+        print("    Local preview mode: skipping L14D snapshot write")
+        return
     os.makedirs(FG_RECENT_RAW_DIR, exist_ok=True)
     path = os.path.join(FG_RECENT_RAW_DIR, f"{date.today().isoformat()}.json")
     if not os.path.exists(path):
@@ -1012,6 +1023,9 @@ def _load_il_snapshot_for_diff(min_age_days=4, max_age_days=14):
 
 def _save_il_snapshot(il_data):
     """Persist today's IL snapshot for future diff comparisons."""
+    if PREVIEW_LOCAL:
+        print("    Local preview mode: skipping IL snapshot write")
+        return
     snap_dir = os.path.join(STREAMING_CACHE_DIR, 'il_snapshots')
     os.makedirs(snap_dir, exist_ok=True)
     today = date.today().isoformat()
@@ -1783,6 +1797,9 @@ def create_rankings(batters_df, pitchers_df):
 # =============================================================================
 
 def save_snapshot(players_list, date_str):
+    if PREVIEW_LOCAL:
+        print("  Local preview mode: skipping tracker snapshot write")
+        return
     os.makedirs(TRACKER_DIR, exist_ok=True)
     filepath = os.path.join(TRACKER_DIR, f"{date_str}.json")
     snapshot = {
@@ -3750,6 +3767,10 @@ def flush_predictions():
     with the freshest one)."""
     if not _pending_predictions:
         return
+    if PREVIEW_LOCAL:
+        print("  Local preview mode: skipping prediction log write")
+        _pending_predictions.clear()
+        return
     by_date = {}
     for (gd, pname), rec in _pending_predictions.items():
         by_date.setdefault(gd, {})[pname] = rec
@@ -4285,6 +4306,9 @@ def compute_learned_biases(min_samples=GENERAL_BUCKET_MIN_SAMPLES, min_abs_delta
 
 
 def save_learned_biases(biases):
+    if PREVIEW_LOCAL:
+        print("  Local preview mode: skipping learned biases write")
+        return
     payload = {
         'updated_at': datetime.now().isoformat(timespec='seconds'),
         'count': len(biases),
@@ -4577,9 +4601,12 @@ def _push_to_github_repo():
 # =============================================================================
 
 def main():
+    global PREVIEW_LOCAL, OUTPUT_HTML
+
     parser = argparse.ArgumentParser(description='Fantasy Baseball In-Season Tracker')
     parser.add_argument('--setup', action='store_true', help='Configure ESPN authentication')
     parser.add_argument('--audit-features', action='store_true', help='Audit prediction feature registry/log consistency')
+    parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--top', type=int, default=30, help='Show top N in console')
     args = parser.parse_args()
 
@@ -4591,18 +4618,27 @@ def main():
         run_setup()
         return
 
-    # Sync down freshest cache/snapshots from cloud before reading anything,
-    # so local always works against the same state Actions sees.
-    _pull_from_github_repo()
+    if args.preview_local:
+        PREVIEW_LOCAL = True
+        os.makedirs(LOCAL_PREVIEW_DIR, exist_ok=True)
+        OUTPUT_HTML = os.path.join(LOCAL_PREVIEW_DIR, "tracker_report.html")
+        print("Local preview mode: no tracked generated files will be written.")
+    else:
+        # Sync down freshest cache/snapshots from cloud before reading anything,
+        # so local always works against the same state Actions sees.
+        _pull_from_github_repo()
 
     # Catch up on outcomes for past predictions (yesterday's starts, etc.)
     # before we make new predictions, so calibration uses the freshest data.
-    try:
-        new_outcomes = process_pending_outcomes()
-        if new_outcomes:
-            print(f"Joined {new_outcomes} prediction(s) with their actual outcomes")
-    except Exception as e:
-        print(f"  Outcome processing failed: {e}")
+    if PREVIEW_LOCAL:
+        print("  Local preview mode: skipping pending-outcome processing")
+    else:
+        try:
+            new_outcomes = process_pending_outcomes()
+            if new_outcomes:
+                print(f"Joined {new_outcomes} prediction(s) with their actual outcomes")
+        except Exception as e:
+            print(f"  Outcome processing failed: {e}")
 
     # Recompute learned biases from the (possibly updated) outcomes log so
     # this run's predictions get the freshest correction layer.
@@ -4846,6 +4882,11 @@ def main():
                           learned_candidates=learned_candidates)
 
     print("\nDone!")
+    if PREVIEW_LOCAL:
+        print(f"\nOpen {OUTPUT_HTML} to review the local preview.")
+        print("GitHub sync skipped in local preview mode.")
+        return
+
     print(f"\nOpen tracker_report.html to review movements and free agents.")
 
     # Push code + fresh cache + new snapshot back to GitHub, and trigger
