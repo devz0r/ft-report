@@ -4771,9 +4771,13 @@ def _pull_from_github_repo():
 
 
 def _push_to_github_repo():
-    """At the END of a local run, push code + cache + snapshots back to the
-    cloud, then trigger the deploy workflow so devz0r.github.io reflects
-    this run's output without waiting for the next 30-min cron tick."""
+    """At the END of a local run, push cache + snapshots back to the cloud.
+
+    Runtime sync intentionally excludes source code. Normal tracker execution
+    should move generated state only; code changes belong to the explicit
+    developer commit workflow so a stale sibling checkout can never overwrite
+    or downgrade engine/fantasy_tracker.py during a data refresh.
+    """
     git_dir, engine_dir = _ft_report_paths()
     if not git_dir:
         return
@@ -4781,9 +4785,8 @@ def _push_to_github_repo():
         import shutil, subprocess
         _clear_stale_git_locks(git_dir)
 
-        # Mirror local code + data into the engine dir
-        this_file = os.path.abspath(__file__)
-        shutil.copy2(this_file, os.path.join(engine_dir, 'fantasy_tracker.py'))
+        # Mirror generated data only. Do not copy source files during runtime
+        # sync; use scripts/safe_commit.sh for intentional code changes.
         _mirror_dir(os.path.join(SCRIPT_DIR, 'tracker_snapshots'),
                     os.path.join(engine_dir, 'tracker_snapshots'))
         _mirror_dir(os.path.join(SCRIPT_DIR, 'streaming_cache'),
@@ -4812,11 +4815,10 @@ def _push_to_github_repo():
         subprocess.run(['git', '-C', git_dir, 'pull', '--rebase', '--autostash', '--quiet'],
                        capture_output=True, timeout=60)
 
-        # Stage code + data; only include paths that actually exist on disk
+        # Stage generated data only; only include paths that actually exist on disk
         # (predictions_outcomes.jsonl and engine/predictions/ may be absent
         # on a brand-new install).
         candidate_paths = [
-            'engine/fantasy_tracker.py',
             'engine/tracker_snapshots',
             'engine/streaming_cache',
             'engine/predictions',
