@@ -23,5 +23,10 @@ if [[ -n "$tracked" ]]; then
   done <<< "$tracked"
 fi
 
+echo "Removing local warehouse Parquet files..."
+find engine/warehouse/predictions -type f -name '*.parquet' -delete 2>/dev/null || true
+find engine/warehouse/outcomes -type f -name '*.parquet' -delete 2>/dev/null || true
+find engine/warehouse/features -type f -name '*.parquet' -delete 2>/dev/null || true
+
 echo "Status after cleanup:"
 git status --short
