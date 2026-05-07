@@ -3518,6 +3518,15 @@ def _scalar_for_parquet(value):
     return value
 
 
+SP_START_EXCLUDED_LABEL_COLUMNS = {
+    'actual_pts', 'actual_ip', 'actual_k', 'actual_er', 'actual_win',
+    'actual_line', 'residual', 'residual_raw', 'no_start',
+}
+SP_START_OUTPUT_COLUMNS = {
+    'predicted_pts', 'predicted_pts_raw', 'final_pts',
+}
+
+
 def _prediction_record_to_wh_row(record):
     """Flatten one prediction JSONL record into warehouse-friendly columns."""
     features = record.get('features') or {}
@@ -3616,6 +3625,59 @@ def wh_write_outcome_parquet(game_date):
     if not rows:
         return None
     return wh_write_parquet(rows, 'outcomes', f'{game_date}.parquet')
+
+
+def _sp_start_feature_record_to_wh_row(record):
+    """Flatten one prediction record into pregame-only SP start features."""
+    features = record.get('features') or {}
+    game_date = record.get('date')
+    snapshot_time = record.get('snapshot_time') or record.get('logged_at')
+    pitcher_name = record.get('name')
+    pitcher_norm = normalize_name(pitcher_name or '')
+    start_id = '|'.join([
+        str(game_date or ''),
+        pitcher_norm,
+        str(record.get('team') or ''),
+        str(record.get('opponent') or ''),
+        str(record.get('home_away') or ''),
+    ])
+    row = {
+        'start_id': start_id,
+        'game_id': record.get('game_id') or record.get('game_pk'),
+        'game_date': game_date,
+        'snapshot_time': snapshot_time,
+        'logged_at': record.get('logged_at'),
+        'pitcher_name': pitcher_name,
+        'pitcher_id': record.get('pitcher_id'),
+        'team': record.get('team'),
+        'opponent': record.get('opponent'),
+        'home_away': record.get('home_away'),
+        'status': record.get('status'),
+        'lineup_status': record.get('lineup_status'),
+        'probable_status': record.get('probable_status'),
+        'tier': record.get('tier'),
+        'base_pts': record.get('base_pts'),
+        'learned_adj_total': record.get('adj_total'),
+        'learned_adjustments': _scalar_for_parquet(record.get('adjustments', [])),
+    }
+    blocked = SP_START_EXCLUDED_LABEL_COLUMNS | SP_START_OUTPUT_COLUMNS | {'features'}
+    for key, value in record.items():
+        if key in blocked or key in row:
+            continue
+        row[key] = _scalar_for_parquet(value)
+    for key in FEATURE_REGISTRY:
+        row.setdefault(key, None)
+    for key, value in features.items():
+        col = key if key not in row else f'feature_{key}'
+        if col not in SP_START_EXCLUDED_LABEL_COLUMNS and col not in SP_START_OUTPUT_COLUMNS:
+            row[col] = _scalar_for_parquet(value)
+    return row
+
+
+def wh_write_sp_start_features_parquet(game_date, records):
+    """Write pregame-only model-ready SP start features, sourced from predictions."""
+    rows = [_sp_start_feature_record_to_wh_row(rec) for rec in records]
+    return wh_write_parquet(rows, 'features', 'sp_start_features', f'{game_date}.parquet')
 
 
 def _duckdb_ident(name):
@@ -3747,6 +3809,42 @@ def audit_warehouse():
             print(f"  {d}: jsonl={jd} parquet={pdp}")
     if not any_outcome_dupes:
         print("  None detected")
+
+    feature_counts = _sp_start_feature_counts_by_date()
+    feature_dupes = _sp_start_feature_duplicate_counts_by_date()
+    feature_columns = _sp_start_feature_columns()
+    leakage_columns = _sp_start_feature_leakage_columns(feature_columns)
+
+    print("\nSP start feature row counts by date")
+    if not feature_counts:
+        print("  None")
+    for d in sorted(feature_counts):
+        print(f"  {d}: rows={feature_counts[d]}")
+    print(f"Total SP start feature rows: {sum(feature_counts.values())}")
+
+    print("\nSP start feature uniqueness")
+    any_feature_dupes = False
+    for d in sorted(feature_dupes):
+        if feature_dupes[d]:
+            any_feature_dupes = True
+            print(f"  {d}: duplicate start_id + snapshot_time rows={feature_dupes[d]}")
+    if not any_feature_dupes:
+        print("  OK: one row per start_id + snapshot_time")
+
+    print("\nSP start feature leakage columns")
+    if leakage_columns:
+        for col in leakage_columns:
+            print(f"  - {col}")
+    else:
+        print("  None detected")
+
+    print("\nSP start feature null-heavy columns (threshold >= 70%)")
+    null_heavy_features = _sp_start_feature_null_heavy()
+    if null_heavy_features:
+        for col, n_null, total, pct in null_heavy_features[:40]:
+            print(f"  - {col}: {pct}% null/missing ({n_null}/{total})")
+    else:
+        print("  None")
 
 
 def _prediction_jsonl_counts_by_date():
@@ -3916,6 +4014,88 @@ def _outcome_parquet_duplicate_counts_by_date():
         except Exception:
             dupes[game_date] = 0
     return dupes
+
+
+def _sp_start_feature_files():
+    feature_dir = wh_path('features', 'sp_start_features')
+    if not os.path.isdir(feature_dir):
+        return []
+    return [
+        os.path.join(feature_dir, fn)
+        for fn in sorted(os.listdir(feature_dir))
+        if fn.endswith('.parquet')
+    ]
+
+
+def _sp_start_feature_counts_by_date():
+    counts = {}
+    for path in _sp_start_feature_files():
+        game_date = os.path.basename(path)[:-len('.parquet')]
+        try:
+            df = pd.read_parquet(path)
+            counts[game_date] = len(df)
+        except Exception:
+            counts[game_date] = 0
+    return counts
+
+
+def _sp_start_feature_duplicate_counts_by_date():
+    dupes = {}
+    for path in _sp_start_feature_files():
+        game_date = os.path.basename(path)[:-len('.parquet')]
+        try:
+            df = pd.read_parquet(path)
+            if {'start_id', 'snapshot_time'}.issubset(df.columns):
+                dupes[game_date] = int(df[['start_id', 'snapshot_time']].duplicated().sum())
+            else:
+                dupes[game_date] = len(df)
+        except Exception:
+            dupes[game_date] = 0
+    return dupes
+
+
+def _sp_start_feature_columns():
+    cols = set()
+    for path in _sp_start_feature_files():
+        try:
+            cols.update(pd.read_parquet(path).columns)
+        except Exception:
+            continue
+    return sorted(cols)
+
+
+def _sp_start_feature_leakage_columns(columns):
+    leakage = []
+    exact = SP_START_EXCLUDED_LABEL_COLUMNS | {
+        'actual_ip', 'actual_k', 'actual_er', 'actual_win',
+        'residual', 'residual_raw',
+    }
+    for col in columns:
+        c = col.lower()
+        if c in exact or c.startswith('actual_') or 'residual' in c:
+            leakage.append(col)
+    return sorted(set(leakage))
+
+
+def _sp_start_feature_null_heavy():
+    frames = []
+    for path in _sp_start_feature_files():
+        try:
+            frames.append(pd.read_parquet(path))
+        except Exception:
+            continue
+    if not frames:
+        return []
+    df = pd.concat(frames, ignore_index=True, sort=False)
+    total = len(df)
+    if total == 0:
+        return []
+    out = []
+    for col in sorted(df.columns):
+        n_null = int(df[col].isna().sum())
+        if n_null / total >= 0.70:
+            out.append((col, n_null, total, round(100 * n_null / total)))
+    return out
 
 
 FEATURE_REGISTRY = {}
@@ -4266,6 +4446,8 @@ def flush_predictions():
             try:
                 parquet_path = wh_write_prediction_parquet(gd, list(existing.values()))
                 print(f"  [warehouse] predictions mirrored: {parquet_path}")
+                feature_path = wh_write_sp_start_features_parquet(gd, list(existing.values()))
+                print(f"  [warehouse] SP start features mirrored: {feature_path}")
             except Exception as wh_err:
                 print(f"  [warehouse] prediction mirror skipped for {gd}: {wh_err}")
         except Exception as e:

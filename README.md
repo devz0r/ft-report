@@ -12,5 +12,6 @@
 
 DuckDB + Parquet warehouse support is being added in parallel under `engine/warehouse/`.
 For now, the existing JSON/JSONL files remain the source of truth. Prediction JSONL writes are mirrored to `engine/warehouse/predictions/YYYY-MM-DD.parquet`; outcomes are not mirrored yet.
+Pregame SP start feature rows are mirrored to `engine/warehouse/features/sp_start_features/YYYY-MM-DD.parquet` for future modeling; they exclude actuals and residuals.
 Warehouse Parquet files are generated locally for now and are not committed until we intentionally decide to track them.
 Use `python3.11 -B engine/fantasy_tracker.py --audit-warehouse` to verify the folder skeleton and DuckDB initialization.
