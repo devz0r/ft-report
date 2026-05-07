@@ -3553,6 +3553,71 @@ def wh_write_prediction_parquet(game_date, records):
     return wh_write_parquet(rows, 'predictions', f'{game_date}.parquet')
 
 
+def _outcome_record_to_wh_row(record):
+    """Flatten one joined outcome JSONL record into warehouse-friendly columns."""
+    features = record.get('features') or {}
+    actual_line = record.get('actual_line') or {}
+    row = {
+        'game_date': record.get('date'),
+        'pitcher_name': record.get('name'),
+        'pitcher_id': record.get('pitcher_id'),
+        'team': record.get('team'),
+        'opponent': record.get('opponent'),
+        'status': record.get('status'),
+        'predicted_pts': record.get('predicted_pts'),
+        'predicted_pts_raw': record.get('predicted_pts_raw'),
+        'final_pts': record.get('final_pts'),
+        'actual_pts': record.get('actual_pts'),
+        'residual': record.get('residual'),
+        'residual_raw': record.get('residual_raw'),
+        'no_start': record.get('no_start'),
+    }
+    for key, value in record.items():
+        if key in ('features', 'actual_line'):
+            continue
+        if key not in row:
+            row[key] = _scalar_for_parquet(value)
+    row['actual_line'] = _scalar_for_parquet(actual_line) if actual_line else None
+    for key, value in actual_line.items():
+        row[f'actual_{key.lower()}'] = _scalar_for_parquet(value)
+    for key in FEATURE_REGISTRY:
+        row.setdefault(key, None)
+    for key, value in features.items():
+        col = key if key not in row else f'feature_{key}'
+        row[col] = _scalar_for_parquet(value)
+    return row
+
+
+def _outcome_records_for_date(game_date):
+    records = []
+    if not os.path.exists(OUTCOMES_LOG):
+        return records
+    try:
+        with open(OUTCOMES_LOG) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                if rec.get('date') == game_date:
+                    records.append(rec)
+    except Exception:
+        return []
+    return records
+
+
+def wh_write_outcome_parquet(game_date):
+    """Mirror joined outcome JSONL rows to one flat Parquet file per game date."""
+    if PREVIEW_LOCAL:
+        return None
+    rows = [_outcome_record_to_wh_row(rec) for rec in _outcome_records_for_date(game_date)]
+    if not rows:
+        return None
+    return wh_write_parquet(rows, 'outcomes', f'{game_date}.parquet')
+
+
 def _duckdb_ident(name):
     safe = re.sub(r'[^0-9A-Za-z_]+', '_', name).strip('_').lower()
     if not safe:
@@ -3651,6 +3716,38 @@ def audit_warehouse():
     if not any_dupes:
         print("  None detected")
 
+    outcome_json_counts = _outcome_jsonl_counts_by_date()
+    outcome_parquet_counts = _outcome_parquet_counts_by_date()
+    outcome_missing_parquet = sorted(set(outcome_json_counts) - set(outcome_parquet_counts))
+    outcome_json_dupes = _outcome_jsonl_duplicate_counts_by_date()
+    outcome_parquet_dupes = _outcome_parquet_duplicate_counts_by_date()
+
+    print("\nOutcome row counts by date")
+    all_outcome_dates = sorted(set(outcome_json_counts) | set(outcome_parquet_counts))
+    if not all_outcome_dates:
+        print("  None")
+    for d in all_outcome_dates:
+        print(f"  {d}: jsonl={outcome_json_counts.get(d, 0)} parquet={outcome_parquet_counts.get(d, 0)}")
+    print(f"Total outcome rows: jsonl={sum(outcome_json_counts.values())} parquet={sum(outcome_parquet_counts.values())}")
+
+    print("\nMissing Parquet outcome dates")
+    if outcome_missing_parquet:
+        for d in outcome_missing_parquet:
+            print(f"  - {d}")
+    else:
+        print("  None")
+
+    print("\nDuplicate outcome rows")
+    any_outcome_dupes = False
+    for d in sorted(set(outcome_json_dupes) | set(outcome_parquet_dupes)):
+        jd = outcome_json_dupes.get(d, 0)
+        pdp = outcome_parquet_dupes.get(d, 0)
+        if jd or pdp:
+            any_outcome_dupes = True
+            print(f"  {d}: jsonl={jd} parquet={pdp}")
+    if not any_outcome_dupes:
+        print("  None detected")
+
 
 def _prediction_jsonl_counts_by_date():
     counts = {}
@@ -3726,6 +3823,90 @@ def _prediction_parquet_duplicate_counts_by_date():
         game_date = fn[:-len('.parquet')]
         try:
             df = wh_read_parquet('predictions', fn)
+            if {'pitcher_name', 'team', 'opponent'}.issubset(df.columns):
+                keys = df[['pitcher_name', 'team', 'opponent']].copy()
+                keys['pitcher_name'] = keys['pitcher_name'].map(lambda v: normalize_name(v or ''))
+                dupes[game_date] = int(keys.duplicated().sum())
+            else:
+                dupes[game_date] = 0
+        except Exception:
+            dupes[game_date] = 0
+    return dupes
+
+
+def _outcome_jsonl_counts_by_date():
+    counts = {}
+    if not os.path.exists(OUTCOMES_LOG):
+        return counts
+    try:
+        with open(OUTCOMES_LOG) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                game_date = rec.get('date')
+                if game_date:
+                    counts[game_date] = counts.get(game_date, 0) + 1
+    except Exception:
+        pass
+    return counts
+
+
+def _outcome_parquet_counts_by_date():
+    counts = {}
+    outcome_dir = wh_path('outcomes')
+    if not os.path.isdir(outcome_dir):
+        return counts
+    for fn in sorted(os.listdir(outcome_dir)):
+        if not fn.endswith('.parquet'):
+            continue
+        game_date = fn[:-len('.parquet')]
+        try:
+            df = wh_read_parquet('outcomes', fn)
+            counts[game_date] = len(df)
+        except Exception:
+            counts[game_date] = 0
+    return counts
+
+
+def _outcome_jsonl_duplicate_counts_by_date():
+    keys_by_date = {}
+    if not os.path.exists(OUTCOMES_LOG):
+        return {}
+    try:
+        with open(OUTCOMES_LOG) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                game_date = rec.get('date')
+                if not game_date:
+                    continue
+                keys_by_date.setdefault(game_date, []).append(
+                    (normalize_name(rec.get('name', '')), rec.get('team'), rec.get('opponent'))
+                )
+    except Exception:
+        pass
+    return {d: len(keys) - len(set(keys)) for d, keys in keys_by_date.items()}
+
+
+def _outcome_parquet_duplicate_counts_by_date():
+    dupes = {}
+    outcome_dir = wh_path('outcomes')
+    if not os.path.isdir(outcome_dir):
+        return dupes
+    for fn in sorted(os.listdir(outcome_dir)):
+        if not fn.endswith('.parquet'):
+            continue
+        game_date = fn[:-len('.parquet')]
+        try:
+            df = wh_read_parquet('outcomes', fn)
             if {'pitcher_name', 'team', 'opponent'}.issubset(df.columns):
                 keys = df[['pitcher_name', 'team', 'opponent']].copy()
                 keys['pitcher_name'] = keys['pitcher_name'].map(lambda v: normalize_name(v or ''))
@@ -4120,8 +4301,10 @@ def process_pending_outcomes():
     import shutil
     today = date.today().isoformat()
     new_records = 0
+    mirrored_dates = set()
 
     def _join_and_log(pred, outcome_dict):
+        nonlocal new_records
         pname = normalize_name(pred.get('name', ''))
         outcome = outcome_dict.get(pname)
         if not outcome:
@@ -4141,6 +4324,8 @@ def process_pending_outcomes():
             }
         with open(OUTCOMES_LOG, 'a') as f:
             f.write(json.dumps(joined) + '\n')
+        mirrored_dates.add(joined.get('date'))
+        new_records += 1
 
     for entry in sorted(os.listdir(PREDICTIONS_DIR)):
         full_path = os.path.join(PREDICTIONS_DIR, entry)
@@ -4170,7 +4355,6 @@ def process_pending_outcomes():
                 except Exception:
                     continue
                 _join_and_log(pred, outcomes)
-                new_records += 1
             try:
                 shutil.rmtree(full_path)
             except Exception:
@@ -4194,13 +4378,20 @@ def process_pending_outcomes():
                         except Exception:
                             continue
                         _join_and_log(pred, outcomes)
-                        new_records += 1
             except Exception:
                 continue
             try:
                 os.remove(full_path)
             except Exception:
                 pass
+
+    for d in sorted(x for x in mirrored_dates if x):
+        try:
+            parquet_path = wh_write_outcome_parquet(d)
+            if parquet_path:
+                print(f"  [warehouse] outcomes mirrored: {parquet_path}")
+        except Exception as wh_err:
+            print(f"  [warehouse] outcome mirror skipped for {d}: {wh_err}")
 
     return new_records
 
