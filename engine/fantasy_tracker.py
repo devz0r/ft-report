@@ -3512,6 +3512,47 @@ def wh_read_parquet(*parts):
     return pd.read_parquet(wh_path(*parts))
 
 
+def _scalar_for_parquet(value):
+    if isinstance(value, (dict, list, tuple)):
+        return json.dumps(value, sort_keys=True)
+    return value
+
+
+def _prediction_record_to_wh_row(record):
+    """Flatten one prediction JSONL record into warehouse-friendly columns."""
+    features = record.get('features') or {}
+    row = {
+        'game_date': record.get('date'),
+        'logged_at': record.get('logged_at'),
+        'snapshot_time': record.get('snapshot_time'),
+        'pitcher_name': record.get('name'),
+        'pitcher_id': record.get('pitcher_id'),
+        'team': record.get('team'),
+        'opponent': record.get('opponent'),
+        'status': record.get('status'),
+        'predicted_pts': record.get('predicted_pts'),
+        'predicted_pts_raw': record.get('predicted_pts_raw'),
+        'final_pts': record.get('final_pts'),
+    }
+    for key, value in record.items():
+        if key == 'features':
+            continue
+        if key not in row:
+            row[key] = _scalar_for_parquet(value)
+    for key in FEATURE_REGISTRY:
+        row.setdefault(key, None)
+    for key, value in features.items():
+        col = key if key not in row else f'feature_{key}'
+        row[col] = _scalar_for_parquet(value)
+    return row
+
+
+def wh_write_prediction_parquet(game_date, records):
+    """Mirror prediction JSONL records to one flat Parquet file per game date."""
+    rows = [_prediction_record_to_wh_row(rec) for rec in records]
+    return wh_write_parquet(rows, 'predictions', f'{game_date}.parquet')
+
+
 def _duckdb_ident(name):
     safe = re.sub(r'[^0-9A-Za-z_]+', '_', name).strip('_').lower()
     if not safe:
@@ -3577,6 +3618,123 @@ def audit_warehouse():
     except Exception as e:
         print(f"DuckDB initialization: FAILED ({type(e).__name__}: {e})")
         raise SystemExit(1)
+
+    json_counts = _prediction_jsonl_counts_by_date()
+    parquet_counts = _prediction_parquet_counts_by_date()
+    missing_parquet = sorted(set(json_counts) - set(parquet_counts))
+    json_dupes = _prediction_jsonl_duplicate_counts_by_date()
+    parquet_dupes = _prediction_parquet_duplicate_counts_by_date()
+
+    print("\nPrediction row counts by date")
+    all_dates = sorted(set(json_counts) | set(parquet_counts))
+    if not all_dates:
+        print("  None")
+    for d in all_dates:
+        print(f"  {d}: jsonl={json_counts.get(d, 0)} parquet={parquet_counts.get(d, 0)}")
+    print(f"Total prediction rows: jsonl={sum(json_counts.values())} parquet={sum(parquet_counts.values())}")
+
+    print("\nMissing Parquet prediction dates")
+    if missing_parquet:
+        for d in missing_parquet:
+            print(f"  - {d}")
+    else:
+        print("  None")
+
+    print("\nDuplicate prediction rows")
+    any_dupes = False
+    for d in sorted(set(json_dupes) | set(parquet_dupes)):
+        jd = json_dupes.get(d, 0)
+        pdp = parquet_dupes.get(d, 0)
+        if jd or pdp:
+            any_dupes = True
+            print(f"  {d}: jsonl={jd} parquet={pdp}")
+    if not any_dupes:
+        print("  None detected")
+
+
+def _prediction_jsonl_counts_by_date():
+    counts = {}
+    if not os.path.isdir(PREDICTIONS_DIR):
+        return counts
+    for fn in sorted(os.listdir(PREDICTIONS_DIR)):
+        if not fn.endswith('.jsonl'):
+            continue
+        game_date = fn[:-len('.jsonl')]
+        path = os.path.join(PREDICTIONS_DIR, fn)
+        n = 0
+        try:
+            with open(path) as f:
+                for line in f:
+                    if line.strip():
+                        n += 1
+        except Exception:
+            n = 0
+        counts[game_date] = n
+    return counts
+
+
+def _prediction_parquet_counts_by_date():
+    counts = {}
+    pred_dir = wh_path('predictions')
+    if not os.path.isdir(pred_dir):
+        return counts
+    for fn in sorted(os.listdir(pred_dir)):
+        if not fn.endswith('.parquet'):
+            continue
+        game_date = fn[:-len('.parquet')]
+        try:
+            df = wh_read_parquet('predictions', fn)
+            counts[game_date] = len(df)
+        except Exception:
+            counts[game_date] = 0
+    return counts
+
+
+def _prediction_jsonl_duplicate_counts_by_date():
+    dupes = {}
+    if not os.path.isdir(PREDICTIONS_DIR):
+        return dupes
+    for fn in sorted(os.listdir(PREDICTIONS_DIR)):
+        if not fn.endswith('.jsonl'):
+            continue
+        game_date = fn[:-len('.jsonl')]
+        keys = []
+        try:
+            with open(os.path.join(PREDICTIONS_DIR, fn)) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except Exception:
+                        continue
+                    keys.append((normalize_name(rec.get('name', '')), rec.get('team'), rec.get('opponent')))
+        except Exception:
+            pass
+        dupes[game_date] = len(keys) - len(set(keys))
+    return dupes
+
+
+def _prediction_parquet_duplicate_counts_by_date():
+    dupes = {}
+    pred_dir = wh_path('predictions')
+    if not os.path.isdir(pred_dir):
+        return dupes
+    for fn in sorted(os.listdir(pred_dir)):
+        if not fn.endswith('.parquet'):
+            continue
+        game_date = fn[:-len('.parquet')]
+        try:
+            df = wh_read_parquet('predictions', fn)
+            if {'pitcher_name', 'team', 'opponent'}.issubset(df.columns):
+                keys = df[['pitcher_name', 'team', 'opponent']].copy()
+                keys['pitcher_name'] = keys['pitcher_name'].map(lambda v: normalize_name(v or ''))
+                dupes[game_date] = int(keys.duplicated().sum())
+            else:
+                dupes[game_date] = 0
+        except Exception:
+            dupes[game_date] = 0
+    return dupes
 
 
 FEATURE_REGISTRY = {}
@@ -3924,6 +4082,11 @@ def flush_predictions():
             if os.path.isdir(legacy_dir):
                 import shutil
                 shutil.rmtree(legacy_dir)
+            try:
+                parquet_path = wh_write_prediction_parquet(gd, list(existing.values()))
+                print(f"  [warehouse] predictions mirrored: {parquet_path}")
+            except Exception as wh_err:
+                print(f"  [warehouse] prediction mirror skipped for {gd}: {wh_err}")
         except Exception as e:
             print(f"  [flush-predictions] {gd}: {e}")
     _pending_predictions.clear()
