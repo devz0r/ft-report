@@ -14,30 +14,48 @@ MSG="$1"
 echo "Cleaning generated files before commit..."
 scripts/clean_generated.sh
 
-if [[ -n "$(git status --porcelain)" ]]; then
-  allowed_regex='^.. (engine/fantasy_tracker\.py|engine/requirements\.txt|engine/warehouse/[^/]+/\.gitkeep|scripts/.*|README\.md|CODEX_PROJECT_BRIEF\.md|\.gitignore)$'
-  unexpected="$(git status --porcelain | grep -Ev "$allowed_regex" || true)"
-  if [[ -n "$unexpected" ]]; then
-    echo "Unstaged changes remain after cleanup. Review them before committing:"
-    git status --short
-    exit 1
-  fi
-fi
+echo "Clearing any pre-existing staged changes..."
+git restore --staged -- .
 
 scripts/preflight.sh
 
 echo "Current diff:"
 git diff --stat
 
-echo "Staging code/docs/scripts only..."
+echo "Staging allowed project files only..."
 git add -- \
   engine/fantasy_tracker.py \
   engine/requirements.txt \
-  engine/warehouse/*/.gitkeep \
   scripts \
   README.md \
   CODEX_PROJECT_BRIEF.md \
   .gitignore
+
+while IFS= read -r path; do
+  git add -- "$path"
+done < <(find engine/warehouse -type f \( -name '.gitkeep' -o -name '*.py' -o -name '*.sql' -o -name '*.md' \) 2>/dev/null)
+
+echo "Checking for unexpected unstaged/untracked files..."
+unexpected="$(git status --porcelain --untracked-files=all | awk '
+  {
+    path = substr($0, 4)
+    if (path ~ / -> /) {
+      split(path, parts, " -> ")
+      path = parts[2]
+    }
+    if ($1 == "??" || substr($0, 2, 1) != " ") {
+      print $0
+    }
+  }
+')"
+if [[ -n "$unexpected" ]]; then
+  echo "Unexpected files remain after staging allowed project files:"
+  echo "$unexpected"
+  echo
+  echo "Review these before committing. Generated files should be cleaned, and real new paths should be added to safe_commit.sh intentionally."
+  git status --short
+  exit 1
+fi
 
 if git diff --cached --quiet; then
   echo "No staged code/docs changes to commit."
