@@ -46,6 +46,8 @@ CONFIG_FILE = os.path.join(SCRIPT_DIR, "tracker_config.json")
 OUTPUT_HTML = os.path.join(SCRIPT_DIR, "tracker_report.html")
 LOCAL_PREVIEW_DIR = os.path.join(SCRIPT_DIR, "local_preview")
 PREVIEW_LOCAL = False
+WAREHOUSE_DIR = os.path.join(SCRIPT_DIR, "warehouse")
+WAREHOUSE_LAYERS = ("raw", "clean", "features", "predictions", "outcomes", "views")
 
 # FanGraphs Auction Calculator API (RoS projections)
 FG_AUCTION_URL = "https://www.fangraphs.com/api/fantasy/auction-calculator/data"
@@ -3471,6 +3473,112 @@ PARK_BRACKETS = [
 ]
 
 
+# =============================================================================
+# WAREHOUSE FOUNDATION — parallel to existing JSON/JSONL state
+# =============================================================================
+
+def warehouse_enabled():
+    """Return True when optional DuckDB/Parquet dependencies are importable."""
+    try:
+        import duckdb  # noqa: F401
+        import pyarrow  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def wh_path(*parts):
+    """Build a path under engine/warehouse without touching existing JSON state."""
+    return os.path.join(WAREHOUSE_DIR, *parts)
+
+
+def _ensure_warehouse_dirs():
+    for layer in WAREHOUSE_LAYERS:
+        os.makedirs(wh_path(layer), exist_ok=True)
+
+
+def wh_write_parquet(data, *parts):
+    """Write a dataframe-like object to Parquet. Not used by production flow yet."""
+    _ensure_warehouse_dirs()
+    path = wh_path(*parts)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    df = data if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
+    df.to_parquet(path, index=False)
+    return path
+
+
+def wh_read_parquet(*parts):
+    """Read a warehouse Parquet file into a dataframe."""
+    return pd.read_parquet(wh_path(*parts))
+
+
+def _duckdb_ident(name):
+    safe = re.sub(r'[^0-9A-Za-z_]+', '_', name).strip('_').lower()
+    if not safe:
+        safe = 'parquet_view'
+    if safe[0].isdigit():
+        safe = f'v_{safe}'
+    return safe
+
+
+def wh_conn(database=':memory:'):
+    """Create a DuckDB connection with views over existing warehouse Parquet files."""
+    import duckdb
+
+    _ensure_warehouse_dirs()
+    conn = duckdb.connect(database=database)
+    for layer in WAREHOUSE_LAYERS:
+        layer_dir = wh_path(layer)
+        for root, _, files in os.walk(layer_dir):
+            for fn in files:
+                if not fn.endswith('.parquet'):
+                    continue
+                path = os.path.join(root, fn)
+                rel = os.path.relpath(path, WAREHOUSE_DIR)
+                view = _duckdb_ident(os.path.splitext(rel)[0])
+                escaped_path = path.replace("'", "''")
+                conn.execute(
+                    f'CREATE OR REPLACE VIEW "{view}" AS '
+                    f"SELECT * FROM read_parquet('{escaped_path}')"
+                )
+    return conn
+
+
+def audit_warehouse():
+    """Audit the inert DuckDB/Parquet warehouse foundation."""
+    print("WAREHOUSE AUDIT")
+    print("=" * 60)
+    print(f"Warehouse root: {WAREHOUSE_DIR}")
+
+    missing = []
+    for layer in WAREHOUSE_LAYERS:
+        path = wh_path(layer)
+        exists = os.path.isdir(path)
+        print(f"  {layer:11s} {'OK' if exists else 'MISSING'}  {path}")
+        if not exists:
+            missing.append(layer)
+
+    if missing:
+        print(f"\nMissing warehouse folders: {', '.join(missing)}")
+    else:
+        print("\nWarehouse folders: OK")
+
+    try:
+        conn = wh_conn()
+        views = conn.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_type = 'VIEW' ORDER BY table_name"
+        ).fetchall()
+        conn.close()
+        print("DuckDB initialization: OK")
+        print(f"Parquet views available: {len(views)}")
+        for (name,) in views:
+            print(f"  - {name}")
+    except Exception as e:
+        print(f"DuckDB initialization: FAILED ({type(e).__name__}: {e})")
+        raise SystemExit(1)
+
+
 FEATURE_REGISTRY = {}
 
 
@@ -4606,12 +4714,17 @@ def main():
     parser = argparse.ArgumentParser(description='Fantasy Baseball In-Season Tracker')
     parser.add_argument('--setup', action='store_true', help='Configure ESPN authentication')
     parser.add_argument('--audit-features', action='store_true', help='Audit prediction feature registry/log consistency')
+    parser.add_argument('--audit-warehouse', action='store_true', help='Audit DuckDB/Parquet warehouse foundation')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--top', type=int, default=30, help='Show top N in console')
     args = parser.parse_args()
 
     if args.audit_features:
         audit_features()
+        return
+
+    if args.audit_warehouse:
+        audit_warehouse()
         return
 
     if args.setup:
