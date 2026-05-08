@@ -4496,6 +4496,170 @@ def _outcome_parquet_duplicate_counts_by_date():
     return dupes
 
 
+OUTCOME_DUPLICATE_KEY_FIELDS = (
+    'date',
+    'normalized_pitcher_name',
+    'team',
+    'opponent',
+    'home_away',
+    'game_id_or_game_pk',
+    'actual_line_fingerprint',
+    'no_start',
+)
+
+
+def _outcome_actual_line_fingerprint(record):
+    actual_line = record.get('actual_line')
+    if isinstance(actual_line, dict) and actual_line:
+        return json.dumps(actual_line, sort_keys=True, separators=(',', ':'), default=str)
+    return json.dumps({
+        'actual_pts': record.get('actual_pts'),
+        'no_start': bool(record.get('no_start')),
+    }, sort_keys=True, separators=(',', ':'), default=str)
+
+
+def _outcome_stable_duplicate_key(record):
+    return (
+        record.get('date') or record.get('game_date'),
+        normalize_name(record.get('name') or record.get('pitcher_name') or ''),
+        record.get('team'),
+        record.get('opponent'),
+        record.get('home_away'),
+        record.get('game_id') or record.get('game_pk'),
+        _outcome_actual_line_fingerprint(record),
+        bool(record.get('no_start')),
+    )
+
+
+def _outcome_exact_duplicate_key(record):
+    return json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=False, default=str)
+
+
+def _read_outcome_log_records():
+    records = []
+    if not os.path.exists(OUTCOMES_LOG):
+        return records
+    with open(OUTCOMES_LOG) as f:
+        for line_no, line in enumerate(f, 1):
+            if not line.strip():
+                continue
+            try:
+                records.append((line_no, json.loads(line)))
+            except Exception:
+                continue
+    return records
+
+
+def analyze_outcome_duplicates():
+    records = _read_outcome_log_records()
+    stable = {}
+    exact = {}
+    for line_no, rec in records:
+        stable.setdefault(_outcome_stable_duplicate_key(rec), []).append((line_no, rec))
+        exact.setdefault(_outcome_exact_duplicate_key(rec), []).append(line_no)
+    stable_groups = [items for items in stable.values() if len(items) > 1]
+    exact_groups = [lines for lines in exact.values() if len(lines) > 1]
+    by_date = {}
+    for items in stable_groups:
+        game_date = items[0][1].get('date') or items[0][1].get('game_date') or 'unknown'
+        by_date[game_date] = by_date.get(game_date, 0) + len(items) - 1
+    return {
+        'total_rows': len(records),
+        'stable_groups': stable_groups,
+        'stable_duplicate_rows': sum(len(items) - 1 for items in stable_groups),
+        'exact_groups': exact_groups,
+        'exact_duplicate_rows': sum(len(lines) - 1 for lines in exact_groups),
+        'by_date': by_date,
+    }
+
+
+def audit_outcome_duplicates():
+    """Dry-run audit for duplicate joined outcome rows."""
+    stats = analyze_outcome_duplicates()
+    print("OUTCOME DUPLICATE AUDIT")
+    print("=" * 60)
+    print(f"Source: {OUTCOMES_LOG}")
+    print(f"Total JSONL outcome rows: {stats['total_rows']}")
+    print("Duplicate key:")
+    print("  " + ", ".join(OUTCOME_DUPLICATE_KEY_FIELDS))
+    print("\nPlain-language meaning:")
+    print("  Rows are treated as duplicate candidates when they describe the same")
+    print("  pitcher start: same date, normalized pitcher, team, opponent, home/away,")
+    print("  game id when present, actual line fingerprint, and no-start status.")
+    print("  The audit is dry-run only and does not modify predictions_outcomes.jsonl.")
+
+    print("\nDuplicate summary")
+    print(f"  Stable duplicate groups: {len(stats['stable_groups'])}")
+    print(f"  Stable duplicate rows beyond first occurrence: {stats['stable_duplicate_rows']}")
+    print(f"  Exact duplicate groups: {len(stats['exact_groups'])}")
+    print(f"  Exact duplicate rows beyond first occurrence: {stats['exact_duplicate_rows']}")
+
+    print("\nDuplicate rows by date")
+    if stats['by_date']:
+        for game_date in sorted(stats['by_date']):
+            print(f"  {game_date}: {stats['by_date'][game_date]} duplicate row(s)")
+    else:
+        print("  None detected")
+
+    print("\nSample duplicate groups")
+    if stats['stable_groups']:
+        for items in stats['stable_groups'][:8]:
+            first = items[0][1]
+            line_nums = ', '.join(str(line_no) for line_no, _ in items[:8])
+            print(
+                f"  {first.get('date')} | {first.get('name')} | "
+                f"{first.get('team')} vs {first.get('opponent')} "
+                f"({first.get('home_away') or '?'}) | lines {line_nums}"
+            )
+    else:
+        print("  None")
+
+    print("\nNo data was modified.")
+    if stats['stable_duplicate_rows']:
+        print("Run with --dedupe-outcomes to create a backup and rewrite without stable duplicates.")
+    return stats
+
+
+def dedupe_outcomes():
+    """Rewrite predictions_outcomes.jsonl after backing it up, keeping first stable key."""
+    stats = analyze_outcome_duplicates()
+    if not os.path.exists(OUTCOMES_LOG):
+        print(f"No outcomes log found: {OUTCOMES_LOG}")
+        return stats
+    if not stats['stable_duplicate_rows']:
+        print("No stable duplicate outcome rows detected; nothing to dedupe.")
+        return stats
+
+    records = _read_outcome_log_records()
+    seen = set()
+    kept = []
+    for _, rec in records:
+        key = _outcome_stable_duplicate_key(rec)
+        if key in seen:
+            continue
+        seen.add(key)
+        kept.append(rec)
+
+    import shutil
+    backup = f"{OUTCOMES_LOG}.bak-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    shutil.copy2(OUTCOMES_LOG, backup)
+    tmp_path = f"{OUTCOMES_LOG}.tmp"
+    with open(tmp_path, 'w') as f:
+        for rec in kept:
+            f.write(json.dumps(rec, sort_keys=True) + '\n')
+    os.replace(tmp_path, OUTCOMES_LOG)
+
+    print("Outcome duplicate repair complete")
+    print(f"  Backup: {backup}")
+    print(f"  Before rows: {stats['total_rows']}")
+    print(f"  After rows: {len(kept)}")
+    print(f"  Removed rows: {stats['total_rows'] - len(kept)}")
+    if _warehouse_parquet_files('outcomes'):
+        print("Warehouse outcome Parquet files exist.")
+        print("Rerun: python3.11 -B engine/fantasy_tracker.py --backfill-warehouse-outcomes")
+    return stats
+
+
 def _sp_start_feature_files():
     feature_dir = wh_path('features', 'sp_start_features')
     if not os.path.isdir(feature_dir):
@@ -5893,6 +6057,8 @@ def main():
     parser.add_argument('--setup', action='store_true', help='Configure ESPN authentication')
     parser.add_argument('--audit-features', action='store_true', help='Audit prediction feature registry/log consistency')
     parser.add_argument('--audit-warehouse', action='store_true', help='Audit DuckDB/Parquet warehouse foundation')
+    parser.add_argument('--audit-outcome-duplicates', action='store_true', help='Dry-run audit for duplicate outcome rows')
+    parser.add_argument('--dedupe-outcomes', action='store_true', help='Backup and rewrite predictions_outcomes.jsonl without stable duplicates')
     parser.add_argument('--backfill-warehouse-outcomes', action='store_true', help='Backfill outcome Parquet files from predictions_outcomes.jsonl')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
@@ -5924,6 +6090,14 @@ def main():
 
     if args.audit_warehouse:
         audit_warehouse()
+        return
+
+    if args.audit_outcome_duplicates:
+        audit_outcome_duplicates()
+        return
+
+    if args.dedupe_outcomes:
+        dedupe_outcomes()
         return
 
     if args.backfill_warehouse_outcomes:
