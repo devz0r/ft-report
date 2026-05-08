@@ -9149,5 +9149,55 @@
       "ip": "102.0"
     },
     "splits_window_years": 3
+  },
+  "680744": {
+    "mlb_id": 680744,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 93.68582552173915,
+        "pct": 0.28395063
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 92.53493866666666,
+        "pct": 0.22222222
+      },
+      {
+        "code": "KC",
+        "desc": "Knuckle Curve",
+        "velo": 79.66201,
+        "pct": 0.012345679
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 85.12624128571429,
+        "pct": 0.086419754
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 88.34309983333334,
+        "pct": 0.2962963
+      },
+      {
+        "code": "FS",
+        "desc": "Splitter",
+        "velo": 84.087120375,
+        "pct": 0.09876543
+      }
+    ],
+    "fb_velo": 93.7,
+    "pitch_count": 6,
+    "career_vs_r": {
+      "ops": "0.477",
+      "whip": "0.90",
+      "k9": "5.74",
+      "ip": "15.7"
+    },
+    "splits_window_years": 2
   }
 }
