@@ -2746,8 +2746,9 @@ def _fast_preview_streaming_entry(record):
 def load_prediction_logs_for_fast_preview():
     """Build usable streaming rows from existing prediction logs without fetching."""
     if not os.path.isdir(PREDICTIONS_DIR):
-        return []
+        return [], None
     latest = {}
+    date_values = set()
     for fn in sorted(os.listdir(PREDICTIONS_DIR)):
         if not fn.endswith('.jsonl'):
             continue
@@ -2761,6 +2762,8 @@ def load_prediction_logs_for_fast_preview():
                         rec = json.loads(line)
                     except Exception:
                         continue
+                    if rec.get('date'):
+                        date_values.add(rec.get('date'))
                     key = (
                         rec.get('date'),
                         normalize_name(rec.get('name') or rec.get('pitcher_name') or ''),
@@ -2773,7 +2776,12 @@ def load_prediction_logs_for_fast_preview():
             continue
     rows = [_fast_preview_streaming_entry(rec) for rec in latest.values()]
     rows.sort(key=lambda s: (s.get('date') or '', TIER_ORDER.get(s.get('tier', 'avoid'), 3), -(s.get('pts') or 0)))
-    return rows
+    if date_values:
+        dates = sorted(date_values)
+        date_range = dates[0] if dates[0] == dates[-1] else f"{dates[0]} through {dates[-1]}"
+    else:
+        date_range = None
+    return rows, date_range
 
 
 def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster_map,
@@ -2782,7 +2790,8 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           calibration=None, learned_candidates=None,
                           learned_biases_override=None,
                           feature_log_status_override=None,
-                          skip_unchanged_write=False):
+                          skip_unchanged_write=False,
+                          top_banner_html=''):
     from string import Template
     if streaming_data is None:
         streaming_data = []
@@ -2848,6 +2857,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px 30px; border-bottom: 3px solid #3b82f6; }
 .header h1 { font-size: 24px; color: #fff; }
 .header .subtitle { color: #888; font-size: 13px; margin-top: 4px; }
+.preview-banner { padding: 12px 30px; background: #3a2500; color: #fef3c7; border-bottom: 1px solid #a16207; font-size: 13px; line-height: 1.45; }
+.preview-banner b { color: #fff7ed; }
+.preview-banner .meta { color: #fde68a; font-size: 12px; margin-top: 2px; }
 .tab-bar { display: flex; gap: 0; margin-top: 14px; }
 .tab-btn { padding: 8px 24px; border: none; background: transparent; color: #666; cursor: pointer; font-size: 14px; font-weight: 500; border-bottom: 2px solid transparent; transition: all 0.15s; }
 .tab-btn:hover { color: #aaa; }
@@ -2973,6 +2985,7 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
     <button class="tab-btn" data-tab="accuracy">Accuracy</button>
   </div>
 </div>
+$TOP_BANNER_HTML
 
 <!-- ===== RoS TRACKER TAB ===== -->
 <div class="tab-view active" id="tab-tracker">
@@ -3520,6 +3533,7 @@ renderAccuracy();
         ),
         LEARNED_CANDIDATES_JSON=json.dumps(learned_candidates or []),
         FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
+        TOP_BANNER_HTML=top_banner_html or '',
     )
 
     if skip_unchanged_write and os.path.exists(OUTPUT_HTML):
@@ -5954,8 +5968,9 @@ def main():
         cum_deltas, oldest_date = {}, None
         print("Fast preview: skipping snapshot delta recomputation")
 
-        streaming_data = timed("fast preview: load prediction logs", load_prediction_logs_for_fast_preview)
+        streaming_data, prediction_log_range = timed("fast preview: load prediction logs", load_prediction_logs_for_fast_preview)
         print(f"Fast preview: using existing prediction logs ({len(streaming_data)} streaming rows)")
+        print(f"Fast preview: prediction log date range {prediction_log_range or 'unknown'}")
         cal = {
             'note': (
                 'Fast preview skips detailed accuracy recalculation for speed. '
@@ -5963,6 +5978,15 @@ def main():
             )
         }
         print("Fast preview: skipping detailed calibration recalculation")
+        banner_meta = [f"Snapshot: {snapshot_date}"]
+        if prediction_log_range:
+            banner_meta.append(f"Prediction logs: {prediction_log_range}")
+        fast_preview_banner = (
+            '<div class="preview-banner"><b>FAST PREVIEW:</b> using cached prediction logs and snapshots. '
+            'This is not a fresh data refresh. Use <code>--preview-local</code> for a fresh local refresh, '
+            'or a normal run for a production update.'
+            f'<div class="meta">{" &bull; ".join(banner_meta)}</div></div>'
+        )
         timed(
             "HTML generation",
             generate_tracker_html,
@@ -5975,6 +5999,7 @@ def main():
             learned_biases_override=fast_learned_biases,
             feature_log_status_override='Fast preview: feature-log status not refreshed.',
             skip_unchanged_write=True,
+            top_banner_html=fast_preview_banner,
         )
         print("\nDone!")
         print(f"\nOpen {OUTPUT_HTML} to review the local preview.")
