@@ -3497,6 +3497,18 @@ def _ensure_warehouse_dirs():
         os.makedirs(wh_path(layer), exist_ok=True)
 
 
+def _warehouse_parquet_files(*parts):
+    base = wh_path(*parts)
+    if not os.path.isdir(base):
+        return []
+    out = []
+    for root, _, files in os.walk(base):
+        for fn in files:
+            if fn.endswith('.parquet'):
+                out.append(os.path.join(root, fn))
+    return sorted(out)
+
+
 def wh_write_parquet(data, *parts):
     """Write a dataframe-like object to Parquet. Not used by production flow yet."""
     _ensure_warehouse_dirs()
@@ -3525,12 +3537,27 @@ SP_START_EXCLUDED_LABEL_COLUMNS = {
 SP_START_OUTPUT_COLUMNS = {
     'predicted_pts', 'predicted_pts_raw', 'final_pts',
 }
+TRAINING_LABEL_COLUMNS = {
+    'actual_pts', 'actual_ip', 'actual_k', 'actual_er', 'actual_bb',
+    'actual_hits', 'actual_hr', 'actual_win', 'residual',
+}
+
+
+def _start_id_for_record(record):
+    return '|'.join([
+        str(record.get('date') or record.get('game_date') or ''),
+        normalize_name(record.get('name') or record.get('pitcher_name') or ''),
+        str(record.get('team') or ''),
+        str(record.get('opponent') or ''),
+        str(record.get('home_away') or ''),
+    ])
 
 
 def _prediction_record_to_wh_row(record):
     """Flatten one prediction JSONL record into warehouse-friendly columns."""
     features = record.get('features') or {}
     row = {
+        'start_id': _start_id_for_record(record),
         'game_date': record.get('date'),
         'logged_at': record.get('logged_at'),
         'snapshot_time': record.get('snapshot_time'),
@@ -3567,6 +3594,7 @@ def _outcome_record_to_wh_row(record):
     features = record.get('features') or {}
     actual_line = record.get('actual_line') or {}
     row = {
+        'start_id': _start_id_for_record(record),
         'game_date': record.get('date'),
         'pitcher_name': record.get('name'),
         'pitcher_id': record.get('pitcher_id'),
@@ -3633,16 +3661,8 @@ def _sp_start_feature_record_to_wh_row(record):
     game_date = record.get('date')
     snapshot_time = record.get('snapshot_time') or record.get('logged_at')
     pitcher_name = record.get('name')
-    pitcher_norm = normalize_name(pitcher_name or '')
-    start_id = '|'.join([
-        str(game_date or ''),
-        pitcher_norm,
-        str(record.get('team') or ''),
-        str(record.get('opponent') or ''),
-        str(record.get('home_away') or ''),
-    ])
     row = {
-        'start_id': start_id,
+        'start_id': _start_id_for_record(record),
         'game_id': record.get('game_id') or record.get('game_pk'),
         'game_date': game_date,
         'snapshot_time': snapshot_time,
@@ -3689,6 +3709,135 @@ def _duckdb_ident(name):
     return safe
 
 
+def _sql_path(path):
+    return path.replace("'", "''")
+
+
+def _table_columns(conn, table_name):
+    try:
+        rows = conn.execute(f'DESCRIBE "{table_name}"').fetchall()
+        return {row[0] for row in rows}
+    except Exception:
+        return set()
+
+
+def _sql_label_expr(cols, name, fallback=None):
+    if name in cols:
+        return f'o."{name}" AS "{name}"'
+    if fallback and fallback in cols:
+        return f'o."{fallback}" AS "{name}"'
+    return f'NULL AS "{name}"'
+
+
+def _create_training_sp_starts_view(conn):
+    """Create analysis-only training view from pregame features + outcomes."""
+    feature_files = _warehouse_parquet_files('features', 'sp_start_features')
+    outcome_files = _warehouse_parquet_files('outcomes')
+    if not feature_files:
+        conn.execute("""
+            CREATE OR REPLACE VIEW training_sp_starts AS
+            SELECT
+              NULL::VARCHAR AS start_id,
+              NULL::VARCHAR AS snapshot_time,
+              NULL::VARCHAR AS game_date,
+              NULL::VARCHAR AS pitcher_name,
+              NULL::VARCHAR AS team,
+              NULL::VARCHAR AS opponent,
+              NULL::DOUBLE AS actual_pts,
+              NULL::DOUBLE AS actual_ip,
+              NULL::DOUBLE AS actual_k,
+              NULL::DOUBLE AS actual_er,
+              NULL::DOUBLE AS actual_bb,
+              NULL::DOUBLE AS actual_hits,
+              NULL::DOUBLE AS actual_hr,
+              NULL::INTEGER AS actual_win,
+              NULL::DOUBLE AS residual,
+              FALSE AS has_label
+            WHERE FALSE
+        """)
+        return
+
+    feature_glob = _sql_path(os.path.join(wh_path('features', 'sp_start_features'), '*.parquet'))
+    conn.execute(
+        "CREATE OR REPLACE VIEW sp_start_features AS "
+        f"SELECT * FROM read_parquet('{feature_glob}', union_by_name=true)"
+    )
+    feature_cols = _table_columns(conn, 'sp_start_features')
+
+    if not outcome_files:
+        conn.execute("""
+            CREATE OR REPLACE VIEW training_sp_starts AS
+            SELECT
+              f.*,
+              NULL AS actual_pts,
+              NULL AS actual_ip,
+              NULL AS actual_k,
+              NULL AS actual_er,
+              NULL AS actual_bb,
+              NULL AS actual_hits,
+              NULL AS actual_hr,
+              NULL AS actual_win,
+              NULL AS residual,
+              FALSE AS has_label
+            FROM sp_start_features f
+        """)
+        return
+
+    outcome_glob = _sql_path(os.path.join(wh_path('outcomes'), '*.parquet'))
+    conn.execute(
+        "CREATE OR REPLACE VIEW warehouse_outcomes AS "
+        f"SELECT * FROM read_parquet('{outcome_glob}', union_by_name=true)"
+    )
+    outcome_cols = _table_columns(conn, 'warehouse_outcomes')
+    join_clauses = []
+    if 'start_id' in feature_cols and 'start_id' in outcome_cols:
+        join_clauses.append('f.start_id = o.start_id')
+    elif {'game_date', 'pitcher_name', 'team', 'opponent'}.issubset(feature_cols) and {
+        'game_date', 'pitcher_name', 'team', 'opponent'
+    }.issubset(outcome_cols):
+        join_clauses.append(
+            "(f.game_date = o.game_date "
+            "AND lower(coalesce(f.pitcher_name, '')) = lower(coalesce(o.pitcher_name, '')) "
+            "AND coalesce(f.team, '') = coalesce(o.team, '') "
+            "AND coalesce(f.opponent, '') = coalesce(o.opponent, ''))"
+        )
+    join_sql = ' OR '.join(join_clauses) if join_clauses else 'FALSE'
+
+    if 'actual_win' in outcome_cols:
+        actual_win_expr = 'try_cast(o."actual_win" AS INTEGER) AS "actual_win"'
+    elif 'actual_decision' in outcome_cols:
+        actual_win_expr = (
+            "CASE WHEN o.\"actual_decision\" = 'W' THEN 1 "
+            "WHEN o.\"actual_decision\" IS NOT NULL THEN 0 "
+            "ELSE NULL END AS \"actual_win\""
+        )
+    else:
+        actual_win_expr = 'NULL AS "actual_win"'
+
+    label_exprs = [
+        _sql_label_expr(outcome_cols, 'actual_pts'),
+        _sql_label_expr(outcome_cols, 'actual_ip'),
+        _sql_label_expr(outcome_cols, 'actual_k'),
+        _sql_label_expr(outcome_cols, 'actual_er'),
+        _sql_label_expr(outcome_cols, 'actual_bb'),
+        _sql_label_expr(outcome_cols, 'actual_hits', fallback='actual_h'),
+        _sql_label_expr(outcome_cols, 'actual_hr'),
+        actual_win_expr,
+        _sql_label_expr(outcome_cols, 'residual'),
+    ]
+    labels_sql = ',\n              '.join(label_exprs)
+    conn.execute(f"""
+        CREATE OR REPLACE VIEW training_sp_starts AS
+        SELECT
+          f.*,
+          {labels_sql},
+          o.game_date IS NOT NULL AS has_label
+        FROM sp_start_features f
+        LEFT JOIN warehouse_outcomes o
+          ON {join_sql}
+    """)
+
+
 def wh_conn(database=':memory:'):
     """Create a DuckDB connection with views over existing warehouse Parquet files."""
     import duckdb
@@ -3709,6 +3858,7 @@ def wh_conn(database=':memory:'):
                     f'CREATE OR REPLACE VIEW "{view}" AS '
                     f"SELECT * FROM read_parquet('{escaped_path}')"
                 )
+    _create_training_sp_starts_view(conn)
     return conn
 
 
@@ -3845,6 +3995,21 @@ def audit_warehouse():
             print(f"  - {col}: {pct}% null/missing ({n_null}/{total})")
     else:
         print("  None")
+
+    training = _training_sp_starts_stats()
+    print("\nTraining view training_sp_starts")
+    print(f"  rows: {training['rows']}")
+    print(f"  rows with labels: {training['rows_with_labels']}")
+    print(f"  rows without labels: {training['rows_without_labels']}")
+    print(f"  duplicate join keys: {training['duplicate_join_keys']}")
+    print(f"  join key audit: {training['join_key_audit']}")
+
+    print("\nTraining view possible leakage columns")
+    if training['possible_leakage_columns']:
+        for col in training['possible_leakage_columns']:
+            print(f"  - {col}")
+    else:
+        print("  None detected")
 
 
 def _prediction_jsonl_counts_by_date():
@@ -4096,6 +4261,77 @@ def _sp_start_feature_null_heavy():
         if n_null / total >= 0.70:
             out.append((col, n_null, total, round(100 * n_null / total)))
     return out
+
+
+def _training_sp_starts_stats():
+    stats = {
+        'rows': 0,
+        'rows_with_labels': 0,
+        'rows_without_labels': 0,
+        'duplicate_join_keys': 0,
+        'join_key_audit': 'none available',
+        'possible_leakage_columns': [],
+    }
+    conn = None
+    try:
+        conn = wh_conn()
+        cols = _table_columns(conn, 'training_sp_starts')
+        if not cols:
+            return stats
+        stats['rows'] = int(conn.execute("SELECT COUNT(*) FROM training_sp_starts").fetchone()[0] or 0)
+        if 'has_label' in cols:
+            stats['rows_with_labels'] = int(conn.execute(
+                "SELECT COUNT(*) FROM training_sp_starts WHERE COALESCE(has_label, FALSE)"
+            ).fetchone()[0] or 0)
+        elif 'actual_pts' in cols:
+            stats['rows_with_labels'] = int(conn.execute(
+                "SELECT COUNT(*) FROM training_sp_starts WHERE actual_pts IS NOT NULL"
+            ).fetchone()[0] or 0)
+        stats['rows_without_labels'] = max(0, stats['rows'] - stats['rows_with_labels'])
+
+        if {'start_id', 'snapshot_time'}.issubset(cols):
+            stats['join_key_audit'] = 'start_id + snapshot_time'
+            stats['duplicate_join_keys'] = int(conn.execute("""
+                SELECT COALESCE(SUM(cnt - 1), 0)
+                FROM (
+                  SELECT start_id, snapshot_time, COUNT(*) AS cnt
+                  FROM training_sp_starts
+                  GROUP BY start_id, snapshot_time
+                  HAVING COUNT(*) > 1
+                )
+            """).fetchone()[0] or 0)
+        elif {'game_date', 'snapshot_time', 'pitcher_name', 'team', 'opponent'}.issubset(cols):
+            stats['join_key_audit'] = 'game_date + snapshot_time + pitcher_name + team + opponent'
+            stats['duplicate_join_keys'] = int(conn.execute("""
+                SELECT COALESCE(SUM(cnt - 1), 0)
+                FROM (
+                  SELECT game_date, snapshot_time, pitcher_name, team, opponent, COUNT(*) AS cnt
+                  FROM training_sp_starts
+                  GROUP BY game_date, snapshot_time, pitcher_name, team, opponent
+                  HAVING COUNT(*) > 1
+                )
+            """).fetchone()[0] or 0)
+
+        allowed_labels = TRAINING_LABEL_COLUMNS | {'has_label'}
+        leakage_exact = {'actual_line', 'actual_decision', 'residual_raw', 'no_start'}
+        leakage = []
+        for col in cols:
+            c = col.lower()
+            if c in allowed_labels:
+                continue
+            if c in leakage_exact or c.startswith('actual_') or 'residual' in c:
+                leakage.append(col)
+        stats['possible_leakage_columns'] = sorted(set(leakage))
+        return stats
+    except Exception as e:
+        stats['join_key_audit'] = f'audit failed: {type(e).__name__}: {e}'
+        return stats
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 FEATURE_REGISTRY = {}
