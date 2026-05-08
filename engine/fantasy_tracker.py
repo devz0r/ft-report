@@ -3864,23 +3864,16 @@ def wh_conn(database=':memory:'):
 
 def audit_warehouse():
     """Audit the inert DuckDB/Parquet warehouse foundation."""
-    print("WAREHOUSE AUDIT")
-    print("=" * 60)
-    print(f"Warehouse root: {WAREHOUSE_DIR}")
-
     missing = []
     for layer in WAREHOUSE_LAYERS:
         path = wh_path(layer)
         exists = os.path.isdir(path)
-        print(f"  {layer:11s} {'OK' if exists else 'MISSING'}  {path}")
         if not exists:
             missing.append(layer)
 
-    if missing:
-        print(f"\nMissing warehouse folders: {', '.join(missing)}")
-    else:
-        print("\nWarehouse folders: OK")
-
+    duckdb_ok = False
+    duckdb_error = None
+    views = []
     try:
         conn = wh_conn()
         views = conn.execute(
@@ -3888,19 +3881,122 @@ def audit_warehouse():
             "WHERE table_type = 'VIEW' ORDER BY table_name"
         ).fetchall()
         conn.close()
-        print("DuckDB initialization: OK")
-        print(f"Parquet views available: {len(views)}")
-        for (name,) in views:
-            print(f"  - {name}")
+        duckdb_ok = True
     except Exception as e:
-        print(f"DuckDB initialization: FAILED ({type(e).__name__}: {e})")
-        raise SystemExit(1)
+        duckdb_error = e
 
     json_counts = _prediction_jsonl_counts_by_date()
     parquet_counts = _prediction_parquet_counts_by_date()
     missing_parquet = sorted(set(json_counts) - set(parquet_counts))
     json_dupes = _prediction_jsonl_duplicate_counts_by_date()
     parquet_dupes = _prediction_parquet_duplicate_counts_by_date()
+
+    outcome_json_counts = _outcome_jsonl_counts_by_date()
+    outcome_parquet_counts = _outcome_parquet_counts_by_date()
+    outcome_missing_parquet = sorted(set(outcome_json_counts) - set(outcome_parquet_counts))
+    outcome_json_dupes = _outcome_jsonl_duplicate_counts_by_date()
+    outcome_parquet_dupes = _outcome_parquet_duplicate_counts_by_date()
+
+    feature_counts = _sp_start_feature_counts_by_date()
+    feature_dupes = _sp_start_feature_duplicate_counts_by_date()
+    feature_columns = _sp_start_feature_columns()
+    leakage_columns = _sp_start_feature_leakage_columns(feature_columns)
+    training = _training_sp_starts_stats() if duckdb_ok else {
+        'rows': 0,
+        'rows_with_labels': 0,
+        'rows_without_labels': 0,
+        'duplicate_join_keys': 0,
+        'join_key_audit': 'DuckDB initialization failed',
+        'possible_leakage_columns': [],
+    }
+    training_leakage = training['possible_leakage_columns']
+
+    prediction_total_json = sum(json_counts.values())
+    prediction_total_parquet = sum(parquet_counts.values())
+    outcome_total_json = sum(outcome_json_counts.values())
+    outcome_total_parquet = sum(outcome_parquet_counts.values())
+    feature_total = sum(feature_counts.values())
+    warning_reasons = []
+
+    if not duckdb_ok or missing:
+        warehouse_status = 'FAIL'
+    else:
+        warehouse_status = 'OK'
+
+    if not json_counts:
+        prediction_message = 'No prediction JSONL rows found yet'
+    elif missing_parquet or prediction_total_json != prediction_total_parquet:
+        prediction_message = 'Predictions not fully mirrored yet'
+        warning_reasons.append(prediction_message)
+    else:
+        prediction_message = 'Predictions mirrored correctly'
+
+    if not outcome_json_counts:
+        outcome_message = 'No outcome JSONL rows found yet'
+    elif outcome_missing_parquet and outcome_total_parquet == 0:
+        outcome_message = 'Outcomes not mirrored yet'
+        warning_reasons.append(outcome_message)
+    elif outcome_missing_parquet or outcome_total_json != outcome_total_parquet:
+        outcome_message = 'Outcomes not fully mirrored yet'
+        warning_reasons.append(outcome_message)
+    else:
+        outcome_message = 'Outcomes mirrored correctly'
+
+    if feature_total:
+        feature_message = 'Feature table has rows'
+    else:
+        feature_message = 'Feature table has no rows yet'
+        warning_reasons.append(feature_message)
+
+    if training['rows_with_labels']:
+        training_message = 'Training view has labeled rows'
+    elif training['rows']:
+        training_message = 'Training view has feature rows but no labels yet'
+        warning_reasons.append(training_message)
+    else:
+        training_message = 'Training view has no rows yet'
+        warning_reasons.append(training_message)
+
+    if leakage_columns or training_leakage:
+        leakage_message = 'Possible leakage columns found'
+        warning_reasons.append(leakage_message)
+    else:
+        leakage_message = 'No obvious leakage columns found'
+
+    if warehouse_status != 'FAIL' and warning_reasons:
+        warehouse_status = 'WARNING'
+
+    print("WAREHOUSE AUDIT")
+    print("=" * 60)
+    print("Summary")
+    print(f"  Warehouse status: {warehouse_status}")
+    print(f"  Prediction mirror status: {prediction_message}")
+    print(f"  Outcome mirror status: {outcome_message}")
+    print(f"  sp_start_features status: {feature_message}")
+    print(f"  training view status: {training_message}")
+    print(f"  leakage status: {leakage_message}")
+
+    print("\nDetailed audit")
+    print(f"Warehouse root: {WAREHOUSE_DIR}")
+
+    for layer in WAREHOUSE_LAYERS:
+        path = wh_path(layer)
+        exists = os.path.isdir(path)
+        print(f"  {layer:11s} {'OK' if exists else 'MISSING'}  {path}")
+
+    if missing:
+        print(f"\nMissing warehouse folders: {', '.join(missing)}")
+    else:
+        print("\nWarehouse folders: OK")
+
+    if duckdb_ok:
+        print("DuckDB initialization: OK")
+        print(f"Parquet views available: {len(views)}")
+        for (name,) in views:
+            print(f"  - {name}")
+    else:
+        print(f"DuckDB initialization: FAILED ({type(duckdb_error).__name__}: {duckdb_error})")
+        raise SystemExit(1)
 
     print("\nPrediction row counts by date")
     all_dates = sorted(set(json_counts) | set(parquet_counts))
@@ -3928,12 +4024,6 @@ def audit_warehouse():
     if not any_dupes:
         print("  None detected")
 
-    outcome_json_counts = _outcome_jsonl_counts_by_date()
-    outcome_parquet_counts = _outcome_parquet_counts_by_date()
-    outcome_missing_parquet = sorted(set(outcome_json_counts) - set(outcome_parquet_counts))
-    outcome_json_dupes = _outcome_jsonl_duplicate_counts_by_date()
-    outcome_parquet_dupes = _outcome_parquet_duplicate_counts_by_date()
-
     print("\nOutcome row counts by date")
     all_outcome_dates = sorted(set(outcome_json_counts) | set(outcome_parquet_counts))
     if not all_outcome_dates:
@@ -3959,11 +4049,6 @@ def audit_warehouse():
             print(f"  {d}: jsonl={jd} parquet={pdp}")
     if not any_outcome_dupes:
         print("  None detected")
-
-    feature_counts = _sp_start_feature_counts_by_date()
-    feature_dupes = _sp_start_feature_duplicate_counts_by_date()
-    feature_columns = _sp_start_feature_columns()
-    leakage_columns = _sp_start_feature_leakage_columns(feature_columns)
 
     print("\nSP start feature row counts by date")
     if not feature_counts:
@@ -3996,7 +4081,6 @@ def audit_warehouse():
     else:
         print("  None")
 
-    training = _training_sp_starts_stats()
     print("\nTraining view training_sp_starts")
     print(f"  rows: {training['rows']}")
     print(f"  rows with labels: {training['rows_with_labels']}")
