@@ -2779,7 +2779,10 @@ def load_prediction_logs_for_fast_preview():
 def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster_map,
                           streaming_data=None, cum_deltas=None, oldest_date=None,
                           global_emerging=None, hold_asof_label=None,
-                          calibration=None, learned_candidates=None):
+                          calibration=None, learned_candidates=None,
+                          learned_biases_override=None,
+                          feature_log_status_override=None,
+                          skip_unchanged_write=False):
     from string import Template
     if streaming_data is None:
         streaming_data = []
@@ -3380,6 +3383,10 @@ renderStreaming();
 /* ===== Accuracy tab rendering ===== */
 function renderAccuracy() {
   var c = document.getElementById('accuracyContent');
+  if (CALIBRATION && CALIBRATION.note) {
+    c.innerHTML = '<div class="stream-note" style="padding:40px;text-align:center;color:#555">' + CALIBRATION.note + '</div>';
+    return;
+  }
   if (!CALIBRATION || !CALIBRATION.n) {
     c.innerHTML = '<div class="stream-note" style="padding:40px;text-align:center;color:#555">No outcomes joined yet. Predictions logged today; accuracy stats will populate after tomorrow’s outcomes are processed.</div>';
     return;
@@ -3508,10 +3515,22 @@ renderAccuracy();
         OLDEST_DATE=oldest_label,
         HOLD_ASOF=hold_asof_label or (date.today() - timedelta(days=1)).strftime('%b %-d'),
         CALIBRATION_JSON=json.dumps(calibration) if calibration else 'null',
-        LEARNED_BIASES_JSON=json.dumps(load_learned_biases() or {}),
+        LEARNED_BIASES_JSON=json.dumps(
+            learned_biases_override if learned_biases_override is not None else (load_learned_biases() or {})
+        ),
         LEARNED_CANDIDATES_JSON=json.dumps(learned_candidates or []),
-        FEATURE_LOG_STATUS=prediction_feature_log_status(),
+        FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
     )
+
+    if skip_unchanged_write and os.path.exists(OUTPUT_HTML):
+        try:
+            with open(OUTPUT_HTML) as f:
+                if f.read() == html:
+                    print(f"Report unchanged at {OUTPUT_HTML}")
+                    print(f"  Open in browser: file://{OUTPUT_HTML}")
+                    return
+        except Exception:
+            pass
 
     with open(OUTPUT_HTML, 'w') as f:
         f.write(html)
@@ -5924,22 +5943,26 @@ def main():
         print(f"Fast preview: using tracker snapshot {snapshot_date} ({len(players_list)} players)")
         if os.path.exists(os.path.join(SCRIPT_DIR, 'espn_players.json')):
             print("Fast preview: using cached ESPN players from snapshot/match data")
+        fast_learned_biases = {}
         if os.path.exists(LEARNED_BIASES_PATH):
-            timed("fast preview: load learned biases", load_learned_biases)
+            fast_learned_biases = timed("fast preview: load learned biases", load_learned_biases)
             print("Fast preview: using existing learned biases")
         else:
             print("Fast preview: no learned_biases.json found; skipping recompute")
 
-        prev_snapshot = timed("fast preview: load previous snapshot", load_previous_snapshot, snapshot_date)
-        deltas, prev_date = timed("fast preview: snapshot deltas", compute_deltas, players_list, prev_snapshot)
-        oldest_snapshot = timed("fast preview: load oldest snapshot", load_oldest_snapshot)
-        cum_deltas, oldest_date = timed("fast preview: cumulative deltas", compute_cumulative_deltas, players_list, oldest_snapshot)
-        if oldest_date == prev_date:
-            cum_deltas, oldest_date = {}, None
+        deltas, prev_date = {}, None
+        cum_deltas, oldest_date = {}, None
+        print("Fast preview: skipping snapshot delta recomputation")
 
         streaming_data = timed("fast preview: load prediction logs", load_prediction_logs_for_fast_preview)
         print(f"Fast preview: using existing prediction logs ({len(streaming_data)} streaming rows)")
-        cal = timed("fast preview: calibration summary", calibration_stats, window_days=30)
+        cal = {
+            'note': (
+                'Fast preview skips detailed accuracy recalculation for speed. '
+                'Run --preview-local or the normal tracker for the full Accuracy tab.'
+            )
+        }
+        print("Fast preview: skipping detailed calibration recalculation")
         timed(
             "HTML generation",
             generate_tracker_html,
@@ -5949,6 +5972,9 @@ def main():
             hold_asof_label=f"cached preview through {snapshot_date}",
             calibration=cal,
             learned_candidates=[],
+            learned_biases_override=fast_learned_biases,
+            feature_log_status_override='Fast preview: feature-log status not refreshed.',
+            skip_unchanged_write=True,
         )
         print("\nDone!")
         print(f"\nOpen {OUTPUT_HTML} to review the local preview.")
