@@ -4083,7 +4083,7 @@ def audit_warehouse():
     outcome_missing_parquet = sorted(set(outcome_json_counts) - set(outcome_parquet_counts))
     outcome_json_dupes = _outcome_jsonl_duplicate_counts_by_date()
     outcome_parquet_dupes = _outcome_parquet_duplicate_counts_by_date()
-    learning_jsonl_count, learning_parquet_count = _learning_outcome_source_counts()
+    learning_jsonl_stats, learning_parquet_stats = _learning_outcome_source_counts()
 
     feature_counts = _sp_start_feature_counts_by_date()
     feature_dupes = _sp_start_feature_duplicate_counts_by_date()
@@ -4139,9 +4139,13 @@ def audit_warehouse():
         warning_reasons.append(outcome_message)
     else:
         outcome_message = 'Outcomes mirrored correctly'
-    if learning_parquet_count and learning_jsonl_count != learning_parquet_count:
+    if (
+            learning_parquet_stats['unique_actual_starts']
+            and learning_jsonl_stats['unique_actual_starts'] != learning_parquet_stats['unique_actual_starts']):
         warning_reasons.append(
-            f'Learning input count mismatch: jsonl={learning_jsonl_count} parquet={learning_parquet_count}'
+            "Learning input count mismatch: "
+            f"jsonl={learning_jsonl_stats['unique_actual_starts']} "
+            f"parquet={learning_parquet_stats['unique_actual_starts']}"
         )
 
     if feature_total:
@@ -4260,15 +4264,20 @@ def audit_warehouse():
         print("  None detected")
 
     print("\nLearning input outcome counts")
-    print(f"  JSONL eligible rows: {learning_jsonl_count}")
-    if learning_parquet_count:
-        print(f"  Parquet eligible rows: {learning_parquet_count}")
-        if learning_jsonl_count == learning_parquet_count:
+    print(f"  JSONL raw rows: {learning_jsonl_stats['raw_rows']}")
+    print(f"  JSONL exact duplicates removed for learning: {learning_jsonl_stats['exact_duplicates_removed']}")
+    print(f"  JSONL rows after exact dedupe eligible for learning: {learning_jsonl_stats['eligible_rows_after_exact_dedupe']}")
+    print(f"  JSONL unique actual starts used for learning: {learning_jsonl_stats['unique_actual_starts']}")
+    print(f"  JSONL snapshot groups collapsed for learning: {learning_jsonl_stats['snapshot_groups_collapsed']}")
+    if learning_parquet_stats['raw_rows']:
+        print(f"  Parquet raw rows: {learning_parquet_stats['raw_rows']}")
+        print(f"  Parquet unique actual starts used for learning: {learning_parquet_stats['unique_actual_starts']}")
+        if learning_jsonl_stats['unique_actual_starts'] == learning_parquet_stats['unique_actual_starts']:
             print("  OK: JSONL and Parquet learning inputs match")
         else:
             print("  WARNING: JSONL and Parquet learning inputs differ")
     else:
-        print("  Parquet eligible rows: 0")
+        print("  Parquet raw rows: 0")
         print("  Learning scan will use JSONL fallback")
 
     print("\nSP start feature row counts by date")
@@ -4576,6 +4585,7 @@ def analyze_outcome_duplicates():
 def audit_outcome_duplicates():
     """Dry-run audit for duplicate joined outcome rows."""
     stats = analyze_outcome_duplicates()
+    _, learning_stats = _load_outcomes_from_jsonl_for_learning(return_stats=True)
     print("OUTCOME DUPLICATE AUDIT")
     print("=" * 60)
     print(f"Source: {OUTCOMES_LOG}")
@@ -4593,6 +4603,15 @@ def audit_outcome_duplicates():
     print(f"  Stable duplicate rows beyond first occurrence: {stats['stable_duplicate_rows']}")
     print(f"  Exact duplicate groups: {len(stats['exact_groups'])}")
     print(f"  Exact duplicate rows beyond first occurrence: {stats['exact_duplicate_rows']}")
+
+    print("\nLearned-bias read-time sample selection")
+    print(f"  Raw outcome rows: {learning_stats['raw_rows']}")
+    print(f"  Exact duplicates removed for learning: {learning_stats['exact_duplicates_removed']}")
+    print(f"  Rows excluded before learning (no-start or no residual): {learning_stats['rows_excluded_before_learning']}")
+    print(f"  Rows eligible after exact dedupe: {learning_stats['eligible_rows_after_exact_dedupe']}")
+    print(f"  Unique actual starts used for learning: {learning_stats['unique_actual_starts']}")
+    print(f"  Snapshot groups collapsed for learning: {learning_stats['snapshot_groups_collapsed']}")
+    print(f"  Snapshot rows collapsed for learning: {learning_stats['snapshot_rows_removed']}")
 
     print("\nDuplicate rows by date")
     if stats['by_date']:
@@ -4616,7 +4635,8 @@ def audit_outcome_duplicates():
 
     print("\nNo data was modified.")
     if stats['stable_duplicate_rows']:
-        print("Run with --dedupe-outcomes to create a backup and rewrite without stable duplicates.")
+        print("Learning now uses read-time sample selection, so dedupe is not required for learned-bias safety.")
+        print("Run --dedupe-outcomes only if you intentionally want to rewrite snapshot-preserving history.")
     return stats
 
 
@@ -4629,6 +4649,10 @@ def dedupe_outcomes():
     if not stats['stable_duplicate_rows']:
         print("No stable duplicate outcome rows detected; nothing to dedupe.")
         return stats
+
+    print("WARNING: --dedupe-outcomes rewrites predictions_outcomes.jsonl and collapses")
+    print("stable duplicate actual-start rows. Learned-bias training does not require")
+    print("this repair because it now dedupes/selects samples at read time.")
 
     records = _read_outcome_log_records()
     seen = set()
@@ -5413,10 +5437,105 @@ def _valid_learning_outcome(record):
     )
 
 
-def _load_outcomes_from_jsonl_for_learning():
+def _parse_learning_datetime(value):
+    if not value:
+        return None
+    try:
+        text = str(value).strip()
+        if not text:
+            return None
+        if text.endswith('Z'):
+            text = text[:-1] + '+00:00'
+        dt = datetime.fromisoformat(text)
+        return dt.replace(tzinfo=None)
+    except Exception:
+        return None
+
+
+def _learning_logged_at(record):
+    return _parse_learning_datetime(record.get('logged_at') or record.get('snapshot_time'))
+
+
+def _learning_game_time(record):
+    features = record.get('features') or {}
+    return _parse_learning_datetime(
+        record.get('game_datetime')
+        or record.get('game_time')
+        or features.get('game_datetime')
+        or features.get('game_time')
+    )
+
+
+def _choose_learning_representative(items):
+    """Pick latest pregame prediction snapshot from one actual-start group."""
+    before_game = []
+    with_logged_at = []
+    for idx, rec in items:
+        logged_at = _learning_logged_at(rec)
+        game_time = _learning_game_time(rec)
+        if logged_at is not None:
+            with_logged_at.append((logged_at, idx, rec))
+            if game_time is not None and logged_at <= game_time:
+                before_game.append((logged_at, idx, rec))
+    if before_game:
+        return max(before_game, key=lambda item: (item[0], item[1]))[2]
+    if with_logged_at:
+        return max(with_logged_at, key=lambda item: (item[0], item[1]))[2]
+    return max(items, key=lambda item: item[0])[1]
+
+
+def select_learning_outcome_samples(records):
+    """Collapse duplicate/snapshot outcome rows to one sample per actual start."""
+    exact_seen = set()
+    exact_unique = []
+    for idx, rec in enumerate(records):
+        key = _outcome_exact_duplicate_key(rec)
+        if key in exact_seen:
+            continue
+        exact_seen.add(key)
+        exact_unique.append((idx, rec))
+
+    eligible = [(idx, rec) for idx, rec in exact_unique if _valid_learning_outcome(rec)]
+    grouped = {}
+    for idx, rec in eligible:
+        grouped.setdefault(_outcome_stable_duplicate_key(rec), []).append((idx, rec))
+
+    samples = []
+    snapshot_groups_collapsed = 0
+    snapshot_rows_removed = 0
+    for items in grouped.values():
+        if len(items) > 1:
+            snapshot_groups_collapsed += 1
+            snapshot_rows_removed += len(items) - 1
+        samples.append(_choose_learning_representative(items))
+
+    stats = {
+        'raw_rows': len(records),
+        'exact_duplicates_removed': len(records) - len(exact_unique),
+        'exact_unique_rows': len(exact_unique),
+        'rows_excluded_before_learning': len(exact_unique) - len(eligible),
+        'eligible_rows_after_exact_dedupe': len(eligible),
+        'unique_actual_starts': len(samples),
+        'snapshot_groups_collapsed': snapshot_groups_collapsed,
+        'snapshot_rows_removed': snapshot_rows_removed,
+    }
+    return samples, stats
+
+
+def _load_outcomes_from_jsonl_for_learning(return_stats=False):
     """Load all joined outcome records from the JSONL source of truth."""
     if not os.path.exists(OUTCOMES_LOG):
-        return []
+        empty = {
+            'raw_rows': 0,
+            'exact_duplicates_removed': 0,
+            'exact_unique_rows': 0,
+            'rows_excluded_before_learning': 0,
+            'eligible_rows_after_exact_dedupe': 0,
+            'unique_actual_starts': 0,
+            'snapshot_groups_collapsed': 0,
+            'snapshot_rows_removed': 0,
+        }
+        return ([], empty) if return_stats else []
     out = []
     try:
         with open(OUTCOMES_LOG) as f:
@@ -5425,12 +5544,11 @@ def _load_outcomes_from_jsonl_for_learning():
                     s = json.loads(line)
                 except Exception:
                     continue
-                if s.get('no_start') or (s.get('residual_raw') is None and s.get('residual') is None):
-                    continue
                 out.append(s)
     except Exception:
         pass
-    return out
+    samples, stats = select_learning_outcome_samples(out)
+    return (samples, stats) if return_stats else samples
 
 
 def _warehouse_row_to_learning_outcome(row):
@@ -5450,6 +5568,11 @@ def _warehouse_row_to_learning_outcome(row):
                 features[feature_key] = value
             continue
         rec[key] = value
+    if isinstance(rec.get('actual_line'), str):
+        try:
+            rec['actual_line'] = json.loads(rec['actual_line'])
+        except Exception:
+            pass
     if not rec.get('date') and rec.get('game_date'):
         rec['date'] = rec.get('game_date')
     if not rec.get('name') and rec.get('pitcher_name'):
@@ -5459,10 +5582,20 @@ def _warehouse_row_to_learning_outcome(row):
     return rec
 
 
-def _load_outcomes_from_warehouse_for_learning():
+def _load_outcomes_from_warehouse_for_learning(return_stats=False):
     """Read learned-bias inputs from outcome Parquet partitions when present."""
+    empty = {
+        'raw_rows': 0,
+        'exact_duplicates_removed': 0,
+        'exact_unique_rows': 0,
+        'rows_excluded_before_learning': 0,
+        'eligible_rows_after_exact_dedupe': 0,
+        'unique_actual_starts': 0,
+        'snapshot_groups_collapsed': 0,
+        'snapshot_rows_removed': 0,
+    }
     if not _warehouse_parquet_files('outcomes'):
-        return []
+        return ([], empty) if return_stats else []
     try:
         import duckdb
         conn = duckdb.connect(database=':memory:')
@@ -5473,37 +5606,51 @@ def _load_outcomes_from_warehouse_for_learning():
         conn.close()
     except Exception as e:
         print(f"Learning outcomes warehouse load failed; using JSONL fallback ({type(e).__name__}: {e})")
-        return []
+        return ([], empty) if return_stats else []
 
     out = []
     for row in df.to_dict('records'):
         rec = _warehouse_row_to_learning_outcome(row)
-        if _valid_learning_outcome(rec):
-            out.append(rec)
-    return out
+        out.append(rec)
+    samples, stats = select_learning_outcome_samples(out)
+    return (samples, stats) if return_stats else samples
 
 
 def _learning_outcome_source_counts():
-    jsonl_count = len(_load_outcomes_from_jsonl_for_learning())
-    parquet_count = len(_load_outcomes_from_warehouse_for_learning())
-    return jsonl_count, parquet_count
+    _, jsonl_stats = _load_outcomes_from_jsonl_for_learning(return_stats=True)
+    _, parquet_stats = _load_outcomes_from_warehouse_for_learning(return_stats=True)
+    return jsonl_stats, parquet_stats
 
 
 def _load_outcomes_for_learning():
     """Load joined outcome records for learned-bias scanning."""
-    warehouse_records = _load_outcomes_from_warehouse_for_learning()
-    jsonl_count = None
+    warehouse_records, warehouse_stats = _load_outcomes_from_warehouse_for_learning(return_stats=True)
     if warehouse_records:
         if os.path.exists(OUTCOMES_LOG):
-            jsonl_count = len(_load_outcomes_from_jsonl_for_learning())
-            print(f"Learning outcome count check: jsonl={jsonl_count} parquet={len(warehouse_records)}")
+            _, jsonl_stats = _load_outcomes_from_jsonl_for_learning(return_stats=True)
+            print(
+                "Learning outcome count check: "
+                f"jsonl={jsonl_stats['unique_actual_starts']} parquet={warehouse_stats['unique_actual_starts']}"
+            )
+        print(
+            "Learning sample selection: "
+            f"{warehouse_stats['raw_rows']} outcome rows -> {warehouse_stats['unique_actual_starts']} unique starts "
+            f"({warehouse_stats['exact_duplicates_removed']} exact duplicate rows removed, "
+            f"{warehouse_stats['snapshot_rows_removed']} snapshot rows collapsed)"
+        )
         print("Learning outcomes loaded from warehouse Parquet")
         return warehouse_records
 
-    jsonl_records = _load_outcomes_from_jsonl_for_learning()
+    jsonl_records, jsonl_stats = _load_outcomes_from_jsonl_for_learning(return_stats=True)
+    print(
+        "Learning sample selection: "
+        f"{jsonl_stats['raw_rows']} outcome rows -> {jsonl_stats['unique_actual_starts']} unique starts "
+        f"({jsonl_stats['exact_duplicates_removed']} exact duplicate rows removed, "
+        f"{jsonl_stats['snapshot_rows_removed']} snapshot rows collapsed)"
+    )
     print("Learning outcomes loaded from JSONL fallback")
     if _warehouse_parquet_files('outcomes'):
-        print(f"Learning outcome count check: jsonl={len(jsonl_records)} parquet=0")
+        print(f"Learning outcome count check: jsonl={jsonl_stats['unique_actual_starts']} parquet=0")
     return jsonl_records
 
 
