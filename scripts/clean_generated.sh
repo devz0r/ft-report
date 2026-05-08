@@ -28,5 +28,15 @@ find engine/warehouse/predictions -type f -name '*.parquet' -delete 2>/dev/null 
 find engine/warehouse/outcomes -type f -name '*.parquet' -delete 2>/dev/null || true
 find engine/warehouse/features -type f -name '*.parquet' -delete 2>/dev/null || true
 
+echo "Removing local generated IL snapshot files..."
+if [[ -d engine/streaming_cache/il_snapshots ]]; then
+  untracked_il_snapshots="$(git ls-files --others --exclude-standard -- 'engine/streaming_cache/il_snapshots/*.json')"
+  if [[ -n "$untracked_il_snapshots" ]]; then
+    while IFS= read -r path; do
+      rm -f -- "$path"
+    done <<< "$untracked_il_snapshots"
+  fi
+fi
+
 echo "Status after cleanup:"
 git status --short
