@@ -1831,6 +1831,21 @@ def load_previous_snapshot(current_date_str):
         return json.load(f)
 
 
+def load_latest_snapshot():
+    """Load the newest dated tracker snapshot for cache-only previews."""
+    if not os.path.exists(TRACKER_DIR):
+        return None
+    files = sorted(
+        f for f in os.listdir(TRACKER_DIR)
+        if re.match(r'^\d{4}-\d{2}-\d{2}\.json$', f)
+    )
+    if not files:
+        return None
+    filepath = os.path.join(TRACKER_DIR, files[-1])
+    with open(filepath, 'r') as f:
+        return json.load(f)
+
+
 def load_oldest_snapshot():
     """Load the earliest snapshot to compute cumulative changes over the full tracking period."""
     if not os.path.exists(TRACKER_DIR):
@@ -2671,6 +2686,94 @@ def prediction_feature_log_status():
         return f"Newest prediction log includes workload fields: {workload}; weather/roof fields: {weather}."
     except Exception:
         return "Newest prediction log field status unavailable."
+
+
+def _fast_preview_float(value, default=0.0):
+    if value in (None, ''):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _fast_preview_streaming_entry(record):
+    features = record.get('features') or {}
+    game_date = record.get('date') or record.get('game_date') or ''
+    try:
+        day_label = datetime.strptime(game_date, '%Y-%m-%d').strftime('%a')
+    except Exception:
+        day_label = ''
+    pts = _fast_preview_float(record.get('predicted_pts') or record.get('final_pts'), 0.0)
+    recent_era = features.get('recent_era')
+    return {
+        'date': game_date,
+        'day': day_label,
+        'name': record.get('name') or record.get('pitcher_name') or '',
+        'team': record.get('team') or '',
+        'opponent': record.get('opponent') or '',
+        'home_away': record.get('home_away') or '',
+        'pts': pts,
+        'pts_pre_adj': _fast_preview_float(record.get('predicted_pts_raw') or record.get('base_pts'), pts),
+        'adj_total': _fast_preview_float(record.get('adj_total'), 0.0),
+        'adjustments': record.get('adjustments') or [],
+        'tier': record.get('tier') or 'borderline',
+        'status': record.get('status') or '',
+        'tbd': False,
+        'era': _fast_preview_float(features.get('proj_era') or recent_era, 0.0),
+        'k9': _fast_preview_float(features.get('proj_k9') or features.get('recent_k9'), 0.0),
+        'opp_ops': str(features.get('opp_ops') or features.get('opp_ops_raw') or '--'),
+        'opp_rank': int(_fast_preview_float(features.get('opp_rank'), 15)),
+        'park_factor': _fast_preview_float(features.get('park_factor'), 1.0),
+        'park': features.get('park') or '',
+        'platoon': features.get('platoon') or '',
+        'opp_hand': features.get('opp_hand') or '',
+        'vs_l_ops': features.get('vs_l_ops'),
+        'vs_r_ops': features.get('vs_r_ops'),
+        'splits_window_years': features.get('splits_window_years'),
+        'tag': features.get('tag') or '',
+        'trend': features.get('trend') or '',
+        'recent_era': _fast_preview_float(recent_era, None) if recent_era is not None else None,
+        'emerging': bool(features.get('emerging')),
+        'fb_velo': _fast_preview_float(features.get('fb_velo'), None) if features.get('fb_velo') is not None else None,
+        'pitch_count': features.get('pitch_count'),
+        'opp_il': [],
+        'opp_il_returns': [],
+        'pitch_analysis': None,
+    }
+
+
+def load_prediction_logs_for_fast_preview():
+    """Build usable streaming rows from existing prediction logs without fetching."""
+    if not os.path.isdir(PREDICTIONS_DIR):
+        return []
+    latest = {}
+    for fn in sorted(os.listdir(PREDICTIONS_DIR)):
+        if not fn.endswith('.jsonl'):
+            continue
+        path = os.path.join(PREDICTIONS_DIR, fn)
+        try:
+            with open(path) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except Exception:
+                        continue
+                    key = (
+                        rec.get('date'),
+                        normalize_name(rec.get('name') or rec.get('pitcher_name') or ''),
+                        rec.get('team'),
+                        rec.get('opponent'),
+                        rec.get('home_away'),
+                    )
+                    latest[key] = rec
+        except Exception:
+            continue
+    rows = [_fast_preview_streaming_entry(rec) for rec in latest.values()]
+    rows.sort(key=lambda s: (s.get('date') or '', TIER_ORDER.get(s.get('tier', 'avoid'), 3), -(s.get('pts') or 0)))
+    return rows
 
 
 def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster_map,
@@ -5759,6 +5862,7 @@ def main():
     parser.add_argument('--audit-warehouse', action='store_true', help='Audit DuckDB/Parquet warehouse foundation')
     parser.add_argument('--backfill-warehouse-outcomes', action='store_true', help='Backfill outcome Parquet files from predictions_outcomes.jsonl')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
+    parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
     parser.add_argument('--timing', action='store_true', help='Print runtime timing summary (normal runs print it by default)')
     parser.add_argument('--top', type=int, default=30, help='Show top N in console')
     args = parser.parse_args()
@@ -5797,15 +5901,60 @@ def main():
         run_setup()
         return
 
-    if args.preview_local:
+    if args.preview_local or args.fast_preview:
         PREVIEW_LOCAL = True
         os.makedirs(LOCAL_PREVIEW_DIR, exist_ok=True)
         OUTPUT_HTML = os.path.join(LOCAL_PREVIEW_DIR, "tracker_report.html")
         print("Local preview mode: no tracked generated files will be written.")
+        if args.fast_preview:
+            print("Fast preview mode: using cached/local artifacts only.")
     else:
         # Sync down freshest cache/snapshots from cloud before reading anything,
         # so local always works against the same state Actions sees.
         timed("GitHub sync: pull", _pull_from_github_repo)
+
+    if args.fast_preview:
+        latest_snapshot = timed("fast preview: load latest snapshot", load_latest_snapshot)
+        if not latest_snapshot:
+            print("Fast preview failed: no tracker snapshot is available.")
+            print_timing_summary()
+            return
+        snapshot_date = latest_snapshot.get('date') or date.today().isoformat()
+        players_list = latest_snapshot.get('players') or []
+        print(f"Fast preview: using tracker snapshot {snapshot_date} ({len(players_list)} players)")
+        if os.path.exists(os.path.join(SCRIPT_DIR, 'espn_players.json')):
+            print("Fast preview: using cached ESPN players from snapshot/match data")
+        if os.path.exists(LEARNED_BIASES_PATH):
+            timed("fast preview: load learned biases", load_learned_biases)
+            print("Fast preview: using existing learned biases")
+        else:
+            print("Fast preview: no learned_biases.json found; skipping recompute")
+
+        prev_snapshot = timed("fast preview: load previous snapshot", load_previous_snapshot, snapshot_date)
+        deltas, prev_date = timed("fast preview: snapshot deltas", compute_deltas, players_list, prev_snapshot)
+        oldest_snapshot = timed("fast preview: load oldest snapshot", load_oldest_snapshot)
+        cum_deltas, oldest_date = timed("fast preview: cumulative deltas", compute_cumulative_deltas, players_list, oldest_snapshot)
+        if oldest_date == prev_date:
+            cum_deltas, oldest_date = {}, None
+
+        streaming_data = timed("fast preview: load prediction logs", load_prediction_logs_for_fast_preview)
+        print(f"Fast preview: using existing prediction logs ({len(streaming_data)} streaming rows)")
+        cal = timed("fast preview: calibration summary", calibration_stats, window_days=30)
+        timed(
+            "HTML generation",
+            generate_tracker_html,
+            players_list, deltas, prev_date, snapshot_date, None,
+            streaming_data, cum_deltas, oldest_date,
+            global_emerging=set(),
+            hold_asof_label=f"cached preview through {snapshot_date}",
+            calibration=cal,
+            learned_candidates=[],
+        )
+        print("\nDone!")
+        print(f"\nOpen {OUTPUT_HTML} to review the local preview.")
+        print("GitHub sync skipped in fast preview mode.")
+        print_timing_summary()
+        return
 
     # Catch up on outcomes for past predictions (yesterday's starts, etc.)
     # before we make new predictions, so calibration uses the freshest data.
