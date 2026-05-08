@@ -3655,6 +3655,57 @@ def wh_write_outcome_parquet(game_date):
     return wh_write_parquet(rows, 'outcomes', f'{game_date}.parquet')
 
 
+def backfill_warehouse_outcomes():
+    """Rebuild outcome Parquet partitions from the JSONL source of truth."""
+    records_by_date = {}
+    skipped = 0
+    if not os.path.exists(OUTCOMES_LOG):
+        print(f"No outcomes log found: {OUTCOMES_LOG}")
+        return {'rows': 0, 'dates': 0, 'skipped': 0, 'paths': []}
+    try:
+        with open(OUTCOMES_LOG) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    skipped += 1
+                    continue
+                game_date = rec.get('date') or rec.get('game_date')
+                if not game_date:
+                    skipped += 1
+                    continue
+                records_by_date.setdefault(game_date, []).append(rec)
+    except Exception as e:
+        print(f"Outcome backfill failed to read {OUTCOMES_LOG}: {e}")
+        return {'rows': 0, 'dates': 0, 'skipped': skipped, 'paths': []}
+
+    paths = []
+    total_rows = 0
+    for game_date in sorted(records_by_date):
+        rows = [_outcome_record_to_wh_row(rec) for rec in records_by_date[game_date]]
+        rows.sort(key=lambda row: (
+            str(row.get('start_id') or ''),
+            str(row.get('snapshot_time') or row.get('logged_at') or ''),
+            str(row.get('pitcher_name') or ''),
+            str(row.get('team') or ''),
+            str(row.get('opponent') or ''),
+        ))
+        path = wh_write_parquet(rows, 'outcomes', f'{game_date}.parquet')
+        paths.append(path)
+        total_rows += len(rows)
+
+    print("Warehouse outcome backfill complete")
+    print(f"  Source: {OUTCOMES_LOG}")
+    print(f"  Rows backfilled: {total_rows}")
+    print(f"  Date partitions written: {len(paths)}")
+    print(f"  Destination: {wh_path('outcomes')}")
+    if skipped:
+        print(f"  Skipped malformed/undated rows: {skipped}")
+    return {'rows': total_rows, 'dates': len(paths), 'skipped': skipped, 'paths': paths}
+
+
 def _sp_start_feature_record_to_wh_row(record):
     """Flatten one prediction record into pregame-only SP start features."""
     features = record.get('features') or {}
@@ -5573,6 +5624,7 @@ def main():
     parser.add_argument('--setup', action='store_true', help='Configure ESPN authentication')
     parser.add_argument('--audit-features', action='store_true', help='Audit prediction feature registry/log consistency')
     parser.add_argument('--audit-warehouse', action='store_true', help='Audit DuckDB/Parquet warehouse foundation')
+    parser.add_argument('--backfill-warehouse-outcomes', action='store_true', help='Backfill outcome Parquet files from predictions_outcomes.jsonl')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--top', type=int, default=30, help='Show top N in console')
     args = parser.parse_args()
@@ -5583,6 +5635,10 @@ def main():
 
     if args.audit_warehouse:
         audit_warehouse()
+        return
+
+    if args.backfill_warehouse_outcomes:
+        backfill_warehouse_outcomes()
         return
 
     if args.setup:
