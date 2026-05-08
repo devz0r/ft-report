@@ -3947,6 +3947,7 @@ def audit_warehouse():
     outcome_missing_parquet = sorted(set(outcome_json_counts) - set(outcome_parquet_counts))
     outcome_json_dupes = _outcome_jsonl_duplicate_counts_by_date()
     outcome_parquet_dupes = _outcome_parquet_duplicate_counts_by_date()
+    learning_jsonl_count, learning_parquet_count = _learning_outcome_source_counts()
 
     feature_counts = _sp_start_feature_counts_by_date()
     feature_dupes = _sp_start_feature_duplicate_counts_by_date()
@@ -4002,6 +4003,10 @@ def audit_warehouse():
         warning_reasons.append(outcome_message)
     else:
         outcome_message = 'Outcomes mirrored correctly'
+    if learning_parquet_count and learning_jsonl_count != learning_parquet_count:
+        warning_reasons.append(
+            f'Learning input count mismatch: jsonl={learning_jsonl_count} parquet={learning_parquet_count}'
+        )
 
     if feature_total:
         feature_message = 'Feature table has rows'
@@ -4117,6 +4122,18 @@ def audit_warehouse():
             print(f"  {d}: jsonl={jd} parquet={pdp}")
     if not any_outcome_dupes:
         print("  None detected")
+
+    print("\nLearning input outcome counts")
+    print(f"  JSONL eligible rows: {learning_jsonl_count}")
+    if learning_parquet_count:
+        print(f"  Parquet eligible rows: {learning_parquet_count}")
+        if learning_jsonl_count == learning_parquet_count:
+            print("  OK: JSONL and Parquet learning inputs match")
+        else:
+            print("  WARNING: JSONL and Parquet learning inputs differ")
+    else:
+        print("  Parquet eligible rows: 0")
+        print("  Learning scan will use JSONL fallback")
 
     print("\nSP start feature row counts by date")
     if not feature_counts:
@@ -5081,8 +5098,23 @@ def _residual_stats(samples, residual_key='residual_raw'):
     }
 
 
-def _load_outcomes_for_learning():
-    """Load all joined outcome records from the rolling log."""
+def _is_missing_value(value):
+    if value is None:
+        return True
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def _valid_learning_outcome(record):
+    return not record.get('no_start') and (
+        record.get('residual_raw') is not None or record.get('residual') is not None
+    )
+
+
+def _load_outcomes_from_jsonl_for_learning():
+    """Load all joined outcome records from the JSONL source of truth."""
     if not os.path.exists(OUTCOMES_LOG):
         return []
     out = []
@@ -5099,6 +5131,80 @@ def _load_outcomes_for_learning():
     except Exception:
         pass
     return out
+
+
+def _warehouse_row_to_learning_outcome(row):
+    """Restore flattened outcome Parquet rows to the JSONL-like learning shape."""
+    rec = {}
+    features = {}
+    for key, value in row.items():
+        if _is_missing_value(value):
+            value = None
+        if key in FEATURE_REGISTRY:
+            if value is not None:
+                features[key] = value
+            continue
+        if key.startswith('feature_'):
+            feature_key = key[len('feature_'):]
+            if value is not None:
+                features[feature_key] = value
+            continue
+        rec[key] = value
+    if not rec.get('date') and rec.get('game_date'):
+        rec['date'] = rec.get('game_date')
+    if not rec.get('name') and rec.get('pitcher_name'):
+        rec['name'] = rec.get('pitcher_name')
+    if features:
+        rec['features'] = features
+    return rec
+
+
+def _load_outcomes_from_warehouse_for_learning():
+    """Read learned-bias inputs from outcome Parquet partitions when present."""
+    if not _warehouse_parquet_files('outcomes'):
+        return []
+    try:
+        import duckdb
+        conn = duckdb.connect(database=':memory:')
+        outcome_glob = _sql_path(os.path.join(wh_path('outcomes'), '*.parquet'))
+        df = conn.execute(
+            f"SELECT * FROM read_parquet('{outcome_glob}', union_by_name=true)"
+        ).fetchdf()
+        conn.close()
+    except Exception as e:
+        print(f"Learning outcomes warehouse load failed; using JSONL fallback ({type(e).__name__}: {e})")
+        return []
+
+    out = []
+    for row in df.to_dict('records'):
+        rec = _warehouse_row_to_learning_outcome(row)
+        if _valid_learning_outcome(rec):
+            out.append(rec)
+    return out
+
+
+def _learning_outcome_source_counts():
+    jsonl_count = len(_load_outcomes_from_jsonl_for_learning())
+    parquet_count = len(_load_outcomes_from_warehouse_for_learning())
+    return jsonl_count, parquet_count
+
+
+def _load_outcomes_for_learning():
+    """Load joined outcome records for learned-bias scanning."""
+    warehouse_records = _load_outcomes_from_warehouse_for_learning()
+    jsonl_count = None
+    if warehouse_records:
+        if os.path.exists(OUTCOMES_LOG):
+            jsonl_count = len(_load_outcomes_from_jsonl_for_learning())
+            print(f"Learning outcome count check: jsonl={jsonl_count} parquet={len(warehouse_records)}")
+        print("Learning outcomes loaded from warehouse Parquet")
+        return warehouse_records
+
+    jsonl_records = _load_outcomes_from_jsonl_for_learning()
+    print("Learning outcomes loaded from JSONL fallback")
+    if _warehouse_parquet_files('outcomes'):
+        print(f"Learning outcome count check: jsonl={len(jsonl_records)} parquet=0")
+    return jsonl_records
 
 
 GENERAL_BUCKET_MIN_SAMPLES = 20
@@ -5653,8 +5759,27 @@ def main():
     parser.add_argument('--audit-warehouse', action='store_true', help='Audit DuckDB/Parquet warehouse foundation')
     parser.add_argument('--backfill-warehouse-outcomes', action='store_true', help='Backfill outcome Parquet files from predictions_outcomes.jsonl')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
+    parser.add_argument('--timing', action='store_true', help='Print runtime timing summary (normal runs print it by default)')
     parser.add_argument('--top', type=int, default=30, help='Show top N in console')
     args = parser.parse_args()
+
+    timings = []
+
+    def timed(label, fn, *fn_args, **fn_kwargs):
+        started = time.perf_counter()
+        try:
+            return fn(*fn_args, **fn_kwargs)
+        finally:
+            timings.append((label, time.perf_counter() - started))
+
+    def print_timing_summary():
+        if not timings:
+            return
+        print("\nRuntime timing summary")
+        print("-" * 60)
+        for label, elapsed in timings:
+            print(f"  {label:<34s} {elapsed:>7.2f}s")
+        print(f"  {'Total timed runtime':<34s} {sum(t for _, t in timings):>7.2f}s")
 
     if args.audit_features:
         audit_features()
@@ -5680,7 +5805,7 @@ def main():
     else:
         # Sync down freshest cache/snapshots from cloud before reading anything,
         # so local always works against the same state Actions sees.
-        _pull_from_github_repo()
+        timed("GitHub sync: pull", _pull_from_github_repo)
 
     # Catch up on outcomes for past predictions (yesterday's starts, etc.)
     # before we make new predictions, so calibration uses the freshest data.
@@ -5688,7 +5813,7 @@ def main():
         print("  Local preview mode: skipping pending-outcome processing")
     else:
         try:
-            new_outcomes = process_pending_outcomes()
+            new_outcomes = timed("pending outcomes", process_pending_outcomes)
             if new_outcomes:
                 print(f"Joined {new_outcomes} prediction(s) with their actual outcomes")
         except Exception as e:
@@ -5699,7 +5824,7 @@ def main():
     learned_biases = {}
     learned_candidates = []
     try:
-        result = compute_learned_biases()
+        result = timed("learned biases", compute_learned_biases)
         if isinstance(result, dict) and 'biases' in result:
             learned_biases = result.get('biases', {}) or {}
             learned_candidates = result.get('candidates', []) or []
@@ -5737,62 +5862,73 @@ def main():
     print("=" * 60)
     print("PHASE 1: FETCHING RoS PROJECTIONS")
     print("=" * 60)
-    batters_raw = fetch_fg_ros_data('bat', 'rthebatx')
-    pitchers_raw = fetch_fg_ros_data('pit', 'ratcdc')
+    batters_raw = timed("FanGraphs RoS fetch: batters", fetch_fg_ros_data, 'bat', 'rthebatx')
+    pitchers_raw = timed("FanGraphs RoS fetch: pitchers", fetch_fg_ros_data, 'pit', 'ratcdc')
 
     # Phase 2: Process and rank
     print("\n" + "=" * 60)
     print("PHASE 2: PROCESSING")
     print("=" * 60)
-    batters_df = process_fg_batters(batters_raw)
-    pitchers_df = process_fg_pitchers(pitchers_raw)
-    rankings_df = create_rankings(batters_df, pitchers_df)
+    def process_rankings_phase():
+        batters = process_fg_batters(batters_raw)
+        pitchers = process_fg_pitchers(pitchers_raw)
+        rankings = create_rankings(batters, pitchers)
+        return batters, pitchers, rankings
+    batters_df, pitchers_df, rankings_df = timed("RoS processing/rankings", process_rankings_phase)
 
     # Phase 3: ESPN matching + roster status
     print("\n" + "=" * 60)
     print("PHASE 3: ESPN INTEGRATION")
     print("=" * 60)
-    espn_players = fetch_espn_players()
+    espn_players = timed("ESPN players fetch", fetch_espn_players)
     fg_players = rankings_df.to_dict('records')
-    espn_matches, unmatched = match_fg_to_espn(fg_players, espn_players)
+    espn_matches, unmatched = timed("ESPN name matching", match_fg_to_espn, fg_players, espn_players)
     print(f"  Matched: {len(espn_matches)}/{len(rankings_df)}")
 
     config = load_config()
-    roster_map = fetch_espn_rosters(config)
+    roster_map = timed("ESPN roster fetch", fetch_espn_rosters, config)
     if roster_map is None:
         print("  No ESPN auth — status will show '?'. Run --setup to configure.")
     else:
-        espn_matches = reconcile_with_roster(espn_matches, roster_map, espn_players)
+        espn_matches = timed("ESPN roster reconciliation", reconcile_with_roster, espn_matches, roster_map, espn_players)
 
     # Phase 4: Build player list
-    players_list = []
-    for _, row in rankings_df.iterrows():
-        display_pos = row.get('pitcher_role', row['best_pos']) if row['type'] in ('pitcher', 'two-way') else row['best_pos']
-        entry = {
-            'rank': int(row['rank']),
-            'name': row['name'],
-            'positions': row['positions'],
-            'displayPos': display_pos,
-            'team': row['team'] or '',
-            'dollars': round(float(row['dollars']), 1),
-            'rpts': round(float(row['rpts']), 1),
-            'type': row['type'],
-            'fg_id': row.get('fg_id', ''),
-        }
-        if 'pitcher_role' in row and pd.notna(row.get('pitcher_role')):
-            entry['pitcherRole'] = row['pitcher_role']
-        if row['name'] in espn_matches:
-            entry['espn_id'] = espn_matches[row['name']]['espn_id']
-        players_list.append(entry)
+    def build_player_list_phase():
+        out = []
+        for _, row in rankings_df.iterrows():
+            display_pos = row.get('pitcher_role', row['best_pos']) if row['type'] in ('pitcher', 'two-way') else row['best_pos']
+            entry = {
+                'rank': int(row['rank']),
+                'name': row['name'],
+                'positions': row['positions'],
+                'displayPos': display_pos,
+                'team': row['team'] or '',
+                'dollars': round(float(row['dollars']), 1),
+                'rpts': round(float(row['rpts']), 1),
+                'type': row['type'],
+                'fg_id': row.get('fg_id', ''),
+            }
+            if 'pitcher_role' in row and pd.notna(row.get('pitcher_role')):
+                entry['pitcherRole'] = row['pitcher_role']
+            if row['name'] in espn_matches:
+                entry['espn_id'] = espn_matches[row['name']]['espn_id']
+            out.append(entry)
+        return out
+    players_list = timed("player list build", build_player_list_phase)
 
     # Phase 5: Snapshots and deltas
     print("\n" + "=" * 60)
     print("PHASE 4: TRACKING CHANGES")
     print("=" * 60)
-    prev_snapshot = load_previous_snapshot(today)
-    deltas, prev_date = compute_deltas(players_list, prev_snapshot)
-    oldest_snapshot = load_oldest_snapshot()
-    cum_deltas, oldest_date = compute_cumulative_deltas(players_list, oldest_snapshot)
+    def snapshot_delta_phase():
+        prev = load_previous_snapshot(today)
+        daily_deltas, previous_date = compute_deltas(players_list, prev)
+        oldest = load_oldest_snapshot()
+        cumulative_deltas, oldest_loaded_date = compute_cumulative_deltas(players_list, oldest)
+        return prev, daily_deltas, previous_date, oldest, cumulative_deltas, oldest_loaded_date
+    prev_snapshot, deltas, prev_date, oldest_snapshot, cum_deltas, oldest_date = timed(
+        "snapshot/delta work", snapshot_delta_phase
+    )
     # If oldest == previous, cumulative is same as daily — skip the noise
     if oldest_date == prev_date:
         cum_deltas, oldest_date = {}, None
@@ -5806,7 +5942,7 @@ def main():
             print(f"  Cumulative since {oldest_date}: {trending} trending up (>$1)")
     else:
         print("  No previous snapshot — this is the baseline")
-    save_snapshot(players_list, today)
+    timed("snapshot write", save_snapshot, players_list, today)
 
     # Phase 6: Console output
     print(f"\n{'='*90}")
@@ -5835,6 +5971,7 @@ def main():
     streaming_data = []
     global_emerging = set()
     espn_probables = {}
+    today_lines = {}
     try:
         print("\n" + "=" * 60)
         print("PHASE 5: STREAMING PITCHERS")
@@ -5842,20 +5979,20 @@ def main():
         week_start, week_end = get_streaming_window()
         print(f"  Streaming window: {week_start} to {week_end}")
 
-        fg_proj = fetch_fg_pitcher_projections()
-        recent_form = fetch_fg_recent_form()
+        fg_proj = timed("stream fetch: FG pitcher projections", fetch_fg_pitcher_projections)
+        recent_form = timed("stream fetch: FG recent form", fetch_fg_recent_form)
         # Snapshot the raw (pre-blend) FG L14D so tomorrow's run can detect
         # whether FG has absorbed today's games — prevents double-counting
         # when we blend today's completed starts on subsequent runs.
-        save_recent_raw_snapshot(recent_form)
-        prior_day_recent = load_prior_day_recent_snapshot()
-        today_lines = fetch_todays_completed_starts()
-        blend_today_into_recent(recent_form, today_lines, baseline_recent=prior_day_recent)
-        schedule = fetch_weekly_schedule(week_start, week_end)
-        espn_probables = fetch_espn_probables(week_start, week_end)
-        projected_team_ops = fetch_fg_projected_team_batting()
-        team_offense, league_avg_ops = fetch_team_offense(projected_team_ops)
-        team_hand = fetch_team_handedness()
+        timed("stream cache: save FG recent raw", save_recent_raw_snapshot, recent_form)
+        prior_day_recent = timed("stream cache: load prior recent", load_prior_day_recent_snapshot)
+        today_lines = timed("stream fetch: today's completed starts", fetch_todays_completed_starts)
+        timed("stream blend: today's starts", blend_today_into_recent, recent_form, today_lines, baseline_recent=prior_day_recent)
+        schedule = timed("stream fetch: MLB schedule", fetch_weekly_schedule, week_start, week_end)
+        espn_probables = timed("stream fetch: ESPN probables", fetch_espn_probables, week_start, week_end)
+        projected_team_ops = timed("stream fetch: FG team batting", fetch_fg_projected_team_batting)
+        team_offense, league_avg_ops = timed("stream fetch: team offense", fetch_team_offense, projected_team_ops)
+        team_hand = timed("stream fetch: team handedness", fetch_team_handedness)
 
         # Collect MLB IDs for probable pitchers to fetch details
         mlb_ids = set()
@@ -5863,24 +6000,28 @@ def main():
             mid = g.get('pitcher_mlb_id')
             if mid:
                 mlb_ids.add(mid)
-        pitcher_details = fetch_pitcher_details(list(mlb_ids))
-        savant_data = fetch_savant_pitch_arsenal()
+        pitcher_details = timed("stream fetch: pitcher details", fetch_pitcher_details, list(mlb_ids))
+        savant_data = timed("stream fetch: Savant arsenal", fetch_savant_pitch_arsenal)
         # Phase 2 enrichment: more data sources for the auto-learning engine
-        savant_advanced = fetch_savant_advanced_pitcher_stats()
-        fg_pitching_plus = fetch_fg_pitching_plus()
-        team_bullpens = fetch_team_bullpens()
-        pitcher_workload = compute_pitcher_workload(PREDICTIONS_DIR, OUTCOMES_LOG)
-        il_hitters, il_returns = fetch_team_il_hitters(players_list)
+        savant_advanced = timed("stream fetch: Savant advanced", fetch_savant_advanced_pitcher_stats)
+        fg_pitching_plus = timed("stream fetch: FG pitching plus", fetch_fg_pitching_plus)
+        team_bullpens = timed("stream fetch: team bullpens", fetch_team_bullpens)
+        pitcher_workload = timed("stream build: workload features", compute_pitcher_workload, PREDICTIONS_DIR, OUTCOMES_LOG)
+        il_hitters, il_returns = timed("stream fetch: team IL hitters", fetch_team_il_hitters, players_list)
 
         # Build a global emerging/HOLD map for ALL FA + rostered SPs based on recent form,
         # not just those with upcoming starts. This catches pitchers who just had a great
         # start but won't pitch again in the streaming window.
-        global_emerging = build_global_emerging_map(
+        global_emerging = timed(
+            "stream build: global HOLD map",
+            build_global_emerging_map,
             fg_proj, recent_form, roster_map, espn_matches, roster_map or {}
         )
         print(f"  Global HOLD candidates: {len(global_emerging)} pitchers")
 
-        streaming_data = build_streaming_data(
+        streaming_data = timed(
+            "streaming pitcher build",
+            build_streaming_data,
             schedule, fg_proj, recent_form, team_offense,
             league_avg_ops, team_hand, pitcher_details,
             roster_map, espn_matches, savant_data,
@@ -5906,7 +6047,7 @@ def main():
     # Phase 5.5: Calibration summary
     cal = None
     try:
-        cal = calibration_stats(window_days=30)
+        cal = timed("calibration summary", calibration_stats, window_days=30)
         if cal:
             print("\n" + "=" * 60)
             print(f"PREDICTION ACCURACY (last {cal['window_days']}d, n={cal['n']})")
@@ -5928,24 +6069,30 @@ def main():
         hold_asof_label = date.today().strftime('%b %-d') + f" (incl. {len(today_lines)} games finished today)"
     else:
         hold_asof_label = (date.today() - timedelta(days=1)).strftime('%b %-d')
-    generate_tracker_html(players_list, deltas, prev_date, today, roster_map,
-                          streaming_data, cum_deltas, oldest_date,
-                          global_emerging=global_emerging,
-                          hold_asof_label=hold_asof_label,
-                          calibration=cal,
-                          learned_candidates=learned_candidates)
+    timed(
+        "HTML generation",
+        generate_tracker_html,
+        players_list, deltas, prev_date, today, roster_map,
+        streaming_data, cum_deltas, oldest_date,
+        global_emerging=global_emerging,
+        hold_asof_label=hold_asof_label,
+        calibration=cal,
+        learned_candidates=learned_candidates,
+    )
 
     print("\nDone!")
     if PREVIEW_LOCAL:
         print(f"\nOpen {OUTPUT_HTML} to review the local preview.")
         print("GitHub sync skipped in local preview mode.")
+        print_timing_summary()
         return
 
     print(f"\nOpen tracker_report.html to review movements and free agents.")
 
     # Push code + fresh cache + new snapshot back to GitHub, and trigger
     # the cloud workflow so the public site reflects this run.
-    _push_to_github_repo()
+    timed("GitHub sync: push", _push_to_github_repo)
+    print_timing_summary()
 
 
 if __name__ == '__main__':
