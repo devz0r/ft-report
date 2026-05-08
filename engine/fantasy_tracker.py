@@ -3967,6 +3967,16 @@ def audit_warehouse():
     outcome_total_json = sum(outcome_json_counts.values())
     outcome_total_parquet = sum(outcome_parquet_counts.values())
     feature_total = sum(feature_counts.values())
+    feature_dates = sorted(d for d, n in feature_counts.items() if n)
+    outcome_label_counts = outcome_parquet_counts or outcome_json_counts
+    outcome_dates = sorted(d for d, n in outcome_label_counts.items() if n)
+    labels_pending_for_future_games = (
+        bool(feature_dates)
+        and bool(outcome_dates)
+        and training['rows'] > 0
+        and training['rows_with_labels'] == 0
+        and min(feature_dates) > max(outcome_dates)
+    )
     warning_reasons = []
 
     if not duckdb_ok or missing:
@@ -4001,6 +4011,11 @@ def audit_warehouse():
 
     if training['rows_with_labels']:
         training_message = 'Training view has labeled rows'
+    elif labels_pending_for_future_games:
+        training_message = (
+            'Training labels pending: feature rows are for games after '
+            'the latest available outcome date.'
+        )
     elif training['rows']:
         training_message = 'Training view has feature rows but no labels yet'
         warning_reasons.append(training_message)
@@ -4016,6 +4031,8 @@ def audit_warehouse():
 
     if warehouse_status != 'FAIL' and warning_reasons:
         warehouse_status = 'WARNING'
+    elif warehouse_status != 'FAIL' and labels_pending_for_future_games:
+        warehouse_status = 'OK_WITH_PENDING_LABELS'
 
     print("WAREHOUSE AUDIT")
     print("=" * 60)
@@ -4107,6 +4124,10 @@ def audit_warehouse():
     for d in sorted(feature_counts):
         print(f"  {d}: rows={feature_counts[d]}")
     print(f"Total SP start feature rows: {sum(feature_counts.values())}")
+    if feature_dates:
+        print(f"SP start feature date range: {feature_dates[0]} through {feature_dates[-1]}")
+    else:
+        print("SP start feature date range: None")
 
     print("\nSP start feature uniqueness")
     any_feature_dupes = False
@@ -4138,6 +4159,12 @@ def audit_warehouse():
     print(f"  rows without labels: {training['rows_without_labels']}")
     print(f"  duplicate join keys: {training['duplicate_join_keys']}")
     print(f"  join key audit: {training['join_key_audit']}")
+    if outcome_dates:
+        print(f"  latest available outcome date: {outcome_dates[-1]}")
+    else:
+        print("  latest available outcome date: None")
+    if labels_pending_for_future_games:
+        print("  label explanation: feature rows are for games after the latest available outcome date")
 
     print("\nTraining view possible leakage columns")
     if training['possible_leakage_columns']:
