@@ -2887,6 +2887,103 @@ def _decision_points(record):
     return _fast_preview_float(record.get('predicted_pts') or record.get('final_pts'), 0.0)
 
 
+def _decision_status_key(record):
+    return (
+        normalize_name(record.get('name') or record.get('pitcher_name') or ''),
+        record.get('team') or '',
+    )
+
+
+def _local_prediction_status_cache():
+    """Build a read-only status cache from existing prediction logs."""
+    cache = {}
+    if not os.path.isdir(PREDICTIONS_DIR):
+        return cache
+    for fn in sorted(os.listdir(PREDICTIONS_DIR)):
+        if not fn.endswith('.jsonl'):
+            continue
+        path = os.path.join(PREDICTIONS_DIR, fn)
+        try:
+            with open(path) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except Exception:
+                        continue
+                    status = rec.get('status')
+                    key = _decision_status_key(rec)
+                    if status and key[0]:
+                        cache[key] = status
+        except Exception:
+            continue
+    return cache
+
+
+def _load_local_roster_status_cache():
+    """Read optional local roster/status cache files if a future workflow adds one."""
+    candidates = [
+        os.path.join(SCRIPT_DIR, 'espn_rosters.json'),
+        os.path.join(SCRIPT_DIR, 'roster_map.json'),
+        os.path.join(STREAMING_CACHE_DIR, 'espn_rosters.json'),
+        os.path.join(STREAMING_CACHE_DIR, 'roster_map.json'),
+    ]
+    cache = {}
+    sources = []
+    for path in candidates:
+        if not os.path.exists(path):
+            continue
+        sources.append(path)
+        try:
+            with open(path) as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        rows = data.values() if isinstance(data, dict) else data
+        if not isinstance(rows, list) and not hasattr(rows, '__iter__'):
+            continue
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+            name = item.get('name') or item.get('fullName') or item.get('player_name')
+            team = item.get('team') or item.get('proTeam') or item.get('mlb_team') or ''
+            status = item.get('status')
+            team_id = item.get('team_id')
+            if not status and team_id is not None:
+                status = 'MY ROSTER' if team_id == ESPN_TEAM_ID else item.get('team_name') or 'Rostered'
+            if name and status:
+                cache[(normalize_name(name), team)] = status
+    return cache, sources
+
+
+def _enrich_decision_statuses(records):
+    """Fill blank statuses in memory only from local read-only status sources."""
+    enriched = [dict(rec) for rec in records]
+    prediction_cache = _local_prediction_status_cache()
+    roster_cache, roster_sources = _load_local_roster_status_cache()
+    combined_cache = {}
+    combined_cache.update(prediction_cache)
+    combined_cache.update(roster_cache)
+
+    enriched_count = 0
+    for rec in enriched:
+        if rec.get('status'):
+            continue
+        status = combined_cache.get(_decision_status_key(rec))
+        if status:
+            rec['status'] = status
+            rec['_status_enriched'] = True
+            enriched_count += 1
+
+    return enriched, {
+        'prediction_status_cache_rows': len(prediction_cache),
+        'roster_status_cache_rows': len(roster_cache),
+        'roster_status_cache_sources': roster_sources,
+        'enriched_count': enriched_count,
+    }
+
+
 def _format_decision_row(record):
     risks, boosts = _decision_risk_boost_flags(record)
     matchup = f"{record.get('home_away') or '?'} vs {record.get('opponent') or '?'}"
@@ -2926,13 +3023,28 @@ def daily_decision_audit(target_date=None):
         print("\nNo prediction log found for today. Run a preview or normal tracker first to create current predictions.")
         return {'date': target_date, 'rows': 0}
 
-    statuses = [r.get('status') for r in records]
+    original_actionable = sum(1 for r in records if r.get('status') in ('FA', 'MY ROSTER'))
+    records, enrichment = _enrich_decision_statuses(records)
     actionable = [r for r in records if r.get('status') in ('FA', 'MY ROSTER')]
     unknown_status = [r for r in records if not r.get('status')]
+    if enrichment['roster_status_cache_sources']:
+        print("\nLocal roster/status cache sources:")
+        for source in enrichment['roster_status_cache_sources']:
+            print(f"  - {source}")
+    elif os.path.exists(os.path.join(SCRIPT_DIR, 'espn_players.json')):
+        print(
+            "\nLocal ESPN player cache found, but no local ESPN roster/status cache was found; "
+            "using prediction-log status history only."
+        )
+    else:
+        print("\nNo local ESPN roster/status cache found.")
+
     if not actionable or len(unknown_status) > len(records) * 0.25:
         print(
             "\nWARNING: Some roster/FA statuses are unavailable in the prediction log; "
-            "roster and waiver filtering may be unreliable."
+            "roster and waiver filtering may be unreliable. To refresh statuses, run:\n"
+            "  python3.11 -B engine/fantasy_tracker.py --preview-local\n"
+            "or a normal tracker run."
         )
 
     fa_rows = [r for r in actionable if r.get('status') == 'FA']
@@ -2949,8 +3061,12 @@ def daily_decision_audit(target_date=None):
     )
 
     print(f"\nRows scanned: {len(records)}")
-    print(f"Actionable rows: {len(actionable)} ({len(fa_rows)} FA, {len(roster_rows)} MY ROSTER)")
-    print(f"Unknown/blank status rows hidden from decisions: {len(unknown_status)}")
+    print(f"Original actionable rows: {original_actionable}")
+    print(f"Rows enriched from local status cache: {enrichment['enriched_count']}")
+    print(f"Final actionable rows: {len(actionable)} ({len(fa_rows)} FA, {len(roster_rows)} MY ROSTER)")
+    print(f"Rows still unknown/hidden: {len(unknown_status)}")
+    print(f"Prediction-log status cache rows: {enrichment['prediction_status_cache_rows']}")
+    print(f"Local roster/status cache rows: {enrichment['roster_status_cache_rows']}")
     print("Rostered-by-other-team rows are excluded unless they are MY ROSTER.")
 
     _print_decision_section("Best available FA/waiver streamers today", fa_ranked, limit=8)
