@@ -2784,6 +2784,196 @@ def load_prediction_logs_for_fast_preview():
     return rows, date_range
 
 
+def _latest_prediction_records_by_date(target_date=None):
+    """Read prediction JSONL rows for one date and keep the latest per start."""
+    target_date = target_date or date.today().isoformat()
+    path = os.path.join(PREDICTIONS_DIR, f'{target_date}.jsonl')
+    if not os.path.exists(path):
+        return [], path
+    latest = {}
+    try:
+        with open(path) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                key = (
+                    rec.get('date') or rec.get('game_date') or target_date,
+                    normalize_name(rec.get('name') or rec.get('pitcher_name') or ''),
+                    rec.get('team'),
+                    rec.get('opponent'),
+                    rec.get('home_away'),
+                )
+                prior = latest.get(key)
+                if prior is None or str(rec.get('logged_at') or '') >= str(prior.get('logged_at') or ''):
+                    latest[key] = rec
+    except Exception:
+        return [], path
+    return list(latest.values()), path
+
+
+def _feature_float(features, key, default=None):
+    value = (features or {}).get(key)
+    if value in (None, ''):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _decision_risk_boost_flags(record):
+    features = record.get('features') or {}
+    risks = []
+    boosts = []
+    tier = record.get('tier') or ''
+    opp_rank = _feature_float(features, 'opp_rank')
+    park_factor = _feature_float(features, 'park_factor')
+    recent_era = _feature_float(features, 'recent_era')
+    workload_risk = _feature_float(features, 'workload_risk_score')
+    pitch_matchup = _feature_float(features, 'pitch_matchup_score')
+    opp_il_count = _feature_float(features, 'opp_il_count', 0) or 0
+    opp_il_returns = _feature_float(features, 'opp_il_returns_count', 0) or 0
+
+    if tier == 'avoid':
+        risks.append('avoid tier')
+    elif tier == 'borderline':
+        risks.append('borderline tier')
+    if opp_rank is not None:
+        if opp_rank <= 10:
+            risks.append(f'tough offense rank {int(opp_rank)}')
+        elif opp_rank >= 21:
+            boosts.append(f'soft offense rank {int(opp_rank)}')
+    if park_factor is not None:
+        if park_factor >= 1.05:
+            risks.append(f'hitter park {park_factor:.2f}')
+        elif park_factor <= 0.96:
+            boosts.append(f'pitcher park {park_factor:.2f}')
+    if features.get('platoon') == 'risk':
+        risks.append('platoon risk')
+    elif features.get('platoon') == 'edge':
+        boosts.append('platoon edge')
+    if features.get('trend') == 'cold':
+        risks.append('cold recent trend')
+    elif features.get('trend') == 'hot':
+        boosts.append('hot recent trend')
+    if recent_era is not None:
+        if recent_era >= 5.0:
+            risks.append(f'recent ERA {recent_era:.2f}')
+        elif recent_era <= 3.5:
+            boosts.append(f'recent ERA {recent_era:.2f}')
+    if workload_risk is not None and workload_risk >= 0.6:
+        risks.append(f'workload risk {workload_risk:.2f}')
+    if features.get('workload_note') and workload_risk is not None and workload_risk >= 0.4:
+        risks.append(str(features.get('workload_note'))[:60])
+    if pitch_matchup is not None:
+        if pitch_matchup <= -0.05:
+            risks.append(f'poor pitch matchup {pitch_matchup:+.2f}')
+        elif pitch_matchup >= 0.05:
+            boosts.append(f'good pitch matchup {pitch_matchup:+.2f}')
+    if opp_il_count:
+        boosts.append(f'opponent IL bats {int(opp_il_count)}')
+    if opp_il_returns:
+        risks.append(f'opponent bats returning {int(opp_il_returns)}')
+    if features.get('tag'):
+        boosts.append(str(features.get('tag')))
+    return risks, boosts
+
+
+def _decision_points(record):
+    return _fast_preview_float(record.get('predicted_pts') or record.get('final_pts'), 0.0)
+
+
+def _format_decision_row(record):
+    risks, boosts = _decision_risk_boost_flags(record)
+    matchup = f"{record.get('home_away') or '?'} vs {record.get('opponent') or '?'}"
+    if record.get('home_away') == 'A':
+        matchup = f"A @ {record.get('opponent') or '?'}"
+    elif record.get('home_away') == 'H':
+        matchup = f"H vs {record.get('opponent') or '?'}"
+    risk_text = '; '.join(risks[:4]) if risks else 'none'
+    boost_text = '; '.join(boosts[:4]) if boosts else 'none'
+    return (
+        f"  - {record.get('name') or record.get('pitcher_name') or 'Unknown'} "
+        f"({record.get('team') or '?'}, {record.get('status') or 'UNKNOWN'}) "
+        f"{_decision_points(record):.1f} pts | {record.get('tier') or 'unknown'} | "
+        f"{matchup} | risks: {risk_text} | boosts: {boost_text}"
+    )
+
+
+def _print_decision_section(title, rows, limit=None):
+    print(f"\n{title}")
+    if not rows:
+        print("  None")
+        return
+    for rec in rows[:limit] if limit else rows:
+        print(_format_decision_row(rec))
+
+
+def daily_decision_audit(target_date=None):
+    """Read-only daily pitching decision summary from existing prediction logs."""
+    target_date = target_date or date.today().isoformat()
+    records, path = _latest_prediction_records_by_date(target_date)
+    print("DAILY DECISION AUDIT")
+    print("=" * 60)
+    print("Analysis only: uses existing prediction logs and does not refresh or write data.")
+    print(f"Date: {target_date}")
+    print(f"Source: {path}")
+    if not records:
+        print("\nNo prediction log found for today. Run a preview or normal tracker first to create current predictions.")
+        return {'date': target_date, 'rows': 0}
+
+    statuses = [r.get('status') for r in records]
+    actionable = [r for r in records if r.get('status') in ('FA', 'MY ROSTER')]
+    unknown_status = [r for r in records if not r.get('status')]
+    if not actionable or len(unknown_status) > len(records) * 0.25:
+        print(
+            "\nWARNING: Some roster/FA statuses are unavailable in the prediction log; "
+            "roster and waiver filtering may be unreliable."
+        )
+
+    fa_rows = [r for r in actionable if r.get('status') == 'FA']
+    roster_rows = [r for r in actionable if r.get('status') == 'MY ROSTER']
+    fa_ranked = sorted(fa_rows, key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_decision_points(r)))
+    roster_ranked = sorted(roster_rows, key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_decision_points(r)))
+    risky_roster = sorted(
+        [r for r in roster_rows if r.get('tier') in ('borderline', 'avoid') or _decision_risk_boost_flags(r)[0]],
+        key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), _decision_points(r))
+    )
+    avoid_traps = sorted(
+        [r for r in fa_rows if r.get('tier') == 'avoid' or len(_decision_risk_boost_flags(r)[0]) >= 2],
+        key=lambda r: (_decision_points(r), -len(_decision_risk_boost_flags(r)[0]))
+    )
+
+    print(f"\nRows scanned: {len(records)}")
+    print(f"Actionable rows: {len(actionable)} ({len(fa_rows)} FA, {len(roster_rows)} MY ROSTER)")
+    print(f"Unknown/blank status rows hidden from decisions: {len(unknown_status)}")
+    print("Rostered-by-other-team rows are excluded unless they are MY ROSTER.")
+
+    _print_decision_section("Best available FA/waiver streamers today", fa_ranked, limit=8)
+    _print_decision_section("My rostered starters today", roster_ranked)
+    _print_decision_section("Risky rostered starts", risky_roster)
+    _print_decision_section("Top avoid/trap starts among FA options", avoid_traps[:8])
+
+    print("\nTBD/problem games")
+    problems = []
+    if unknown_status:
+        problems.append(f"{len(unknown_status)} prediction rows have blank roster/FA status and were hidden from decisions.")
+    tbd_rows = [r for r in records if r.get('tbd') or (r.get('name') or '').upper() == 'TBD']
+    if tbd_rows:
+        for rec in tbd_rows:
+            problems.append(f"{rec.get('team') or '?'} vs {rec.get('opponent') or '?'} has TBD pitcher status.")
+    else:
+        problems.append("Existing prediction logs do not include unresolved TBD slots; fresh tracker data is needed for live TBD discovery.")
+    for item in problems:
+        print(f"  - {item}")
+    print("\nAnalysis only: no prediction logs, outcomes, snapshots, caches, warehouse files, or reports were written.")
+    return {'date': target_date, 'rows': len(records), 'actionable': len(actionable)}
+
+
 def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster_map,
                           streaming_data=None, cum_deltas=None, oldest_date=None,
                           global_emerging=None, hold_asof_label=None,
@@ -5172,6 +5362,151 @@ def analyze_feature_errors(min_bucket_n=12, max_features=25):
     return {'labeled_rows': len(df), 'features_analyzed': features_analyzed, 'findings': findings}
 
 
+MODEL_BASELINE_SPECS = [
+    ('Current predicted points', ['predicted_pts', 'final_pts']),
+    ('Raw predicted points before learned corrections', ['predicted_pts_raw', 'pts_pre_adj']),
+    ('Base projection points', ['base_projection_pts', 'projection_pts', 'proj_pts']),
+    ('Projection plus matchup/park', ['base_pts', 'matchup_pts', 'adjusted_pts']),
+]
+
+
+def analyze_model_baselines():
+    """Read-only comparison of current predictions against available baselines."""
+    print("WAREHOUSE MODEL BASELINE COMPARISON")
+    print("=" * 60)
+    print("Analysis only: these comparisons are not automatically applied to predictions.")
+
+    prediction_files = _warehouse_parquet_files('predictions')
+    if not prediction_files:
+        print("No warehouse prediction Parquet files found. Run --backfill-warehouse-features-from-archive first.")
+        return {'labeled_rows': 0, 'baselines': []}
+
+    conn = None
+    try:
+        conn = wh_conn()
+        train_cols = _table_columns(conn, 'training_sp_starts')
+        labeled_rows = int(conn.execute(
+            "SELECT COUNT(*) FROM training_sp_starts WHERE COALESCE(has_label, FALSE)"
+        ).fetchone()[0] or 0)
+        if labeled_rows == 0:
+            print("No labeled training rows yet. Feature rows are currently after the latest outcome date.")
+            return {'labeled_rows': 0, 'baselines': []}
+
+        pred_glob = _sql_path(os.path.join(wh_path('predictions'), '*.parquet'))
+        conn.execute(
+            "CREATE OR REPLACE TEMP VIEW warehouse_predictions_all AS "
+            f"SELECT * FROM read_parquet('{pred_glob}', union_by_name=true)"
+        )
+        pred_cols = _table_columns(conn, 'warehouse_predictions_all')
+        candidate_cols = sorted({col for _, cols in MODEL_BASELINE_SPECS for col in cols})
+        select_parts = [
+            't."start_id" AS "start_id"',
+            't."snapshot_time" AS "snapshot_time"',
+            't."game_date" AS "game_date"',
+            't."pitcher_name" AS "pitcher_name"',
+            'try_cast(t."actual_pts" AS DOUBLE) AS "actual_pts"',
+        ]
+        for col in candidate_cols:
+            if col in train_cols:
+                select_parts.append(f'try_cast(t."{col}" AS DOUBLE) AS "train__{col}"')
+            if col in pred_cols:
+                select_parts.append(f'try_cast(p."{col}" AS DOUBLE) AS "pred__{col}"')
+        select_sql = ',\n              '.join(select_parts)
+        join_sql = (
+            "t.start_id = p.start_id "
+            "AND coalesce(t.snapshot_time, '') = coalesce(p.snapshot_time, p.logged_at, '')"
+        )
+        df = conn.execute(f"""
+            SELECT
+              {select_sql}
+            FROM training_sp_starts t
+            LEFT JOIN warehouse_predictions_all p
+              ON {join_sql}
+            WHERE COALESCE(t.has_label, FALSE)
+        """).fetchdf()
+    except Exception as e:
+        print(f"Model baseline analysis unavailable: {type(e).__name__}: {e}")
+        return {'labeled_rows': 0, 'baselines': []}
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    if df.empty or 'actual_pts' not in df.columns:
+        print("No labeled rows with actual points are available for baseline analysis.")
+        return {'labeled_rows': 0, 'baselines': []}
+
+    df['actual_pts'] = pd.to_numeric(df['actual_pts'], errors='coerce')
+    df = df.dropna(subset=['actual_pts'])
+    if df.empty:
+        print("No labeled rows with numeric actual points are available for baseline analysis.")
+        return {'labeled_rows': 0, 'baselines': []}
+
+    results = []
+    skipped = []
+    for label, candidates in MODEL_BASELINE_SPECS:
+        chosen = None
+        source_col = None
+        for col in candidates:
+            for prefixed in (f'pred__{col}', f'train__{col}'):
+                if prefixed in df.columns and pd.to_numeric(df[prefixed], errors='coerce').notna().any():
+                    chosen = pd.to_numeric(df[prefixed], errors='coerce')
+                    source_col = prefixed
+                    break
+            if chosen is not None:
+                break
+        if chosen is None:
+            skipped.append((label, candidates))
+            continue
+        work = pd.DataFrame({
+            'predicted': chosen,
+            'actual': df['actual_pts'],
+        }).dropna()
+        if work.empty:
+            skipped.append((label, candidates))
+            continue
+        residual = work['actual'] - work['predicted']
+        abs_err = residual.abs()
+        rmse = math.sqrt(float((residual ** 2).mean()))
+        results.append({
+            'label': label,
+            'source_col': source_col,
+            'n': int(len(work)),
+            'mae': float(abs_err.mean()),
+            'rmse': rmse,
+            'bias': float(residual.mean()),
+            'mean_predicted': float(work['predicted'].mean()),
+            'mean_actual': float(work['actual'].mean()),
+        })
+
+    print(f"\nLabeled rows available: {len(df)}")
+    if skipped:
+        print("\nSkipped unavailable baselines")
+        for label, candidates in skipped:
+            print(f"  - {label}: no populated column found ({', '.join(candidates)})")
+
+    if not results:
+        print("\nNo populated prediction/baseline columns were available to compare.")
+        return {'labeled_rows': len(df), 'baselines': []}
+
+    results.sort(key=lambda row: (row['mae'], row['rmse']))
+    print("\nBaseline comparison, sorted by MAE")
+    print(f"{'Model/baseline':<44s} {'Column':<24s} {'n':>4s} {'MAE':>7s} {'RMSE':>7s} {'Bias':>7s} {'Pred':>7s} {'Actual':>7s}")
+    print("-" * 116)
+    for row in results:
+        print(
+            f"{row['label'][:44]:<44s} {row['source_col'][:24]:<24s} "
+            f"{row['n']:>4d} {row['mae']:>7.2f} {row['rmse']:>7.2f} "
+            f"{row['bias']:>+7.2f} {row['mean_predicted']:>7.2f} {row['mean_actual']:>7.2f}"
+        )
+    best = results[0]
+    print(f"\nBest by MAE: {best['label']} ({best['mae']:.2f} MAE)")
+    print("Analysis only: this does not change scoring, prediction outputs, or learned corrections.")
+    return {'labeled_rows': len(df), 'baselines': results}
+
+
 FEATURE_REGISTRY = {}
 
 
@@ -6546,6 +6881,8 @@ def main():
     parser.add_argument('--backfill-warehouse-features', action='store_true', help='Backfill prediction and SP feature Parquet files from prediction JSONL')
     parser.add_argument('--backfill-warehouse-features-from-archive', action='store_true', help='Backfill prediction and SP feature Parquet from predictions_archive plus current prediction JSONL')
     parser.add_argument('--analyze-feature-errors', action='store_true', help='Read-only exploratory feature/error analysis from warehouse training rows')
+    parser.add_argument('--analyze-model-baselines', action='store_true', help='Read-only warehouse comparison of current predictions against baseline layers')
+    parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
     parser.add_argument('--timing', action='store_true', help='Print runtime timing summary (normal runs print it by default)')
@@ -6600,6 +6937,14 @@ def main():
 
     if args.analyze_feature_errors:
         analyze_feature_errors()
+        return
+
+    if args.analyze_model_baselines:
+        analyze_model_baselines()
+        return
+
+    if args.daily_decision_audit:
+        daily_decision_audit()
         return
 
     if args.setup:
