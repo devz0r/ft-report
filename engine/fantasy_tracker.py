@@ -102,6 +102,7 @@ ABBR_TO_MLB_TEAM = {v: k for k, v in MLB_TEAM_TO_ABBR.items()}
 # Streaming cache directory
 STREAMING_CACHE_DIR = os.path.join(SCRIPT_DIR, "streaming_cache")
 ROSTER_STATUS_CACHE_FILE = os.path.join(STREAMING_CACHE_DIR, "roster_status_cache.json")
+_runtime_prediction_records = []
 
 # Pitching scoring weights (for per-start calculation)
 PIT_SCORING = {'IP': 3, 'H': -1, 'ER': -2, 'BB': -1, 'K': 1, 'W': 5, 'L': -5}
@@ -2387,6 +2388,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                          fg_pitching_plus=None, team_bullpens=None,
                          pitcher_workload=None):
     """Build the full streaming dataset for the week."""
+    _runtime_prediction_records.clear()
     # Build lookup from FG name to ESPN match data
     espn_id_to_roster = roster_map or {}
 
@@ -3074,43 +3076,118 @@ def _print_decision_section(title, rows, limit=None):
         print(_format_decision_row(rec))
 
 
-def daily_decision_audit(target_date=None):
-    """Read-only daily pitching decision summary from existing prediction logs."""
+def _decision_record_from_streaming_entry(entry):
+    """Make a report streaming row look like a prediction-log decision record."""
+    if not isinstance(entry, dict):
+        return {}
+    features = {
+        'proj_era': entry.get('era'),
+        'proj_k9': entry.get('k9'),
+        'opp_ops': entry.get('opp_ops'),
+        'opp_rank': entry.get('opp_rank'),
+        'park_factor': entry.get('park_factor'),
+        'park': entry.get('park'),
+        'platoon': entry.get('platoon'),
+        'opp_hand': entry.get('opp_hand'),
+        'vs_l_ops': entry.get('vs_l_ops'),
+        'vs_r_ops': entry.get('vs_r_ops'),
+        'splits_window_years': entry.get('splits_window_years'),
+        'tag': entry.get('tag'),
+        'trend': entry.get('trend'),
+        'recent_era': entry.get('recent_era'),
+        'fb_velo': entry.get('fb_velo'),
+        'pitch_count': entry.get('pitch_count'),
+        'emerging': entry.get('emerging'),
+        'opp_il_count': len(entry.get('opp_il', []) or []),
+        'opp_il_returns_count': len(entry.get('opp_il_returns', []) or []),
+    }
+    pitch_analysis = entry.get('pitch_analysis') or {}
+    if isinstance(pitch_analysis, dict):
+        features['pitch_matchup_score'] = pitch_analysis.get('pitch_matchup_score')
+    for key in (
+        'workload_risk_score', 'workload_note', 'days_rest',
+        'last_start_ip', 'last_start_pitch_count',
+    ):
+        if key in entry:
+            features[key] = entry.get(key)
+    return {
+        'logged_at': entry.get('logged_at'),
+        'date': entry.get('date') or entry.get('game_date'),
+        'name': entry.get('name') or entry.get('pitcher_name'),
+        'team': entry.get('team'),
+        'opponent': entry.get('opponent'),
+        'home_away': entry.get('home_away'),
+        'predicted_pts': entry.get('predicted_pts', entry.get('pts')),
+        'final_pts': entry.get('final_pts', entry.get('pts')),
+        'predicted_pts_raw': entry.get('predicted_pts_raw', entry.get('pts_pre_adj')),
+        'tier': entry.get('tier'),
+        'status': entry.get('status'),
+        'tbd': entry.get('tbd'),
+        'features': features,
+    }
+
+
+def build_daily_decision_summary(target_date=None, records=None, source=None):
+    """Build the read-only daily decision audit data shared by CLI and report."""
     target_date = target_date or date.today().isoformat()
-    records, path = _latest_prediction_records_by_date(target_date)
-    print("DAILY DECISION AUDIT")
-    print("=" * 60)
-    print("Analysis only: uses existing prediction logs and does not refresh or write data.")
-    print(f"Date: {target_date}")
-    print(f"Source: {path}")
+    if records is None:
+        records, path = _latest_prediction_records_by_date(target_date)
+        source = source or path
+    else:
+        path = source or 'current report prediction records'
+        records = [
+            dict(r) for r in records
+            if (r.get('date') or r.get('game_date') or target_date) == target_date
+        ]
+    summary = {
+        'date': target_date,
+        'source': path,
+        'records': records,
+        'rows_scanned': len(records),
+        'actionable': [],
+        'fa_ranked': [],
+        'roster_ranked': [],
+        'risky_roster': [],
+        'avoid_traps': [],
+        'problems': [],
+        'warning': None,
+        'enrichment': {
+            'prediction_status_cache_rows': 0,
+            'roster_status_cache_rows': 0,
+            'roster_status_cache_sources': [],
+            'enriched_count': 0,
+            'roster_enriched_count': 0,
+            'prediction_enriched_count': 0,
+        },
+        'original_actionable': 0,
+        'hidden_other_count': 0,
+        'hidden_unknown_count': 0,
+        'roster_count': 0,
+        'fa_count': 0,
+        'waiver_count': 0,
+        'actionable_count': 0,
+        'status_unreliable': False,
+    }
     if not records:
-        print("\nNo prediction log found for today. Run a preview or normal tracker first to create current predictions.")
-        return {'date': target_date, 'rows': 0}
+        summary['problems'].append('No prediction log found for today. Run a preview or normal tracker first to create current predictions.')
+        summary['warning'] = summary['problems'][0]
+        summary['status_unreliable'] = True
+        return summary
 
     actionable_statuses = {'FA', 'MY ROSTER', 'WAIVER'}
-    original_actionable = sum(1 for r in records if r.get('status') in actionable_statuses)
+    summary['original_actionable'] = sum(1 for r in records if r.get('status') in actionable_statuses)
     records, enrichment = _enrich_decision_statuses(records)
+    summary['records'] = records
+    summary['enrichment'] = enrichment
     actionable = [r for r in records if r.get('status') in actionable_statuses]
     unknown_status = [r for r in records if not r.get('status')]
     hidden_other = [r for r in records if r.get('status') and r.get('status') not in actionable_statuses]
-    if enrichment['roster_status_cache_sources']:
-        print("\nLocal roster/status cache sources:")
-        for source in enrichment['roster_status_cache_sources']:
-            print(f"  - {source}")
-    elif os.path.exists(os.path.join(SCRIPT_DIR, 'espn_players.json')):
-        print(
-            "\nLocal ESPN player cache found, but no local ESPN roster/status cache was found; "
-            "using prediction-log status history only."
-        )
-    else:
-        print("\nNo local ESPN roster/status cache found.")
 
     if not actionable or len(unknown_status) > len(records) * 0.25:
-        print(
-            "\nWARNING: Some roster/FA statuses are unavailable in the prediction log; "
-            "roster and waiver filtering may be unreliable. To refresh statuses, run:\n"
-            "  python3.11 -B engine/fantasy_tracker.py --preview-local\n"
-            "or a normal tracker run."
+        summary['status_unreliable'] = True
+        summary['warning'] = (
+            'Some roster/FA statuses are unavailable; roster and waiver filtering may be unreliable. '
+            'Run python3.11 -B engine/fantasy_tracker.py --preview-local or a normal tracker run to refresh statuses.'
         )
 
     fa_rows = [r for r in actionable if r.get('status') == 'FA']
@@ -3128,41 +3205,139 @@ def daily_decision_audit(target_date=None):
         key=lambda r: (_decision_points(r), -len(_decision_risk_boost_flags(r)[0]))
     )
 
-    print(f"\nRows scanned: {len(records)}")
-    print(f"Original actionable rows: {original_actionable}")
-    print(f"Rows enriched from roster/status cache: {enrichment['roster_enriched_count']}")
-    print(f"Rows enriched from prediction-log status history: {enrichment['prediction_enriched_count']}")
-    print(
-        f"Final actionable rows: {len(actionable)} "
-        f"({len(roster_rows)} MY ROSTER, {len(fa_rows)} FA, {len(waiver_rows)} WAIVER)"
-    )
-    print(f"Hidden rows rostered by other teams / OTHER: {len(hidden_other)}")
-    print(f"Hidden rows still unknown or blank: {len(unknown_status)}")
-    print(f"Prediction-log status cache rows: {enrichment['prediction_status_cache_rows']}")
-    print(f"Local roster/status cache rows: {enrichment['roster_status_cache_rows']}")
-    print("Rostered-by-other-team rows are excluded unless they are MY ROSTER.")
-
-    _print_decision_section("Best available FA/waiver streamers today", fa_ranked, limit=8)
-    _print_decision_section("My rostered starters today", roster_ranked)
-    _print_decision_section("Risky rostered starts", risky_roster)
-    _print_decision_section("Top avoid/trap starts among FA options", avoid_traps[:8])
-
-    print("\nTBD/problem games")
     problems = []
     if unknown_status:
         problems.append(f"{len(unknown_status)} prediction rows have blank roster/FA status and were hidden from decisions.")
     if hidden_other:
         problems.append(f"{len(hidden_other)} rows appear rostered by other teams/OTHER and were hidden from actionable recommendations.")
-    tbd_rows = [r for r in records if r.get('tbd') or (r.get('name') or '').upper() == 'TBD']
+    tbd_rows = [r for r in records if r.get('tbd') or (r.get('name') or r.get('pitcher_name') or '').upper() == 'TBD']
     if tbd_rows:
         for rec in tbd_rows:
             problems.append(f"{rec.get('team') or '?'} vs {rec.get('opponent') or '?'} has TBD pitcher status.")
     else:
-        problems.append("Existing prediction logs do not include unresolved TBD slots; fresh tracker data is needed for live TBD discovery.")
-    for item in problems:
+        problems.append("Existing prediction data does not include unresolved TBD slots; fresh tracker data is needed for live TBD discovery.")
+
+    summary.update({
+        'actionable': actionable,
+        'fa_ranked': fa_ranked,
+        'roster_ranked': roster_ranked,
+        'risky_roster': risky_roster,
+        'avoid_traps': avoid_traps,
+        'problems': problems,
+        'hidden_other_count': len(hidden_other),
+        'hidden_unknown_count': len(unknown_status),
+        'roster_count': len(roster_rows),
+        'fa_count': len(fa_rows),
+        'waiver_count': len(waiver_rows),
+        'actionable_count': len(actionable),
+    })
+    return summary
+
+
+def _decision_report_item(record):
+    risks, boosts = _decision_risk_boost_flags(record)
+    return {
+        'name': record.get('name') or record.get('pitcher_name') or 'Unknown',
+        'team': record.get('team') or '',
+        'opponent': record.get('opponent') or '',
+        'home_away': record.get('home_away') or '',
+        'status': record.get('status') or 'UNKNOWN',
+        'tier': record.get('tier') or 'unknown',
+        'points': round(_decision_points(record), 1),
+        'risks': risks[:3],
+        'boosts': boosts[:3],
+    }
+
+
+def decision_summary_for_report(summary):
+    if not summary:
+        return None
+    return {
+        'date': summary.get('date'),
+        'source': summary.get('source'),
+        'rows_scanned': summary.get('rows_scanned', 0),
+        'original_actionable': summary.get('original_actionable', 0),
+        'actionable_count': summary.get('actionable_count', 0),
+        'roster_count': summary.get('roster_count', 0),
+        'fa_count': summary.get('fa_count', 0),
+        'waiver_count': summary.get('waiver_count', 0),
+        'hidden_other_count': summary.get('hidden_other_count', 0),
+        'hidden_unknown_count': summary.get('hidden_unknown_count', 0),
+        'roster_enriched_count': summary.get('enrichment', {}).get('roster_enriched_count', 0),
+        'prediction_enriched_count': summary.get('enrichment', {}).get('prediction_enriched_count', 0),
+        'roster_status_cache_rows': summary.get('enrichment', {}).get('roster_status_cache_rows', 0),
+        'prediction_status_cache_rows': summary.get('enrichment', {}).get('prediction_status_cache_rows', 0),
+        'status_unreliable': summary.get('status_unreliable', False),
+        'warning': summary.get('warning'),
+        'sections': {
+            'best_available': [_decision_report_item(r) for r in summary.get('fa_ranked', [])[:6]],
+            'my_roster': [_decision_report_item(r) for r in summary.get('roster_ranked', [])[:6]],
+            'risky_roster': [_decision_report_item(r) for r in summary.get('risky_roster', [])[:6]],
+            'avoid_traps': [_decision_report_item(r) for r in summary.get('avoid_traps', [])[:6]],
+        },
+        'problems': (summary.get('problems') or [])[:6],
+    }
+
+
+def daily_decision_audit(target_date=None):
+    """Read-only daily pitching decision summary from existing prediction logs."""
+    target_date = target_date or date.today().isoformat()
+    summary = build_daily_decision_summary(target_date)
+    records = summary.get('records') or []
+    enrichment = summary.get('enrichment') or {}
+    print("DAILY DECISION AUDIT")
+    print("=" * 60)
+    print("Analysis only: uses existing prediction logs and does not refresh or write data.")
+    print(f"Date: {target_date}")
+    print(f"Source: {summary.get('source')}")
+    if not records:
+        print(f"\n{summary.get('warning')}")
+        return {'date': target_date, 'rows': 0}
+
+    if enrichment['roster_status_cache_sources']:
+        print("\nLocal roster/status cache sources:")
+        for source in enrichment['roster_status_cache_sources']:
+            print(f"  - {source}")
+    elif os.path.exists(os.path.join(SCRIPT_DIR, 'espn_players.json')):
+        print(
+            "\nLocal ESPN player cache found, but no local ESPN roster/status cache was found; "
+            "using prediction-log status history only."
+        )
+    else:
+        print("\nNo local ESPN roster/status cache found.")
+
+    if summary.get('warning'):
+        print(
+            "\nWARNING: Some roster/FA statuses are unavailable in the prediction log; "
+            "roster and waiver filtering may be unreliable. To refresh statuses, run:\n"
+            "  python3.11 -B engine/fantasy_tracker.py --preview-local\n"
+            "or a normal tracker run."
+        )
+
+    print(f"\nRows scanned: {summary['rows_scanned']}")
+    print(f"Original actionable rows: {summary['original_actionable']}")
+    print(f"Rows enriched from roster/status cache: {enrichment['roster_enriched_count']}")
+    print(f"Rows enriched from prediction-log status history: {enrichment['prediction_enriched_count']}")
+    print(
+        f"Final actionable rows: {summary['actionable_count']} "
+        f"({summary['roster_count']} MY ROSTER, {summary['fa_count']} FA, {summary['waiver_count']} WAIVER)"
+    )
+    print(f"Hidden rows rostered by other teams / OTHER: {summary['hidden_other_count']}")
+    print(f"Hidden rows still unknown or blank: {summary['hidden_unknown_count']}")
+    print(f"Prediction-log status cache rows: {enrichment['prediction_status_cache_rows']}")
+    print(f"Local roster/status cache rows: {enrichment['roster_status_cache_rows']}")
+    print("Rostered-by-other-team rows are excluded unless they are MY ROSTER.")
+
+    _print_decision_section("Best available FA/waiver streamers today", summary['fa_ranked'], limit=8)
+    _print_decision_section("My rostered starters today", summary['roster_ranked'])
+    _print_decision_section("Risky rostered starts", summary['risky_roster'])
+    _print_decision_section("Top avoid/trap starts among FA options", summary['avoid_traps'][:8])
+
+    print("\nTBD/problem games")
+    for item in summary['problems']:
         print(f"  - {item}")
     print("\nAnalysis only: no prediction logs, outcomes, snapshots, caches, warehouse files, or reports were written.")
-    return {'date': target_date, 'rows': len(records), 'actionable': len(actionable)}
+    return {'date': target_date, 'rows': len(records), 'actionable': summary['actionable_count']}
 
 
 def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster_map,
@@ -3172,6 +3347,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           learned_biases_override=None,
                           learning_sample_summary=None,
                           feature_log_status_override=None,
+                          daily_decision_summary=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
     from string import Template
@@ -3179,6 +3355,25 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
         streaming_data = []
     if cum_deltas is None:
         cum_deltas = {}
+    if daily_decision_summary is None:
+        decision_records = [
+            rec for rec in _runtime_prediction_records
+            if (rec.get('date') or rec.get('game_date')) == snapshot_date
+        ]
+        decision_source = 'current run prediction records'
+        if not decision_records and streaming_data:
+            decision_records = [
+                _decision_record_from_streaming_entry(s)
+                for s in streaming_data
+                if (s.get('date') or s.get('game_date')) == snapshot_date
+            ]
+            decision_source = 'current report streaming rows'
+        if decision_records:
+            daily_decision_summary = decision_summary_for_report(
+                build_daily_decision_summary(snapshot_date, records=decision_records, source=decision_source)
+            )
+        else:
+            daily_decision_summary = decision_summary_for_report(build_daily_decision_summary(snapshot_date))
 
     # Build a lookup of emerging (HOLD) pitchers.
     # Prefer the global emerging map (assesses ALL FA + MY ROSTER SPs by recent form,
@@ -3326,6 +3521,24 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .platoon-risk { color: #fb923c; }
 .stream-tbd { padding: 10px 16px; color: #555; font-style: italic; font-size: 13px; }
 .stream-note { padding: 10px 20px; color: #555; font-size: 12px; }
+.decision-card { margin-top: 8px; }
+.decision-summary { padding: 10px 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid #1a1a24; }
+.decision-pill { display: inline-flex; gap: 4px; align-items: center; padding: 3px 8px; border-radius: 999px; background: #1a1a24; border: 1px solid #2a2a35; color: #aaa; font-size: 11px; }
+.decision-pill b { color: #fff; }
+.decision-warning { margin: 8px 16px 0; padding: 8px 10px; border-radius: 6px; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.28); color: #fbbf24; font-size: 12px; }
+.decision-grid { padding: 10px 16px 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.decision-section { background: #0d0d14; border: 1px solid #20202a; border-radius: 6px; overflow: hidden; }
+.decision-section-title { padding: 7px 9px; background: #16161f; color: #ddd; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; }
+.decision-row { padding: 8px 9px; border-top: 1px solid #1a1a24; }
+.decision-row:first-child { border-top: none; }
+.decision-line1 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.decision-name { color: #fff; font-weight: 600; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.decision-pts { color: #34d399; font-weight: 700; font-size: 13px; white-space: nowrap; }
+.decision-meta { margin-top: 3px; color: #888; font-size: 11px; }
+.decision-notes { margin-top: 4px; color: #777; font-size: 11px; line-height: 1.35; }
+.decision-risk { color: #fca5a5; }
+.decision-boost { color: #86efac; }
+.decision-empty { padding: 10px 9px; color: #555; font-size: 12px; }
 .tier-header { padding: 6px 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; border-top: 1px solid #222; }
 .tier-header:first-child { border-top: none; }
 .tier-must_start { color: #34d399; background: rgba(52,211,153,0.05); }
@@ -3433,6 +3646,7 @@ $TOP_BANNER_HTML
 <!-- ===== STREAMING TAB ===== -->
 <div class="tab-view" id="tab-streaming">
 <div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold</div>
+<div id="decisionContent"></div>
 <div id="streamContent"></div>
 </div><!-- end tab-streaming -->
 
@@ -3450,6 +3664,7 @@ var CALIBRATION = $CALIBRATION_JSON;
 var LEARNED_BIASES = $LEARNED_BIASES_JSON;
 var LEARNED_CANDIDATES = $LEARNED_CANDIDATES_JSON;
 var LEARNING_SAMPLE_SUMMARY = $LEARNING_SAMPLE_SUMMARY_JSON;
+var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -3595,6 +3810,75 @@ var TIER_META = {
   avoid:      {label: 'Sit', cls: 'tier-avoid'},
 };
 var TIER_SEQ = ['must_start', 'start', 'borderline', 'avoid'];
+
+function escHtml(v) {
+  return String(v === null || v === undefined ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function tierLabel(tier) {
+  return TIER_META[tier] ? TIER_META[tier].label : (tier || 'unknown');
+}
+
+function renderDecisionItem(item) {
+  var pts = Number(item.points || 0);
+  var matchup = item.home_away === 'H' ? 'vs ' + (item.opponent || '?') : '@ ' + (item.opponent || '?');
+  var risks = (item.risks || []).slice(0, 2);
+  var boosts = (item.boosts || []).slice(0, 2);
+  var notes = [];
+  if (risks.length) notes.push('<span class="decision-risk">Risk: ' + risks.map(escHtml).join('; ') + '</span>');
+  if (boosts.length) notes.push('<span class="decision-boost">Boost: ' + boosts.map(escHtml).join('; ') + '</span>');
+  if (!notes.length) notes.push('<span>Notes: none</span>');
+  return '<div class="decision-row">' +
+    '<div class="decision-line1"><span class="decision-name">' + escHtml(item.name) + '</span><span class="decision-pts">' + pts.toFixed(1) + ' pts</span></div>' +
+    '<div class="decision-meta">' + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; ' + escHtml(tierLabel(item.tier)) + ' &bull; ' + escHtml(matchup) + ' (' + escHtml(item.home_away || '?') + ')</div>' +
+    '<div class="decision-notes">' + notes.join('<br>') + '</div>' +
+    '</div>';
+}
+
+function renderDecisionSection(title, rows, emptyText) {
+  var h = '<div class="decision-section"><div class="decision-section-title">' + escHtml(title) + '</div>';
+  if (!rows || rows.length === 0) return h + '<div class="decision-empty">' + escHtml(emptyText || 'None') + '</div></div>';
+  h += rows.map(renderDecisionItem).join('');
+  return h + '</div>';
+}
+
+function renderProblemSection(problems) {
+  var h = '<div class="decision-section"><div class="decision-section-title">TBD / Problem Games</div>';
+  if (!problems || problems.length === 0) return h + '<div class="decision-empty">No problems flagged.</div></div>';
+  h += problems.map(function(p) { return '<div class="decision-row"><div class="decision-notes">' + escHtml(p) + '</div></div>'; }).join('');
+  return h + '</div>';
+}
+
+function renderDailyDecisions() {
+  var container = document.getElementById('decisionContent');
+  if (!container || !DAILY_DECISIONS) return;
+  var d = DAILY_DECISIONS;
+  var sections = d.sections || {};
+  var h = '<div class="day-card decision-card">';
+  h += '<div class="day-header"><span class="day-date">Today&rsquo;s Pitching Decisions</span><span class="day-count">' + escHtml(d.date || '') + '</span></div>';
+  if (d.warning) h += '<div class="decision-warning">' + escHtml(d.warning) + '</div>';
+  h += '<div class="decision-summary">';
+  h += '<span class="decision-pill">Rows scanned <b>' + (d.rows_scanned || 0) + '</b></span>';
+  h += '<span class="decision-pill">Actionable <b>' + (d.actionable_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">MY ROSTER <b>' + (d.roster_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">FA <b>' + (d.fa_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">WAIVER <b>' + (d.waiver_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">Hidden OTHER <b>' + (d.hidden_other_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">Hidden unknown <b>' + (d.hidden_unknown_count || 0) + '</b></span>';
+  h += '</div>';
+  h += '<div class="decision-grid">';
+  h += renderDecisionSection('Best FA / Waiver Streamers', sections.best_available, 'No available streamers above the filter.');
+  h += renderDecisionSection('My Rostered Starters', sections.my_roster, 'No rostered starters found today.');
+  h += renderDecisionSection('Risky Rostered Starts', sections.risky_roster, 'No rostered starts flagged as risky.');
+  h += renderDecisionSection('Avoid / Trap FA Starts', sections.avoid_traps, 'No FA traps flagged.');
+  h += renderProblemSection(d.problems);
+  h += '</div></div>';
+  container.innerHTML = h;
+}
 
 function renderStreaming() {
   var container = document.getElementById('streamContent');
@@ -3774,6 +4058,7 @@ function ordinal(n) {
   return n + (s[(v-20)%10] || s[v] || s[0]);
 }
 
+renderDailyDecisions();
 renderStreaming();
 
 /* ===== Accuracy tab rendering ===== */
@@ -3923,6 +4208,7 @@ renderAccuracy();
         ),
         LEARNED_CANDIDATES_JSON=json.dumps(learned_candidates or []),
         LEARNING_SAMPLE_SUMMARY_JSON=json.dumps(learning_sample_summary) if learning_sample_summary else 'null',
+        DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
         FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
         TOP_BANNER_HTML=top_banner_html or '',
     )
@@ -6005,6 +6291,7 @@ def log_prediction(entry):
                 'last_pitch_count': entry.get('last_pitch_count'),
             },
         }
+        _runtime_prediction_records.append(dict(record))
         # Buffer in memory; flush_predictions() writes one JSONL per date at
         # end of run. Avoids thousands of small files which slow git ops.
         _pending_predictions[(game_date, pitcher_norm)] = record
