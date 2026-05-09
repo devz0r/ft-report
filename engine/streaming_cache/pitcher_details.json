@@ -9215,5 +9215,55 @@
       "ip": "133.0"
     },
     "splits_window_years": 2
+  },
+  "572143": {
+    "mlb_id": 572143,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 94.16515670000001,
+        "pct": 0.4117647
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 82.18135026829266,
+        "pct": 0.24117647
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 84.55740070588236,
+        "pct": 0.1
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 93.277067,
+        "pct": 0.005882353
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 87.60375865853656,
+        "pct": 0.24117647
+      }
+    ],
+    "fb_velo": 94.2,
+    "pitch_count": 5,
+    "career_vs_l": {
+      "ops": "0.859",
+      "whip": "1.69",
+      "k9": "8.51",
+      "ip": "24.3"
+    },
+    "career_vs_r": {
+      "ops": "0.651",
+      "whip": "1.11",
+      "k9": "8.10",
+      "ip": "43.3"
+    },
+    "splits_window_years": 2
   }
 }
