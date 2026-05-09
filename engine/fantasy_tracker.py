@@ -4248,8 +4248,8 @@ function renderDecisionItem(item) {
     '<div class="decision-line1"><span class="decision-name">' + escHtml(item.name) + '</span><span class="decision-pts">' + pts.toFixed(1) + ' pts</span></div>' +
     '<div class="decision-meta">' + labelHtml + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; <span class="decision-confidence ' + confCls + '">' + escHtml(conf) + '</span> &bull; ' + escHtml(matchup) + ' (' + escHtml(item.home_away || '?') + ')</div>' +
     '<div class="decision-reasons">' +
-      '<div><span class="decision-reason-label">Why:</span>' + escHtml(item.main_reason || 'Projection is the main signal') + '</div>' +
-      '<div><span class="decision-reason-label">Risk:</span>' + escHtml(item.risk_reason || 'No major red flag in logged signals') + '</div>' +
+      '<div><span class="decision-reason-label">Why:</span> ' + escHtml(item.main_reason || 'Projection is the main signal') + '</div>' +
+      '<div><span class="decision-reason-label">Risk:</span> ' + escHtml(item.risk_reason || 'No major red flag in logged signals') + '</div>' +
     '</div>' +
     overlapHtml +
     '<div class="decision-notes">' + notes.join('<br>') + '</div>' +
@@ -4313,7 +4313,7 @@ function renderAddDropPriority() {
       h += '<div class="action-row">';
       h += '<span class="action-kind ' + kind + '">' + escHtml(item.kind || 'WATCH') + '</span>';
       h += '<div class="action-text">' + escHtml(item.text || '') + '</div>';
-      h += '<div class="action-meta">' + escHtml(meta) + '</div>';
+      h += '<div class="action-meta">' + meta.split(' &bull; ').map(escHtml).join(' &bull; ') + '</div>';
       h += '</div>';
     });
     h += '</div>';
