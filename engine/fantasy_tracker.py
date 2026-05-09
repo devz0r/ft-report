@@ -5649,14 +5649,20 @@ def analyze_model_baselines():
             if chosen is not None:
                 break
         if chosen is None:
-            skipped.append((label, candidates))
+            skipped.append({
+                'label': label,
+                'reason': f"no populated column found ({', '.join(candidates)})",
+            })
             continue
         work = pd.DataFrame({
             'predicted': chosen,
             'actual': df['actual_pts'],
         }).dropna()
         if work.empty:
-            skipped.append((label, candidates))
+            skipped.append({
+                'label': label,
+                'reason': f"columns were present but had no labeled rows ({', '.join(candidates)})",
+            })
             continue
         residual = work['actual'] - work['predicted']
         abs_err = residual.abs()
@@ -5673,10 +5679,15 @@ def analyze_model_baselines():
         })
 
     print(f"\nLabeled rows available: {len(df)}")
+    if len(df) < 100:
+        print(
+            "Small-sample warning: fewer than 100 labeled rows are available, "
+            "so treat these rankings as directional rather than conclusive."
+        )
     if skipped:
         print("\nSkipped unavailable baselines")
-        for label, candidates in skipped:
-            print(f"  - {label}: no populated column found ({', '.join(candidates)})")
+        for item in skipped:
+            print(f"  - {item['label']}: {item['reason']}")
 
     if not results:
         print("\nNo populated prediction/baseline columns were available to compare.")
@@ -5684,16 +5695,30 @@ def analyze_model_baselines():
 
     results.sort(key=lambda row: (row['mae'], row['rmse']))
     print("\nBaseline comparison, sorted by MAE")
-    print(f"{'Model/baseline':<44s} {'Column':<24s} {'n':>4s} {'MAE':>7s} {'RMSE':>7s} {'Bias':>7s} {'Pred':>7s} {'Actual':>7s}")
-    print("-" * 116)
+    print(
+        f"{'Baseline name':<44s} {'Source column':<24s} {'n':>4s} "
+        f"{'MAE':>7s} {'RMSE':>7s} {'Bias':>7s} {'Mean pred':>9s} {'Mean actual':>11s}"
+    )
+    print("-" * 126)
     for row in results:
         print(
             f"{row['label'][:44]:<44s} {row['source_col'][:24]:<24s} "
             f"{row['n']:>4d} {row['mae']:>7.2f} {row['rmse']:>7.2f} "
-            f"{row['bias']:>+7.2f} {row['mean_predicted']:>7.2f} {row['mean_actual']:>7.2f}"
+            f"{row['bias']:>+7.2f} {row['mean_predicted']:>9.2f} {row['mean_actual']:>11.2f}"
         )
     best = results[0]
-    print(f"\nBest by MAE: {best['label']} ({best['mae']:.2f} MAE)")
+    current = next((row for row in results if row['label'] == 'Current predicted points'), None)
+    simpler = [row for row in results if row['label'] != 'Current predicted points']
+    better_simpler = [row for row in simpler if current and row['mae'] < current['mae']]
+    print("\nInterpretation")
+    print(f"  Best baseline by MAE: {best['label']} ({best['mae']:.2f} MAE).")
+    if current and not better_simpler:
+        print("  Current predicted points beat or tied the simpler available baselines by MAE.")
+    elif current and better_simpler:
+        names = ', '.join(f"{row['label']} ({row['mae']:.2f})" for row in better_simpler)
+        print(f"  Current predicted points did not beat these simpler baselines by MAE: {names}.")
+    else:
+        print("  Current predicted points were unavailable, so no current-vs-baseline comparison was possible.")
     print("Analysis only: this does not change scoring, prediction outputs, or learned corrections.")
     return {'labeled_rows': len(df), 'baselines': results}
 
