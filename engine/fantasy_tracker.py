@@ -3749,6 +3749,67 @@ def wh_write_prediction_parquet(game_date, records):
     return wh_write_parquet(rows, 'predictions', f'{game_date}.parquet')
 
 
+def _prediction_records_by_jsonl_date():
+    """Read existing prediction JSONL partitions without mutating source files."""
+    records_by_date = {}
+    skipped = 0
+    if not os.path.isdir(PREDICTIONS_DIR):
+        return records_by_date, skipped
+    for fn in sorted(os.listdir(PREDICTIONS_DIR)):
+        if not fn.endswith('.jsonl'):
+            continue
+        game_date = fn[:-len('.jsonl')]
+        path = os.path.join(PREDICTIONS_DIR, fn)
+        try:
+            with open(path) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except Exception:
+                        skipped += 1
+                        continue
+                    records_by_date.setdefault(game_date, []).append(rec)
+        except Exception as e:
+            skipped += 1
+            print(f"  Skipped prediction partition {path}: {type(e).__name__}: {e}")
+    return records_by_date, skipped
+
+
+def backfill_warehouse_features():
+    """Rebuild prediction and SP feature Parquet partitions from prediction JSONL."""
+    records_by_date, skipped = _prediction_records_by_jsonl_date()
+    prediction_paths = []
+    feature_paths = []
+    prediction_rows = 0
+    feature_rows = 0
+    for game_date in sorted(records_by_date):
+        records = records_by_date[game_date]
+        prediction_paths.append(wh_write_prediction_parquet(game_date, records))
+        feature_paths.append(wh_write_sp_start_features_parquet(game_date, records))
+        prediction_rows += len(records)
+        feature_rows += len(records)
+
+    print("Warehouse feature backfill complete")
+    print(f"  Source: {PREDICTIONS_DIR}/*.jsonl")
+    print(f"  Prediction rows backfilled: {prediction_rows}")
+    print(f"  SP start feature rows backfilled: {feature_rows}")
+    print(f"  Date partitions written: {len(records_by_date)}")
+    print(f"  Prediction destination: {wh_path('predictions')}")
+    print(f"  Feature destination: {wh_path('features', 'sp_start_features')}")
+    if skipped:
+        print(f"  Skipped malformed/unreadable rows or files: {skipped}")
+    return {
+        'prediction_rows': prediction_rows,
+        'feature_rows': feature_rows,
+        'dates': len(records_by_date),
+        'skipped': skipped,
+        'prediction_paths': prediction_paths,
+        'feature_paths': feature_paths,
+    }
+
+
 def _outcome_record_to_wh_row(record):
     """Flatten one joined outcome JSONL record into warehouse-friendly columns."""
     features = record.get('features') or {}
@@ -6245,6 +6306,7 @@ def main():
     parser.add_argument('--audit-outcome-duplicates', action='store_true', help='Dry-run audit for duplicate outcome rows')
     parser.add_argument('--dedupe-outcomes', action='store_true', help='Backup and rewrite predictions_outcomes.jsonl without stable duplicates')
     parser.add_argument('--backfill-warehouse-outcomes', action='store_true', help='Backfill outcome Parquet files from predictions_outcomes.jsonl')
+    parser.add_argument('--backfill-warehouse-features', action='store_true', help='Backfill prediction and SP feature Parquet files from prediction JSONL')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
     parser.add_argument('--timing', action='store_true', help='Print runtime timing summary (normal runs print it by default)')
@@ -6287,6 +6349,10 @@ def main():
 
     if args.backfill_warehouse_outcomes:
         backfill_warehouse_outcomes()
+        return
+
+    if args.backfill_warehouse_features:
+        backfill_warehouse_features()
         return
 
     if args.setup:
