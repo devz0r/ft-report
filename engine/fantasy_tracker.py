@@ -101,6 +101,7 @@ ABBR_TO_MLB_TEAM = {v: k for k, v in MLB_TEAM_TO_ABBR.items()}
 
 # Streaming cache directory
 STREAMING_CACHE_DIR = os.path.join(SCRIPT_DIR, "streaming_cache")
+ROSTER_STATUS_CACHE_FILE = os.path.join(STREAMING_CACHE_DIR, "roster_status_cache.json")
 
 # Pitching scoring weights (for per-start calculation)
 PIT_SCORING = {'IP': 3, 'H': -1, 'ER': -2, 'BB': -1, 'K': 1, 'W': 5, 'L': -5}
@@ -273,6 +274,58 @@ def reconcile_with_roster(espn_matches, roster_map, espn_players):
     if fixed:
         print(f"  Reconciled {len(fixed)} IDs with roster data: {fixed}")
     return updated
+
+
+def _player_status_from_roster(espn_id, roster_map):
+    if not roster_map:
+        return None
+    if espn_id in roster_map:
+        info = roster_map[espn_id]
+        return 'MY ROSTER' if info.get('team_id') == ESPN_TEAM_ID else 'OTHER'
+    return 'FA' if espn_id else None
+
+
+def save_roster_status_cache(players_list, espn_matches, roster_map):
+    """Persist non-sensitive local roster ownership for read-only audits."""
+    if not roster_map:
+        print("  Roster/status cache not written: ESPN roster data unavailable")
+        return None
+    rows = []
+    updated_at = datetime.now().isoformat(timespec='seconds')
+    for player in players_list or []:
+        name = player.get('name')
+        if not name:
+            continue
+        match = espn_matches.get(name, {}) if espn_matches else {}
+        espn_id = player.get('espn_id') or match.get('espn_id')
+        status = _player_status_from_roster(espn_id, roster_map)
+        if not status:
+            status = 'UNKNOWN'
+        rows.append({
+            'name': name,
+            'normalized_name': normalize_name(name),
+            'espn_id': espn_id,
+            'mlb_id': player.get('mlb_id') or player.get('pitcher_mlb_id'),
+            'team': player.get('team') or '',
+            'status': status,
+            'fantasy_status': status,
+            'timestamp': updated_at,
+        })
+    payload = {
+        'updated_at': updated_at,
+        'source': 'local ESPN roster/status reconciliation',
+        'players': rows,
+    }
+    try:
+        os.makedirs(STREAMING_CACHE_DIR, exist_ok=True)
+        with open(ROSTER_STATUS_CACHE_FILE, 'w') as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+        mode = 'local preview' if PREVIEW_LOCAL else 'normal run'
+        print(f"  Roster/status cache written ({mode}): {len(rows)} rows -> {ROSTER_STATUS_CACHE_FILE}")
+        return ROSTER_STATUS_CACHE_FILE
+    except Exception as e:
+        print(f"  Roster/status cache write failed: {type(e).__name__}: {e}")
+        return None
 
 
 # =============================================================================
@@ -2924,6 +2977,7 @@ def _local_prediction_status_cache():
 def _load_local_roster_status_cache():
     """Read optional local roster/status cache files if a future workflow adds one."""
     candidates = [
+        ROSTER_STATUS_CACHE_FILE,
         os.path.join(SCRIPT_DIR, 'espn_rosters.json'),
         os.path.join(SCRIPT_DIR, 'roster_map.json'),
         os.path.join(STREAMING_CACHE_DIR, 'espn_rosters.json'),
@@ -2940,7 +2994,10 @@ def _load_local_roster_status_cache():
                 data = json.load(f)
         except Exception:
             continue
-        rows = data.values() if isinstance(data, dict) else data
+        if isinstance(data, dict) and isinstance(data.get('players'), list):
+            rows = data.get('players') or []
+        else:
+            rows = data.values() if isinstance(data, dict) else data
         if not isinstance(rows, list) and not hasattr(rows, '__iter__'):
             continue
         for item in rows:
@@ -2948,10 +3005,10 @@ def _load_local_roster_status_cache():
                 continue
             name = item.get('name') or item.get('fullName') or item.get('player_name')
             team = item.get('team') or item.get('proTeam') or item.get('mlb_team') or ''
-            status = item.get('status')
+            status = item.get('status') or item.get('fantasy_status')
             team_id = item.get('team_id')
             if not status and team_id is not None:
-                status = 'MY ROSTER' if team_id == ESPN_TEAM_ID else item.get('team_name') or 'Rostered'
+                status = 'MY ROSTER' if team_id == ESPN_TEAM_ID else 'OTHER'
             if name and status:
                 cache[(normalize_name(name), team)] = status
     return cache, sources
@@ -2962,25 +3019,32 @@ def _enrich_decision_statuses(records):
     enriched = [dict(rec) for rec in records]
     prediction_cache = _local_prediction_status_cache()
     roster_cache, roster_sources = _load_local_roster_status_cache()
-    combined_cache = {}
-    combined_cache.update(prediction_cache)
-    combined_cache.update(roster_cache)
-
-    enriched_count = 0
+    prediction_enriched_count = 0
+    roster_enriched_count = 0
     for rec in enriched:
         if rec.get('status'):
             continue
-        status = combined_cache.get(_decision_status_key(rec))
+        status = roster_cache.get(_decision_status_key(rec))
         if status:
             rec['status'] = status
             rec['_status_enriched'] = True
-            enriched_count += 1
+            rec['_status_source'] = 'roster_status_cache'
+            roster_enriched_count += 1
+            continue
+        status = prediction_cache.get(_decision_status_key(rec))
+        if status:
+            rec['status'] = status
+            rec['_status_enriched'] = True
+            rec['_status_source'] = 'prediction_log_history'
+            prediction_enriched_count += 1
 
     return enriched, {
         'prediction_status_cache_rows': len(prediction_cache),
         'roster_status_cache_rows': len(roster_cache),
         'roster_status_cache_sources': roster_sources,
-        'enriched_count': enriched_count,
+        'enriched_count': roster_enriched_count + prediction_enriched_count,
+        'roster_enriched_count': roster_enriched_count,
+        'prediction_enriched_count': prediction_enriched_count,
     }
 
 
@@ -3027,6 +3091,7 @@ def daily_decision_audit(target_date=None):
     records, enrichment = _enrich_decision_statuses(records)
     actionable = [r for r in records if r.get('status') in ('FA', 'MY ROSTER')]
     unknown_status = [r for r in records if not r.get('status')]
+    hidden_non_actionable = [r for r in records if r.get('status') not in ('FA', 'MY ROSTER')]
     if enrichment['roster_status_cache_sources']:
         print("\nLocal roster/status cache sources:")
         for source in enrichment['roster_status_cache_sources']:
@@ -3062,9 +3127,11 @@ def daily_decision_audit(target_date=None):
 
     print(f"\nRows scanned: {len(records)}")
     print(f"Original actionable rows: {original_actionable}")
-    print(f"Rows enriched from local status cache: {enrichment['enriched_count']}")
+    print(f"Rows enriched from roster/status cache: {enrichment['roster_enriched_count']}")
+    print(f"Rows enriched from prediction-log status history: {enrichment['prediction_enriched_count']}")
     print(f"Final actionable rows: {len(actionable)} ({len(fa_rows)} FA, {len(roster_rows)} MY ROSTER)")
-    print(f"Rows still unknown/hidden: {len(unknown_status)}")
+    print(f"Rows still unknown/hidden: {len(hidden_non_actionable)}")
+    print(f"Rows still blank unknown: {len(unknown_status)}")
     print(f"Prediction-log status cache rows: {enrichment['prediction_status_cache_rows']}")
     print(f"Local roster/status cache rows: {enrichment['roster_status_cache_rows']}")
     print("Rostered-by-other-team rows are excluded unless they are MY ROSTER.")
@@ -3078,6 +3145,9 @@ def daily_decision_audit(target_date=None):
     problems = []
     if unknown_status:
         problems.append(f"{len(unknown_status)} prediction rows have blank roster/FA status and were hidden from decisions.")
+    other_hidden = [r for r in hidden_non_actionable if r.get('status') and r.get('status') not in ('FA', 'MY ROSTER')]
+    if other_hidden:
+        problems.append(f"{len(other_hidden)} rows appear rostered by other teams and were hidden from actionable recommendations.")
     tbd_rows = [r for r in records if r.get('tbd') or (r.get('name') or '').upper() == 'TBD']
     if tbd_rows:
         for rec in tbd_rows:
@@ -7250,6 +7320,7 @@ def main():
             out.append(entry)
         return out
     players_list = timed("player list build", build_player_list_phase)
+    timed("roster/status cache write", save_roster_status_cache, players_list, espn_matches, roster_map)
 
     # Phase 5: Snapshots and deltas
     print("\n" + "=" * 60)

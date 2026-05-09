@@ -38,5 +38,8 @@ if [[ -d engine/streaming_cache/il_snapshots ]]; then
   fi
 fi
 
+echo "Removing local roster/status cache..."
+rm -f -- engine/streaming_cache/roster_status_cache.json
+
 echo "Status after cleanup:"
 git status --short
