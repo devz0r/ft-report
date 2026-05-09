@@ -3352,6 +3352,15 @@ def _decision_report_item(record):
     }
 
 
+def _decision_records_for_report(snapshot_date, streaming_data):
+    """Return current report prediction-shaped records without changing storage."""
+    if _runtime_prediction_records:
+        return [dict(rec) for rec in _runtime_prediction_records], 'current run prediction records'
+    if streaming_data:
+        return [_decision_record_from_streaming_entry(s) for s in streaming_data], 'current report streaming rows'
+    return [], 'prediction logs'
+
+
 def decision_summary_for_report(summary):
     if not summary:
         return None
@@ -3380,6 +3389,118 @@ def decision_summary_for_report(summary):
         },
         'problems': (summary.get('problems') or [])[:6],
     }
+
+
+def build_next_watchlist_summary(base_date=None, records=None, source=None, days=3):
+    """Build a report-only watchlist for upcoming actionable starts."""
+    base_date = base_date or date.today().isoformat()
+    try:
+        start = date.fromisoformat(base_date) + timedelta(days=1)
+    except Exception:
+        start = date.today() + timedelta(days=1)
+    watch_dates = [(start + timedelta(days=i)).isoformat() for i in range(days)]
+    if records is None:
+        source = source or 'prediction logs'
+        records = []
+        for d in watch_dates:
+            rows, _ = _latest_prediction_records_by_date(d)
+            records.extend(rows)
+    else:
+        records = [dict(r) for r in records]
+
+    records = [
+        r for r in records
+        if (r.get('date') or r.get('game_date')) in set(watch_dates)
+    ]
+    summary = {
+        'base_date': base_date,
+        'date_range': f"{watch_dates[0]} to {watch_dates[-1]}" if watch_dates else '',
+        'source': source or 'current report prediction records',
+        'rows_scanned': len(records),
+        'actionable_count': 0,
+        'hidden_other_count': 0,
+        'hidden_unknown_count': 0,
+        'days': [],
+        'problems': [],
+    }
+    if not records:
+        summary['problems'].append('No upcoming prediction records found for the next 3 days.')
+        return summary
+
+    actionable_statuses = {'FA', 'MY ROSTER', 'WAIVER'}
+    records, enrichment = _enrich_decision_statuses(records)
+    actionable = [r for r in records if r.get('status') in actionable_statuses]
+    hidden_unknown = [r for r in records if not r.get('status')]
+    hidden_other = [r for r in records if r.get('status') and r.get('status') not in actionable_statuses]
+    summary['actionable_count'] = len(actionable)
+    summary['hidden_other_count'] = len(hidden_other)
+    summary['hidden_unknown_count'] = len(hidden_unknown)
+    if hidden_unknown:
+        summary['problems'].append(f"{len(hidden_unknown)} upcoming rows have blank roster/FA status and are hidden from the watchlist.")
+    if hidden_other:
+        summary['problems'].append(f"{len(hidden_other)} upcoming rows appear rostered by other teams/OTHER and are hidden.")
+    summary['roster_enriched_count'] = enrichment.get('roster_enriched_count', 0)
+    summary['prediction_enriched_count'] = enrichment.get('prediction_enriched_count', 0)
+
+    for d in watch_dates:
+        day_rows = [r for r in actionable if (r.get('date') or r.get('game_date')) == d]
+        available = [
+            r for r in day_rows
+            if r.get('status') in ('FA', 'WAIVER')
+        ]
+        roster = [r for r in day_rows if r.get('status') == 'MY ROSTER']
+        best_available = sorted(
+            available,
+            key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_decision_points(r))
+        )[:4]
+        risky_roster = sorted(
+            [r for r in roster if r.get('tier') in ('borderline', 'avoid') or _decision_risk_boost_flags(r)[0]],
+            key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), _decision_points(r))
+        )[:4]
+        selected_keys = {
+            (
+                normalize_name(r.get('name') or r.get('pitcher_name') or ''),
+                r.get('team'), r.get('opponent'), r.get('home_away')
+            )
+            for r in best_available + risky_roster
+        }
+        strong_starts = []
+        for r in sorted(day_rows, key=lambda rec: -_decision_points(rec)):
+            key = (
+                normalize_name(r.get('name') or r.get('pitcher_name') or ''),
+                r.get('team'), r.get('opponent'), r.get('home_away')
+            )
+            if key in selected_keys:
+                continue
+            if r.get('tier') in ('must_start', 'start') and _decision_points(r) >= 10:
+                strong_starts.append(r)
+            if len(strong_starts) >= 3:
+                break
+
+        day_items = []
+        for label, rows in (
+            ('FA/WAIVER TARGET', best_available),
+            ('ROSTER RISK', risky_roster),
+            ('PLAN AROUND', strong_starts),
+        ):
+            for rec in rows:
+                item = _decision_report_item(rec)
+                item['watch_label'] = label
+                day_items.append(item)
+
+        if day_items:
+            try:
+                date_label = datetime.strptime(d, '%Y-%m-%d').strftime('%a %b %-d')
+            except Exception:
+                date_label = d
+            summary['days'].append({
+                'date': d,
+                'label': date_label,
+                'items': day_items[:8],
+            })
+    if not summary['days']:
+        summary['problems'].append('No actionable upcoming starts matched the watchlist rules.')
+    return summary
 
 
 def daily_decision_audit(target_date=None):
@@ -3451,6 +3572,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           learning_sample_summary=None,
                           feature_log_status_override=None,
                           daily_decision_summary=None,
+                          next_watchlist_summary=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
     from string import Template
@@ -3458,25 +3580,25 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
         streaming_data = []
     if cum_deltas is None:
         cum_deltas = {}
+    report_decision_records, report_decision_source = _decision_records_for_report(snapshot_date, streaming_data)
     if daily_decision_summary is None:
         decision_records = [
-            rec for rec in _runtime_prediction_records
+            rec for rec in report_decision_records
             if (rec.get('date') or rec.get('game_date')) == snapshot_date
         ]
-        decision_source = 'current run prediction records'
-        if not decision_records and streaming_data:
-            decision_records = [
-                _decision_record_from_streaming_entry(s)
-                for s in streaming_data
-                if (s.get('date') or s.get('game_date')) == snapshot_date
-            ]
-            decision_source = 'current report streaming rows'
         if decision_records:
             daily_decision_summary = decision_summary_for_report(
-                build_daily_decision_summary(snapshot_date, records=decision_records, source=decision_source)
+                build_daily_decision_summary(snapshot_date, records=decision_records, source=report_decision_source)
             )
         else:
             daily_decision_summary = decision_summary_for_report(build_daily_decision_summary(snapshot_date))
+    if next_watchlist_summary is None:
+        if report_decision_records:
+            next_watchlist_summary = build_next_watchlist_summary(
+                snapshot_date, records=report_decision_records, source=report_decision_source
+            )
+        else:
+            next_watchlist_summary = build_next_watchlist_summary(snapshot_date)
 
     # Build a lookup of emerging (HOLD) pitchers.
     # Prefer the global emerging map (assesses ALL FA + MY ROSTER SPs by recent form,
@@ -3649,6 +3771,11 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .decision-confidence.conf-borderline { color: #fbbf24; }
 .decision-confidence.conf-avoid { color: #f87171; }
 .decision-empty { padding: 10px 9px; color: #555; font-size: 12px; }
+.watch-label { display: inline-block; margin-right: 6px; padding: 1px 5px; border-radius: 3px; background: #1a1a24; color: #aaa; border: 1px solid #2a2a35; font-size: 9px; font-weight: 700; letter-spacing: 0.3px; }
+.watch-day { border-top: 1px solid #1a1a24; }
+.watch-day:first-child { border-top: none; }
+.watch-date { padding: 8px 16px 0; color: #ddd; font-size: 12px; font-weight: 700; }
+.watch-grid { padding-top: 8px; }
 .tier-header { padding: 6px 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; border-top: 1px solid #222; }
 .tier-header:first-child { border-top: none; }
 .tier-must_start { color: #34d399; background: rgba(52,211,153,0.05); }
@@ -3757,6 +3884,7 @@ $TOP_BANNER_HTML
 <div class="tab-view" id="tab-streaming">
 <div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold</div>
 <div id="decisionContent"></div>
+<div id="watchlistContent"></div>
 <div id="streamContent"></div>
 </div><!-- end tab-streaming -->
 
@@ -3775,6 +3903,7 @@ var LEARNED_BIASES = $LEARNED_BIASES_JSON;
 var LEARNED_CANDIDATES = $LEARNED_CANDIDATES_JSON;
 var LEARNING_SAMPLE_SUMMARY = $LEARNING_SAMPLE_SUMMARY_JSON;
 var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
+var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -3944,9 +4073,10 @@ function renderDecisionItem(item) {
   if (risks.length) notes.push('<span class="decision-risk">Risk: ' + risks.map(escHtml).join('; ') + '</span>');
   if (boosts.length) notes.push('<span class="decision-boost">Boost: ' + boosts.map(escHtml).join('; ') + '</span>');
   if (!notes.length) notes.push('<span>Notes: none</span>');
+  var labelHtml = item.watch_label ? '<span class="watch-label">' + escHtml(item.watch_label) + '</span>' : '';
   return '<div class="decision-row">' +
     '<div class="decision-line1"><span class="decision-name">' + escHtml(item.name) + '</span><span class="decision-pts">' + pts.toFixed(1) + ' pts</span></div>' +
-    '<div class="decision-meta">' + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; <span class="decision-confidence ' + confCls + '">' + escHtml(conf) + '</span> &bull; ' + escHtml(matchup) + ' (' + escHtml(item.home_away || '?') + ')</div>' +
+    '<div class="decision-meta">' + labelHtml + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; <span class="decision-confidence ' + confCls + '">' + escHtml(conf) + '</span> &bull; ' + escHtml(matchup) + ' (' + escHtml(item.home_away || '?') + ')</div>' +
     '<div class="decision-reasons">' +
       '<div><span class="decision-reason-label">Why</span>' + escHtml(item.main_reason || 'Projection is the main signal') + '</div>' +
       '<div><span class="decision-reason-label">Risk</span>' + escHtml(item.risk_reason || 'No major red flag in logged signals') + '</div>' +
@@ -3993,6 +4123,36 @@ function renderDailyDecisions() {
   h += renderDecisionSection('Avoid / Trap FA Starts', sections.avoid_traps, 'No FA traps flagged.');
   h += renderProblemSection(d.problems);
   h += '</div></div>';
+  container.innerHTML = h;
+}
+
+function renderWatchlist() {
+  var container = document.getElementById('watchlistContent');
+  if (!container || !NEXT_WATCHLIST) return;
+  var w = NEXT_WATCHLIST;
+  var h = '<div class="day-card decision-card">';
+  h += '<div class="day-header"><span class="day-date">Next 3 Days Watchlist</span><span class="day-count">' + escHtml(w.date_range || '') + '</span></div>';
+  h += '<div class="decision-summary">';
+  h += '<span class="decision-pill">Rows scanned <b>' + (w.rows_scanned || 0) + '</b></span>';
+  h += '<span class="decision-pill">Actionable <b>' + (w.actionable_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">Hidden OTHER <b>' + (w.hidden_other_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">Hidden unknown <b>' + (w.hidden_unknown_count || 0) + '</b></span>';
+  h += '</div>';
+  if (w.problems && w.problems.length) {
+    h += '<div class="decision-warning">' + w.problems.map(escHtml).join(' ') + '</div>';
+  }
+  if (!w.days || w.days.length === 0) {
+    h += '<div class="decision-empty">No actionable upcoming starts found.</div>';
+  } else {
+    w.days.forEach(function(day) {
+      h += '<div class="watch-day">';
+      h += '<div class="watch-date">' + escHtml(day.label || day.date || '') + '</div>';
+      h += '<div class="decision-grid watch-grid">';
+      h += (day.items || []).map(renderDecisionItem).join('');
+      h += '</div></div>';
+    });
+  }
+  h += '</div>';
   container.innerHTML = h;
 }
 
@@ -4175,6 +4335,7 @@ function ordinal(n) {
 }
 
 renderDailyDecisions();
+renderWatchlist();
 renderStreaming();
 
 /* ===== Accuracy tab rendering ===== */
@@ -4325,6 +4486,7 @@ renderAccuracy();
         LEARNED_CANDIDATES_JSON=json.dumps(learned_candidates or []),
         LEARNING_SAMPLE_SUMMARY_JSON=json.dumps(learning_sample_summary) if learning_sample_summary else 'null',
         DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
+        NEXT_WATCHLIST_JSON=json.dumps(next_watchlist_summary) if next_watchlist_summary else 'null',
         FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
         TOP_BANNER_HTML=top_banner_html or '',
     )
