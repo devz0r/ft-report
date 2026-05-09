@@ -9309,5 +9309,21 @@
       "ip": "33.3"
     },
     "splits_window_years": 3
+  },
+  "682243": {
+    "mlb_id": 682243,
+    "career_vs_l": {
+      "ops": "0.722",
+      "whip": "1.21",
+      "k9": "7.82",
+      "ip": "132.3"
+    },
+    "career_vs_r": {
+      "ops": "0.611",
+      "whip": "1.04",
+      "k9": "8.62",
+      "ip": "135.7"
+    },
+    "splits_window_years": 2
   }
 }
