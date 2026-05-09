@@ -145,6 +145,87 @@ def normalize_name(name):
     return ascii_name
 
 
+def _venue_lookup_key(name):
+    """Normalize MLB venue names for logged-only metadata lookup."""
+    if not name:
+        return ''
+    return re.sub(r'[^a-z0-9]+', ' ', str(name).lower()).strip()
+
+
+MLB_VENUE_METADATA_BY_TEAM = {
+    'LAA': {'venue_name': 'Angel Stadium', 'venue_lat': 33.8003, 'venue_lon': -117.8827, 'roof_type': 'outdoor', 'is_indoor_or_dome': False, 'aliases': ['Angel Stadium of Anaheim']},
+    'AZ': {'venue_name': 'Chase Field', 'venue_lat': 33.4455, 'venue_lon': -112.0667, 'roof_type': 'retractable', 'is_indoor_or_dome': True},
+    'BAL': {'venue_name': 'Oriole Park at Camden Yards', 'venue_lat': 39.2839, 'venue_lon': -76.6217, 'roof_type': 'outdoor', 'is_indoor_or_dome': False, 'aliases': ['Camden Yards']},
+    'BOS': {'venue_name': 'Fenway Park', 'venue_lat': 42.3467, 'venue_lon': -71.0972, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'CHC': {'venue_name': 'Wrigley Field', 'venue_lat': 41.9484, 'venue_lon': -87.6553, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'CIN': {'venue_name': 'Great American Ball Park', 'venue_lat': 39.0979, 'venue_lon': -84.5082, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'CLE': {'venue_name': 'Progressive Field', 'venue_lat': 41.4962, 'venue_lon': -81.6852, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'COL': {'venue_name': 'Coors Field', 'venue_lat': 39.7561, 'venue_lon': -104.9942, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'DET': {'venue_name': 'Comerica Park', 'venue_lat': 42.3390, 'venue_lon': -83.0485, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'HOU': {'venue_name': 'Daikin Park', 'venue_lat': 29.7573, 'venue_lon': -95.3555, 'roof_type': 'retractable', 'is_indoor_or_dome': True, 'aliases': ['Minute Maid Park']},
+    'KC': {'venue_name': 'Kauffman Stadium', 'venue_lat': 39.0517, 'venue_lon': -94.4803, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'LAD': {'venue_name': 'Dodger Stadium', 'venue_lat': 34.0739, 'venue_lon': -118.2400, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'WSH': {'venue_name': 'Nationals Park', 'venue_lat': 38.8730, 'venue_lon': -77.0074, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'NYM': {'venue_name': 'Citi Field', 'venue_lat': 40.7571, 'venue_lon': -73.8458, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'OAK': {'venue_name': 'Sutter Health Park', 'venue_lat': 38.5803, 'venue_lon': -121.5139, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'PIT': {'venue_name': 'PNC Park', 'venue_lat': 40.4469, 'venue_lon': -80.0057, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'SD': {'venue_name': 'Petco Park', 'venue_lat': 32.7073, 'venue_lon': -117.1566, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'SEA': {'venue_name': 'T-Mobile Park', 'venue_lat': 47.5914, 'venue_lon': -122.3325, 'roof_type': 'retractable', 'is_indoor_or_dome': True, 'aliases': ['T Mobile Park', 'Safeco Field']},
+    'SF': {'venue_name': 'Oracle Park', 'venue_lat': 37.7786, 'venue_lon': -122.3893, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'STL': {'venue_name': 'Busch Stadium', 'venue_lat': 38.6226, 'venue_lon': -90.1928, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'TB': {'venue_name': 'George M. Steinbrenner Field', 'venue_lat': 27.9802, 'venue_lon': -82.5065, 'roof_type': 'outdoor', 'is_indoor_or_dome': False, 'aliases': ['Tropicana Field']},
+    'TEX': {'venue_name': 'Globe Life Field', 'venue_lat': 32.7473, 'venue_lon': -97.0842, 'roof_type': 'retractable', 'is_indoor_or_dome': True},
+    'TOR': {'venue_name': 'Rogers Centre', 'venue_lat': 43.6414, 'venue_lon': -79.3894, 'roof_type': 'retractable', 'is_indoor_or_dome': True},
+    'MIN': {'venue_name': 'Target Field', 'venue_lat': 44.9817, 'venue_lon': -93.2776, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'PHI': {'venue_name': 'Citizens Bank Park', 'venue_lat': 39.9058, 'venue_lon': -75.1665, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'ATL': {'venue_name': 'Truist Park', 'venue_lat': 33.8907, 'venue_lon': -84.4677, 'roof_type': 'outdoor', 'is_indoor_or_dome': False},
+    'CWS': {'venue_name': 'Rate Field', 'venue_lat': 41.8300, 'venue_lon': -87.6338, 'roof_type': 'outdoor', 'is_indoor_or_dome': False, 'aliases': ['Guaranteed Rate Field', 'U.S. Cellular Field']},
+    'MIA': {'venue_name': 'loanDepot park', 'venue_lat': 25.7781, 'venue_lon': -80.2197, 'roof_type': 'retractable', 'is_indoor_or_dome': True, 'aliases': ['loanDepot Park', 'Marlins Park']},
+    'MIL': {'venue_name': 'American Family Field', 'venue_lat': 43.0280, 'venue_lon': -87.9712, 'roof_type': 'retractable', 'is_indoor_or_dome': True, 'aliases': ['Miller Park']},
+}
+
+MLB_VENUE_METADATA_BY_NAME = {}
+for _team, _meta in MLB_VENUE_METADATA_BY_TEAM.items():
+    for _name in [_meta.get('venue_name')] + list(_meta.get('aliases') or []):
+        MLB_VENUE_METADATA_BY_NAME[_venue_lookup_key(_name)] = _meta
+MLB_VENUE_METADATA_BY_NAME[_venue_lookup_key('Tropicana Field')] = {
+    'venue_name': 'Tropicana Field',
+    'venue_lat': 27.7683,
+    'venue_lon': -82.6534,
+    'roof_type': 'dome',
+    'is_indoor_or_dome': True,
+}
+
+
+def _mlb_venue_metadata(team=None, venue_name=None):
+    """Return logged-only static MLB park metadata when schedule names identify it."""
+    meta = MLB_VENUE_METADATA_BY_NAME.get(_venue_lookup_key(venue_name))
+    if meta:
+        return meta
+    return MLB_VENUE_METADATA_BY_TEAM.get(team or '', {})
+
+
+def _home_team_for_record(record):
+    if (record or {}).get('home_away') == 'H':
+        return (record or {}).get('team')
+    return (record or {}).get('opponent')
+
+
+def _features_with_venue_metadata(features, record=None):
+    """Fill missing venue lat/lon/roof feature fields without touching scoring."""
+    out = dict(features or {})
+    meta = _mlb_venue_metadata(
+        team=_home_team_for_record(record or {}),
+        venue_name=out.get('venue_name') or (record or {}).get('venue_name'),
+    )
+    if not meta:
+        return out
+    for key in ('venue_name', 'venue_lat', 'venue_lon', 'roof_type', 'is_indoor_or_dome'):
+        if out.get(key) in (None, '') and meta.get(key) is not None:
+            out[key] = meta.get(key)
+    return out
+
+
 def match_fg_to_espn(fg_players, espn_players):
     espn_by_normalized = {}
     for ep in espn_players:
@@ -643,6 +724,7 @@ def fetch_weekly_schedule(start_date, end_date):
 
             venue = game.get('venue') or {}
             venue_location = venue.get('location') or {}
+            venue_meta = _mlb_venue_metadata(home_team, venue.get('name'))
             # MLB schedule data is already fetched for probables. Capture only
             # pregame-safe metadata here; outdoor weather/roof status remain
             # null until a reliable weather/roof source is wired.
@@ -652,12 +734,12 @@ def fetch_weekly_schedule(start_date, end_date):
                 'game_datetime': game.get('gameDate', ''),
                 'game_pk': game.get('gamePk'),
                 'venue_id': venue.get('id'),
-                'venue_name': venue.get('name'),
-                'venue_lat': venue_location.get('latitude'),
-                'venue_lon': venue_location.get('longitude'),
-                'roof_type': venue.get('roofType') or venue.get('roof_type'),
+                'venue_name': venue.get('name') or venue_meta.get('venue_name'),
+                'venue_lat': venue_location.get('latitude') or venue_meta.get('venue_lat'),
+                'venue_lon': venue_location.get('longitude') or venue_meta.get('venue_lon'),
+                'roof_type': venue.get('roofType') or venue.get('roof_type') or venue_meta.get('roof_type'),
                 'roof_status': None,
-                'is_indoor_or_dome': None,
+                'is_indoor_or_dome': venue_meta.get('is_indoor_or_dome'),
             }
 
             if home_pp:
@@ -2728,16 +2810,18 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
 
 def _logged_weather_venue_context(game):
     """Return logged-only weather/venue fields from already-fetched schedule data."""
+    game = dict(game or {})
+    game_features = _features_with_venue_metadata(game, game)
     roof_type = game.get('roof_type')
-    is_dome = None
+    is_dome = game_features.get('is_indoor_or_dome')
     if isinstance(roof_type, str) and roof_type.strip():
-        is_dome = roof_type.strip().lower() in {'dome', 'fixed roof', 'indoor'}
+        is_dome = roof_type.strip().lower() in {'dome', 'fixed roof', 'indoor', 'retractable'}
     return {
-        'game_datetime': game.get('game_datetime') or game.get('game_time'),
-        'venue_name': game.get('venue_name'),
-        'venue_lat': _safe_float(game.get('venue_lat')),
-        'venue_lon': _safe_float(game.get('venue_lon')),
-        'roof_type': roof_type,
+        'game_datetime': game_features.get('game_datetime') or game.get('game_time'),
+        'venue_name': game_features.get('venue_name'),
+        'venue_lat': _safe_float(game_features.get('venue_lat')),
+        'venue_lon': _safe_float(game_features.get('venue_lon')),
+        'roof_type': game_features.get('roof_type'),
         'roof_status': game.get('roof_status'),
         'is_indoor_or_dome': is_dome,
         'weather_source': None,
@@ -4947,7 +5031,7 @@ def _start_id_for_record(record):
 
 def _prediction_record_to_wh_row(record):
     """Flatten one prediction JSONL record into warehouse-friendly columns."""
-    features = record.get('features') or {}
+    features = _features_with_venue_metadata(record.get('features') or {}, record)
     row = {
         'start_id': _start_id_for_record(record),
         'game_date': record.get('date'),
@@ -5085,7 +5169,7 @@ def backfill_warehouse_features_from_archive():
 
 def _outcome_record_to_wh_row(record):
     """Flatten one joined outcome JSONL record into warehouse-friendly columns."""
-    features = record.get('features') or {}
+    features = _features_with_venue_metadata(record.get('features') or {}, record)
     actual_line = record.get('actual_line') or {}
     row = {
         'start_id': _start_id_for_record(record),
@@ -5197,7 +5281,7 @@ def backfill_warehouse_outcomes():
 
 def _sp_start_feature_record_to_wh_row(record):
     """Flatten one prediction record into pregame-only SP start features."""
-    features = record.get('features') or {}
+    features = _features_with_venue_metadata(record.get('features') or {}, record)
     game_date = record.get('date')
     snapshot_time = record.get('snapshot_time') or record.get('logged_at')
     pitcher_name = record.get('name')
@@ -7422,6 +7506,7 @@ def log_prediction(entry):
                 'weather_note': entry.get('weather_note'),
             },
         }
+        record['features'] = _features_with_venue_metadata(record.get('features'), record)
         _runtime_prediction_records.append(dict(record))
         # Buffer in memory; flush_predictions() writes one JSONL per date at
         # end of run. Avoids thousands of small files which slow git ops.
