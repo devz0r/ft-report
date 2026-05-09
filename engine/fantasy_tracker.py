@@ -6595,6 +6595,301 @@ def analyze_model_baselines():
     return {'labeled_rows': len(df), 'baselines': results}
 
 
+START_SIT_STATUS_GROUPS = {
+    'MY ROSTER': 'MY ROSTER',
+    'FA': 'FA/WAIVER',
+    'WAIVER': 'FA/WAIVER',
+}
+
+
+def _start_sit_rows_from_warehouse():
+    """Load labeled start/sit evaluation rows from warehouse training view."""
+    conn = None
+    try:
+        conn = wh_conn()
+        cols = _table_columns(conn, 'training_sp_starts')
+        if not cols or 'actual_pts' not in cols:
+            return None, 'warehouse training view unavailable'
+        label_filter = "COALESCE(has_label, FALSE)" if 'has_label' in cols else "actual_pts IS NOT NULL"
+        df = conn.execute(f"""
+            SELECT *
+            FROM training_sp_starts
+            WHERE {label_filter}
+              AND actual_pts IS NOT NULL
+        """).fetchdf()
+        if df.empty:
+            return None, 'warehouse training view has no labeled rows'
+        return df, 'warehouse training_sp_starts'
+    except Exception as e:
+        return None, f'warehouse unavailable ({type(e).__name__}: {e})'
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+def _start_sit_rows_from_outcome_jsonl():
+    """Fallback labeled start/sit evaluation rows from predictions_outcomes.jsonl."""
+    records = []
+    seen_exact = set()
+    for _, rec in _read_outcome_log_records():
+        if rec.get('no_start'):
+            continue
+        if rec.get('actual_pts') is None:
+            continue
+        exact_key = _outcome_exact_duplicate_key(rec)
+        if exact_key in seen_exact:
+            continue
+        seen_exact.add(exact_key)
+        records.append(rec)
+    if not records:
+        return pd.DataFrame(), 'prediction/outcome JSONL fallback'
+    rows = []
+    for rec in records:
+        row = dict(rec)
+        row['game_date'] = rec.get('date') or rec.get('game_date')
+        row['pitcher_name'] = rec.get('name') or rec.get('pitcher_name')
+        rows.append(row)
+    return pd.DataFrame(rows), 'prediction/outcome JSONL fallback'
+
+
+def _start_sit_predicted_advice(tier, predicted_pts):
+    tier_norm = str(tier or '').strip().lower()
+    if tier_norm in ('must_start', 'start'):
+        return 'START'
+    if tier_norm == 'borderline':
+        return 'BORDERLINE'
+    if tier_norm in ('avoid', 'sit'):
+        return 'SIT'
+    pts = _safe_float(predicted_pts)
+    if pts is None:
+        return 'UNKNOWN'
+    if pts >= 10:
+        return 'START'
+    if pts >= 8:
+        return 'BORDERLINE'
+    return 'SIT'
+
+
+def _start_sit_actual_band(actual_pts):
+    actual = _safe_float(actual_pts)
+    if actual is None:
+        return 'unknown'
+    if actual <= 0:
+        return 'disaster_start'
+    if actual < 5:
+        return 'bad_start'
+    if actual >= 18:
+        return 'smash_start'
+    if actual >= 12:
+        return 'good_start'
+    if actual >= 8:
+        return 'usable_start'
+    return 'poor_start'
+
+
+def _start_sit_status_group(status):
+    status_norm = str(status or '').strip().upper()
+    return START_SIT_STATUS_GROUPS.get(status_norm, 'OTHER' if status_norm else 'UNKNOWN')
+
+
+def _start_sit_prepare_dataframe(df):
+    work = df.copy()
+    rename_map = {
+        'date': 'game_date',
+        'name': 'pitcher_name',
+        'pts': 'predicted_pts',
+    }
+    for old, new in rename_map.items():
+        if new not in work.columns and old in work.columns:
+            work[new] = work[old]
+    if 'predicted_pts' not in work.columns:
+        if 'final_pts' in work.columns:
+            work['predicted_pts'] = work['final_pts']
+        elif 'base_pts' in work.columns:
+            work['predicted_pts'] = work['base_pts']
+    required_defaults = {
+        'game_date': None,
+        'pitcher_name': None,
+        'team': None,
+        'opponent': None,
+        'home_away': None,
+        'status': None,
+        'tier': None,
+        'predicted_pts': None,
+    }
+    for col, default in required_defaults.items():
+        if col not in work.columns:
+            work[col] = default
+    work['actual_pts'] = pd.to_numeric(work['actual_pts'], errors='coerce')
+    work['predicted_pts'] = pd.to_numeric(work['predicted_pts'], errors='coerce')
+    work = work.dropna(subset=['actual_pts'])
+    if 'no_start' in work.columns:
+        work = work[work['no_start'] != True]  # noqa: E712
+    work['predicted_advice'] = [
+        _start_sit_predicted_advice(tier, pts)
+        for tier, pts in zip(work['tier'], work['predicted_pts'])
+    ]
+    work['actual_band'] = [_start_sit_actual_band(v) for v in work['actual_pts']]
+    work['status_group'] = [_start_sit_status_group(v) for v in work['status']]
+    work['tier_group'] = [
+        'avoid/sit' if str(v or '').strip().lower() in ('avoid', 'sit') else str(v or 'unknown').strip().lower()
+        for v in work['tier']
+    ]
+    return work
+
+
+def _start_sit_rate(numerator, denominator):
+    return (100.0 * numerator / denominator) if denominator else 0.0
+
+
+def _start_sit_metric_summary(df):
+    total = len(df)
+    start = df[df['predicted_advice'] == 'START']
+    borderline = df[df['predicted_advice'] == 'BORDERLINE']
+    sit = df[df['predicted_advice'] == 'SIT']
+    disasters = df[df['actual_pts'] <= 0]
+    return {
+        'total': total,
+        'start_count': len(start),
+        'borderline_count': len(borderline),
+        'sit_count': len(sit),
+        'start_hit_rate': _start_sit_rate(int((start['actual_pts'] >= 8).sum()), len(start)),
+        'start_good_rate': _start_sit_rate(int((start['actual_pts'] >= 12).sum()), len(start)),
+        'start_bust_rate': _start_sit_rate(int((start['actual_pts'] < 5).sum()), len(start)),
+        'sit_correct_avoid_rate': _start_sit_rate(int((sit['actual_pts'] < 8).sum()), len(sit)),
+        'sit_missed_opportunity_rate': _start_sit_rate(int((sit['actual_pts'] >= 12).sum()), len(sit)),
+        'borderline_usable_rate': _start_sit_rate(int((borderline['actual_pts'] >= 8).sum()), len(borderline)),
+        'disaster_sit': int((disasters['predicted_advice'] == 'SIT').sum()),
+        'disaster_borderline': int((disasters['predicted_advice'] == 'BORDERLINE').sum()),
+        'disaster_start': int((disasters['predicted_advice'] == 'START').sum()),
+    }
+
+
+def _print_start_sit_metric_block(title, df):
+    metrics = _start_sit_metric_summary(df)
+    print(f"\n{title}")
+    print(f"  total labeled starts: {metrics['total']}")
+    print(
+        f"  predicted START / BORDERLINE / SIT: "
+        f"{metrics['start_count']} / {metrics['borderline_count']} / {metrics['sit_count']}"
+    )
+    print(f"  START hit rate (actual >= 8): {metrics['start_hit_rate']:.1f}%")
+    print(f"  START good rate (actual >= 12): {metrics['start_good_rate']:.1f}%")
+    print(f"  START bust rate (actual < 5): {metrics['start_bust_rate']:.1f}%")
+    print(f"  SIT correct avoid rate (actual < 8): {metrics['sit_correct_avoid_rate']:.1f}%")
+    print(f"  SIT missed opportunity rate (actual >= 12): {metrics['sit_missed_opportunity_rate']:.1f}%")
+    print(f"  BORDERLINE usable rate (actual >= 8): {metrics['borderline_usable_rate']:.1f}%")
+    print(
+        "  disaster starts (actual <= 0) predicted "
+        f"SIT/BORDERLINE/START: {metrics['disaster_sit']}/"
+        f"{metrics['disaster_borderline']}/{metrics['disaster_start']}"
+    )
+    return metrics
+
+
+def _start_sit_example_line(row):
+    matchup = f"{row.get('home_away') or '?'} {row.get('opponent') or '?'}"
+    pred = row.get('predicted_pts')
+    pred_text = f"{float(pred):.1f}" if pd.notna(pred) else "--"
+    return (
+        f"{row.get('game_date') or '?'} | {row.get('pitcher_name') or '?'} "
+        f"({row.get('team') or '?'}, {matchup}) | tier={row.get('tier') or '?'} "
+        f"| pred={pred_text} | actual={float(row.get('actual_pts')):.1f} "
+        f"| status={row.get('status') or '?'}"
+    )
+
+
+def _print_start_sit_examples(title, rows):
+    print(f"\n{title}")
+    if rows.empty:
+        print("  None")
+        return
+    for _, row in rows.head(5).iterrows():
+        print(f"  - {_start_sit_example_line(row)}")
+
+
+def analyze_start_sit_quality():
+    """Read-only evaluation of fantasy start/sit decision quality."""
+    print("START/SIT DECISION QUALITY ANALYSIS")
+    print("=" * 60)
+    print("Analysis only: this does not change scoring, predictions, tiers, or learned corrections.")
+
+    df, source = _start_sit_rows_from_warehouse()
+    if df is None or df.empty:
+        fallback_df, fallback_source = _start_sit_rows_from_outcome_jsonl()
+        if source:
+            print(f"Warehouse source skipped: {source}")
+        df = fallback_df
+        source = fallback_source
+    print(f"Source: {source}")
+
+    if df is None or df.empty:
+        print("No labeled starts with actual fantasy points are available yet.")
+        return {'labeled_rows': 0}
+
+    work = _start_sit_prepare_dataframe(df)
+    work = work[work['predicted_advice'] != 'UNKNOWN']
+    if work.empty:
+        print("No labeled rows had enough tier/projected-point information to evaluate advice.")
+        return {'labeled_rows': 0}
+
+    metrics = _print_start_sit_metric_block("Overall decision quality", work)
+
+    print("\nBy roster status")
+    for status_group in ('MY ROSTER', 'FA/WAIVER', 'OTHER', 'UNKNOWN'):
+        subset = work[work['status_group'] == status_group]
+        if subset.empty:
+            continue
+        _print_start_sit_metric_block(status_group, subset)
+
+    print("\nBy tier/confidence")
+    for tier in ('must_start', 'start', 'borderline', 'avoid/sit', 'unknown'):
+        subset = work[work['tier_group'] == tier]
+        if subset.empty:
+            continue
+        _print_start_sit_metric_block(tier, subset)
+
+    predicted_start = work[work['predicted_advice'] == 'START']
+    predicted_sit = work[work['predicted_advice'] == 'SIT']
+    _print_start_sit_examples(
+        "Best correct starts",
+        predicted_start[predicted_start['actual_pts'] >= 8].sort_values('actual_pts', ascending=False),
+    )
+    _print_start_sit_examples(
+        "Worst recommended starts",
+        predicted_start.sort_values('actual_pts', ascending=True),
+    )
+    _print_start_sit_examples(
+        "Best avoided sits",
+        predicted_sit[predicted_sit['actual_pts'] < 8].sort_values('actual_pts', ascending=True),
+    )
+    _print_start_sit_examples(
+        "Biggest missed sits",
+        predicted_sit[predicted_sit['actual_pts'] >= 12].sort_values('actual_pts', ascending=False),
+    )
+
+    print("\nInterpretation")
+    if metrics['total'] < 100:
+        print("  Small-sample warning: fewer than 100 labeled decisions are available.")
+    if metrics['start_count'] and metrics['sit_count']:
+        if metrics['start_hit_rate'] >= metrics['sit_correct_avoid_rate']:
+            print("  The model currently looks stronger at identifying usable starts than avoiding traps.")
+        else:
+            print("  The model currently looks stronger at avoiding bad starts than identifying usable starts.")
+    if metrics['borderline_count']:
+        if metrics['borderline_usable_rate'] >= 60:
+            print("  Borderline calls have mostly been usable so far, so they may be conservative enough.")
+        elif metrics['borderline_usable_rate'] <= 40:
+            print("  Borderline calls have been shaky so far and may be too aggressive.")
+        else:
+            print("  Borderline calls are mixed; treat them as matchup-dependent until the sample grows.")
+    print("  These results are diagnostic only and are not fed back into recommendations yet.")
+    return {'labeled_rows': len(work), 'metrics': metrics}
+
+
 FEATURE_REGISTRY = {}
 WEATHER_VENUE_FEATURES = [
     'game_datetime', 'venue_name', 'venue_lat', 'venue_lon',
@@ -8007,6 +8302,7 @@ def main():
     parser.add_argument('--backfill-warehouse-features-from-archive', action='store_true', help='Backfill prediction and SP feature Parquet from predictions_archive plus current prediction JSONL')
     parser.add_argument('--analyze-feature-errors', action='store_true', help='Read-only exploratory feature/error analysis from warehouse training rows')
     parser.add_argument('--analyze-model-baselines', action='store_true', help='Read-only warehouse comparison of current predictions against baseline layers')
+    parser.add_argument('--analyze-start-sit-quality', action='store_true', help='Read-only start/sit decision-quality analysis from labeled starts')
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
@@ -8066,6 +8362,10 @@ def main():
 
     if args.analyze_model_baselines:
         analyze_model_baselines()
+        return
+
+    if args.analyze_start_sit_quality:
+        analyze_start_sit_quality()
         return
 
     if args.daily_decision_audit:
