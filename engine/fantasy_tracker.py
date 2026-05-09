@@ -3929,6 +3929,13 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .decision-confidence.conf-borderline { color: #fbbf24; }
 .decision-confidence.conf-avoid { color: #f87171; }
 .decision-empty { padding: 10px 9px; color: #555; font-size: 12px; }
+.decision-compact-list { display: grid; }
+.decision-compact-row { padding: 7px 9px; border-top: 1px solid #1a1a24; display: grid; grid-template-columns: minmax(92px, 1.2fr) auto minmax(86px, 1fr); gap: 7px; align-items: center; }
+.decision-compact-row:first-child { border-top: none; }
+.decision-compact-main { min-width: 0; }
+.decision-compact-meta { color: #888; font-size: 11px; white-space: nowrap; }
+.decision-compact-risk { color: #fca5a5; font-size: 11px; line-height: 1.3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.decision-compact-risk .decision-overlap { margin: 0 0 0 6px; }
 .watch-label { display: inline-block; margin-right: 7px; margin-bottom: 2px; padding: 1px 5px; border-radius: 3px; background: #1a1a24; color: #aaa; border: 1px solid #2a2a35; font-size: 9px; font-weight: 700; letter-spacing: 0.3px; vertical-align: baseline; }
 .watch-day { border-top: 1px solid #1a1a24; }
 .watch-day:first-child { border-top: none; }
@@ -4263,6 +4270,25 @@ function renderDecisionSection(title, rows, emptyText) {
   return h + '</div>';
 }
 
+function renderRiskyRosterSection(rows) {
+  var h = '<div class="decision-section"><div class="decision-section-title">Risky Rostered Starts</div>';
+  if (!rows || rows.length === 0) return h + '<div class="decision-empty">No rostered starts flagged as risky.</div></div>';
+  h += '<div class="decision-compact-list">';
+  h += rows.map(function(item) {
+    var pts = Number(item.points || 0);
+    var matchup = item.home_away === 'H' ? 'vs ' + (item.opponent || '?') : '@ ' + (item.opponent || '?');
+    var conf = item.confidence || tierLabel(item.tier);
+    var confCls = conf === 'Strong Start' ? 'conf-strong' : conf === 'Start' ? 'conf-start' : conf === 'Avoid' ? 'conf-avoid' : 'conf-borderline';
+    var risk = item.risk_reason || (item.risks && item.risks.length ? item.risks[0] : 'Risk flag in logged signals');
+    return '<div class="decision-compact-row">' +
+      '<div class="decision-compact-main"><div class="decision-name">' + escHtml(item.name) + '</div><div class="decision-compact-meta">' + pts.toFixed(1) + ' pts &bull; ' + escHtml(matchup) + '</div></div>' +
+      '<div class="decision-confidence ' + confCls + '">' + escHtml(conf) + '</div>' +
+      '<div class="decision-compact-risk" title="' + escHtml(risk) + '">Risk: ' + escHtml(risk) + ' <span class="decision-overlap">Also listed above</span></div>' +
+      '</div>';
+  }).join('');
+  return h + '</div></div>';
+}
+
 function renderProblemSection(problems) {
   var h = '<div class="decision-section"><div class="decision-section-title">TBD / Problem Games</div>';
   if (!problems || problems.length === 0) return h + '<div class="decision-empty">No problems flagged.</div></div>';
@@ -4290,7 +4316,7 @@ function renderDailyDecisions() {
   h += '<div class="decision-grid">';
   h += renderDecisionSection('Best FA / Waiver Streamers', sections.best_available, 'No available streamers above the filter.');
   h += renderDecisionSection('My Rostered Starters', sections.my_roster, 'No rostered starters found today.');
-  h += renderDecisionSection('Risky Rostered Starts', sections.risky_roster, 'No rostered starts flagged as risky.');
+  h += renderRiskyRosterSection(sections.risky_roster);
   h += renderDecisionSection('Avoid / Trap FA Starts', sections.avoid_traps, 'No FA traps flagged.');
   h += renderProblemSection(d.problems);
   h += '</div></div>';
