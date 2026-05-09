@@ -3595,6 +3595,7 @@ def run_setup():
 # =============================================================================
 
 PREDICTIONS_DIR = os.path.join(SCRIPT_DIR, 'predictions')
+PREDICTIONS_ARCHIVE_DIR = os.path.join(SCRIPT_DIR, 'predictions_archive')
 OUTCOMES_LOG = os.path.join(SCRIPT_DIR, 'predictions_outcomes.jsonl')
 LEARNED_BIASES_PATH = os.path.join(SCRIPT_DIR, 'learned_biases.json')
 
@@ -3749,17 +3750,22 @@ def wh_write_prediction_parquet(game_date, records):
     return wh_write_parquet(rows, 'predictions', f'{game_date}.parquet')
 
 
-def _prediction_records_by_jsonl_date():
-    """Read existing prediction JSONL partitions without mutating source files."""
+def _prediction_jsonl_files_by_date(directory):
+    """Map prediction JSONL partition dates to paths under one directory."""
+    files = {}
+    if not os.path.isdir(directory):
+        return files
+    for fn in sorted(os.listdir(directory)):
+        if fn.endswith('.jsonl'):
+            files[fn[:-len('.jsonl')]] = os.path.join(directory, fn)
+    return files
+
+
+def _read_prediction_jsonl_files_by_date(files_by_date):
+    """Read selected prediction JSONL files without mutating source files."""
     records_by_date = {}
     skipped = 0
-    if not os.path.isdir(PREDICTIONS_DIR):
-        return records_by_date, skipped
-    for fn in sorted(os.listdir(PREDICTIONS_DIR)):
-        if not fn.endswith('.jsonl'):
-            continue
-        game_date = fn[:-len('.jsonl')]
-        path = os.path.join(PREDICTIONS_DIR, fn)
+    for game_date, path in sorted(files_by_date.items()):
         try:
             with open(path) as f:
                 for line in f:
@@ -3777,14 +3783,19 @@ def _prediction_records_by_jsonl_date():
     return records_by_date, skipped
 
 
-def backfill_warehouse_features():
-    """Rebuild prediction and SP feature Parquet partitions from prediction JSONL."""
-    records_by_date, skipped = _prediction_records_by_jsonl_date()
+def _prediction_records_by_jsonl_date():
+    """Read current prediction JSONL partitions without mutating source files."""
+    return _read_prediction_jsonl_files_by_date(_prediction_jsonl_files_by_date(PREDICTIONS_DIR))
+
+
+def _backfill_warehouse_feature_partitions(records_by_date, source_label, skipped=0,
+                                           archive_files=None, current_files=None):
     prediction_paths = []
     feature_paths = []
     prediction_rows = 0
     feature_rows = 0
-    for game_date in sorted(records_by_date):
+    dates = sorted(records_by_date)
+    for game_date in dates:
         records = records_by_date[game_date]
         prediction_paths.append(wh_write_prediction_parquet(game_date, records))
         feature_paths.append(wh_write_sp_start_features_parquet(game_date, records))
@@ -3792,7 +3803,16 @@ def backfill_warehouse_features():
         feature_rows += len(records)
 
     print("Warehouse feature backfill complete")
-    print(f"  Source: {PREDICTIONS_DIR}/*.jsonl")
+    print(f"  Source: {source_label}")
+    if archive_files is not None:
+        print(f"  Archive files found: {len(archive_files)}")
+        for d in sorted(archive_files):
+            print(f"    archive {d}: {archive_files[d]}")
+    if current_files is not None:
+        print(f"  Current files found: {len(current_files)}")
+        for d in sorted(current_files):
+            print(f"    current {d}: {current_files[d]}")
+    print(f"  Dates backfilled: {', '.join(dates) if dates else 'None'}")
     print(f"  Prediction rows backfilled: {prediction_rows}")
     print(f"  SP start feature rows backfilled: {feature_rows}")
     print(f"  Date partitions written: {len(records_by_date)}")
@@ -3804,10 +3824,37 @@ def backfill_warehouse_features():
         'prediction_rows': prediction_rows,
         'feature_rows': feature_rows,
         'dates': len(records_by_date),
+        'date_values': dates,
         'skipped': skipped,
         'prediction_paths': prediction_paths,
         'feature_paths': feature_paths,
     }
+
+
+def backfill_warehouse_features():
+    """Rebuild prediction and SP feature Parquet partitions from prediction JSONL."""
+    records_by_date, skipped = _prediction_records_by_jsonl_date()
+    return _backfill_warehouse_feature_partitions(
+        records_by_date,
+        f"{PREDICTIONS_DIR}/*.jsonl",
+        skipped=skipped,
+    )
+
+
+def backfill_warehouse_features_from_archive():
+    """Rebuild prediction/SP feature Parquet from archive plus current JSONL."""
+    archive_files = _prediction_jsonl_files_by_date(PREDICTIONS_ARCHIVE_DIR)
+    current_files = _prediction_jsonl_files_by_date(PREDICTIONS_DIR)
+    selected_files = dict(archive_files)
+    selected_files.update(current_files)  # Current prediction files win date conflicts.
+    records_by_date, skipped = _read_prediction_jsonl_files_by_date(selected_files)
+    return _backfill_warehouse_feature_partitions(
+        records_by_date,
+        f"{PREDICTIONS_ARCHIVE_DIR}/*.jsonl + {PREDICTIONS_DIR}/*.jsonl",
+        skipped=skipped,
+        archive_files=archive_files,
+        current_files=current_files,
+    )
 
 
 def _outcome_record_to_wh_row(record):
@@ -4146,10 +4193,10 @@ def audit_warehouse():
     except Exception as e:
         duckdb_error = e
 
-    json_counts = _prediction_jsonl_counts_by_date()
+    json_counts = _prediction_source_jsonl_counts_by_date()
     parquet_counts = _prediction_parquet_counts_by_date()
     missing_parquet = sorted(set(json_counts) - set(parquet_counts))
-    json_dupes = _prediction_jsonl_duplicate_counts_by_date()
+    json_dupes = _prediction_source_jsonl_duplicate_counts_by_date()
     parquet_dupes = _prediction_parquet_duplicate_counts_by_date()
 
     outcome_json_counts = _outcome_jsonl_counts_by_date()
@@ -4443,6 +4490,23 @@ def _prediction_jsonl_counts_by_date():
     return counts
 
 
+def _prediction_source_jsonl_counts_by_date():
+    counts = {}
+    files = _prediction_jsonl_files_by_date(PREDICTIONS_ARCHIVE_DIR)
+    files.update(_prediction_jsonl_files_by_date(PREDICTIONS_DIR))
+    for game_date, path in sorted(files.items()):
+        n = 0
+        try:
+            with open(path) as f:
+                for line in f:
+                    if line.strip():
+                        n += 1
+        except Exception:
+            n = 0
+        counts[game_date] = n
+    return counts
+
+
 def _prediction_parquet_counts_by_date():
     counts = {}
     pred_dir = wh_path('predictions')
@@ -4471,6 +4535,28 @@ def _prediction_jsonl_duplicate_counts_by_date():
         keys = []
         try:
             with open(os.path.join(PREDICTIONS_DIR, fn)) as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except Exception:
+                        continue
+                    keys.append((normalize_name(rec.get('name', '')), rec.get('team'), rec.get('opponent')))
+        except Exception:
+            pass
+        dupes[game_date] = len(keys) - len(set(keys))
+    return dupes
+
+
+def _prediction_source_jsonl_duplicate_counts_by_date():
+    dupes = {}
+    files = _prediction_jsonl_files_by_date(PREDICTIONS_ARCHIVE_DIR)
+    files.update(_prediction_jsonl_files_by_date(PREDICTIONS_DIR))
+    for game_date, path in sorted(files.items()):
+        keys = []
+        try:
+            with open(path) as f:
                 for line in f:
                     if not line.strip():
                         continue
@@ -6458,6 +6544,7 @@ def main():
     parser.add_argument('--dedupe-outcomes', action='store_true', help='Backup and rewrite predictions_outcomes.jsonl without stable duplicates')
     parser.add_argument('--backfill-warehouse-outcomes', action='store_true', help='Backfill outcome Parquet files from predictions_outcomes.jsonl')
     parser.add_argument('--backfill-warehouse-features', action='store_true', help='Backfill prediction and SP feature Parquet files from prediction JSONL')
+    parser.add_argument('--backfill-warehouse-features-from-archive', action='store_true', help='Backfill prediction and SP feature Parquet from predictions_archive plus current prediction JSONL')
     parser.add_argument('--analyze-feature-errors', action='store_true', help='Read-only exploratory feature/error analysis from warehouse training rows')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
@@ -6505,6 +6592,10 @@ def main():
 
     if args.backfill_warehouse_features:
         backfill_warehouse_features()
+        return
+
+    if args.backfill_warehouse_features_from_archive:
+        backfill_warehouse_features_from_archive()
         return
 
     if args.analyze_feature_errors:
