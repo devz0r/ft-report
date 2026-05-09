@@ -3676,6 +3676,25 @@ def _scalar_for_parquet(value):
     return value
 
 
+def _merge_feature_columns_for_warehouse(row, features, blocked=None):
+    """Merge prediction features as plain columns; prefix only true collisions."""
+    blocked = set(blocked or [])
+    for key in FEATURE_REGISTRY:
+        if key not in blocked:
+            row.setdefault(key, None)
+    for key, value in (features or {}).items():
+        if key in blocked:
+            continue
+        if key in FEATURE_REGISTRY or key not in row:
+            # Registered model features own their plain column name. If a
+            # top-level record also has that key, prefer the prediction-log
+            # feature value because it is the model input being audited.
+            row[key] = _scalar_for_parquet(value)
+        else:
+            row[f'feature_{key}'] = _scalar_for_parquet(value)
+    return row
+
+
 SP_START_EXCLUDED_LABEL_COLUMNS = {
     'actual_pts', 'actual_ip', 'actual_k', 'actual_er', 'actual_win',
     'actual_line', 'residual', 'residual_raw', 'no_start',
@@ -3721,12 +3740,7 @@ def _prediction_record_to_wh_row(record):
             continue
         if key not in row:
             row[key] = _scalar_for_parquet(value)
-    for key in FEATURE_REGISTRY:
-        row.setdefault(key, None)
-    for key, value in features.items():
-        col = key if key not in row else f'feature_{key}'
-        row[col] = _scalar_for_parquet(value)
-    return row
+    return _merge_feature_columns_for_warehouse(row, features)
 
 
 def wh_write_prediction_parquet(game_date, records):
@@ -3763,12 +3777,7 @@ def _outcome_record_to_wh_row(record):
     row['actual_line'] = _scalar_for_parquet(actual_line) if actual_line else None
     for key, value in actual_line.items():
         row[f'actual_{key.lower()}'] = _scalar_for_parquet(value)
-    for key in FEATURE_REGISTRY:
-        row.setdefault(key, None)
-    for key, value in features.items():
-        col = key if key not in row else f'feature_{key}'
-        row[col] = _scalar_for_parquet(value)
-    return row
+    return _merge_feature_columns_for_warehouse(row, features)
 
 
 def _outcome_records_for_date(game_date):
@@ -3882,13 +3891,7 @@ def _sp_start_feature_record_to_wh_row(record):
         if key in blocked or key in row:
             continue
         row[key] = _scalar_for_parquet(value)
-    for key in FEATURE_REGISTRY:
-        row.setdefault(key, None)
-    for key, value in features.items():
-        col = key if key not in row else f'feature_{key}'
-        if col not in SP_START_EXCLUDED_LABEL_COLUMNS and col not in SP_START_OUTPUT_COLUMNS:
-            row[col] = _scalar_for_parquet(value)
-    return row
+    return _merge_feature_columns_for_warehouse(row, features, blocked=blocked)
 
 
 def wh_write_sp_start_features_parquet(game_date, records):
@@ -4098,6 +4101,7 @@ def audit_warehouse():
     feature_counts = _sp_start_feature_counts_by_date()
     feature_dupes = _sp_start_feature_duplicate_counts_by_date()
     feature_columns = _sp_start_feature_columns()
+    feature_duplicate_style_columns = _duplicate_style_feature_columns(feature_columns)
     leakage_columns = _sp_start_feature_leakage_columns(feature_columns)
     training = _training_sp_starts_stats() if duckdb_ok else {
         'rows': 0,
@@ -4160,6 +4164,9 @@ def audit_warehouse():
 
     if feature_total:
         feature_message = 'Feature table has rows'
+        if feature_duplicate_style_columns:
+            feature_message += '; duplicate-style columns found'
+            warning_reasons.append('Feature table has duplicate-style columns')
     else:
         feature_message = 'Feature table has no rows yet'
         warning_reasons.append(feature_message)
@@ -4314,6 +4321,14 @@ def audit_warehouse():
     if leakage_columns:
         for col in leakage_columns:
             print(f"  - {col}")
+    else:
+        print("  None detected")
+
+    print("\nSP start feature duplicate-style columns")
+    if feature_duplicate_style_columns:
+        print("  These usually mean an older Parquet partition has both a plain feature column and a feature_ copy.")
+        for plain, prefixed in feature_duplicate_style_columns:
+            print(f"  - {plain} and {prefixed}")
     else:
         print("  None detected")
 
@@ -4740,6 +4755,18 @@ def _sp_start_feature_columns():
         except Exception:
             continue
     return sorted(cols)
+
+
+def _duplicate_style_feature_columns(columns):
+    cols = set(columns or [])
+    pairs = []
+    for col in cols:
+        if not col.startswith('feature_'):
+            continue
+        plain = col[len('feature_'):]
+        if plain in cols:
+            pairs.append((plain, col))
+    return sorted(pairs)
 
 
 def _sp_start_feature_leakage_columns(columns):
