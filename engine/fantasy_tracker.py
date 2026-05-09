@@ -2881,6 +2881,14 @@ def _feature_float(features, key, default=None):
         return default
 
 
+def _compact_decision_text(value, limit=72):
+    text = re.sub(r'\s+', ' ', str(value or '')).strip()
+    if len(text) <= limit:
+        return text
+    clipped = text[:limit].rsplit(' ', 1)[0].rstrip(' ,;:-')
+    return (clipped or text[:limit].rstrip()) + '...'
+
+
 def _decision_risk_boost_flags(record):
     features = record.get('features') or {}
     risks = []
@@ -2924,7 +2932,7 @@ def _decision_risk_boost_flags(record):
     if workload_risk is not None and workload_risk >= 0.6:
         risks.append(f'workload risk {workload_risk:.2f}')
     if features.get('workload_note') and workload_risk is not None and workload_risk >= 0.4:
-        risks.append(str(features.get('workload_note'))[:60])
+        risks.append(_compact_decision_text(features.get('workload_note'), 64))
     if pitch_matchup is not None:
         if pitch_matchup <= -0.05:
             risks.append(f'poor pitch matchup {pitch_matchup:+.2f}')
@@ -3324,7 +3332,7 @@ def _decision_plain_reasons(record, risks=None, boosts=None, confidence=None):
         risk_reasons.append(str(risks[0]))
     main_reason = boost_reasons[0] if boost_reasons else f"{confidence} based on {pts:.1f} projected points"
     risk_reason = risk_reasons[0] if risk_reasons else "No major red flag in logged signals"
-    return main_reason, risk_reason
+    return _compact_decision_text(main_reason), _compact_decision_text(risk_reason)
 
 
 def _decision_report_item(record):
@@ -3350,6 +3358,31 @@ def _decision_report_item(record):
         'risks': risks[:3],
         'boosts': boosts[:3],
     }
+
+
+def _mark_desperation_items(items):
+    marked = []
+    for item in items:
+        if item.get('tier') == 'avoid':
+            item = dict(item)
+            item['watch_label'] = 'DESPERATION ONLY'
+        marked.append(item)
+    return marked
+
+
+def _best_available_for_report(rows, limit=6):
+    usable = [r for r in rows if r.get('tier') != 'avoid']
+    selected = usable[:limit] if usable else rows[:limit]
+    return _mark_desperation_items([_decision_report_item(r) for r in selected])
+
+
+def _risky_roster_for_report(rows, limit=6):
+    items = []
+    for rec in rows[:limit]:
+        item = _decision_report_item(rec)
+        item['also_listed'] = True
+        items.append(item)
+    return items
 
 
 def _decision_records_for_report(snapshot_date, streaming_data):
@@ -3382,9 +3415,9 @@ def decision_summary_for_report(summary):
         'status_unreliable': summary.get('status_unreliable', False),
         'warning': summary.get('warning'),
         'sections': {
-            'best_available': [_decision_report_item(r) for r in summary.get('fa_ranked', [])[:6]],
+            'best_available': _best_available_for_report(summary.get('fa_ranked', []), limit=6),
             'my_roster': [_decision_report_item(r) for r in summary.get('roster_ranked', [])[:6]],
-            'risky_roster': [_decision_report_item(r) for r in summary.get('risky_roster', [])[:6]],
+            'risky_roster': _risky_roster_for_report(summary.get('risky_roster', []), limit=6),
             'avoid_traps': [_decision_report_item(r) for r in summary.get('avoid_traps', [])[:6]],
         },
         'problems': (summary.get('problems') or [])[:6],
@@ -3449,10 +3482,12 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
             if r.get('status') in ('FA', 'WAIVER')
         ]
         roster = [r for r in day_rows if r.get('status') == 'MY ROSTER']
-        best_available = sorted(
+        ranked_available = sorted(
             available,
             key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_decision_points(r))
-        )[:4]
+        )
+        non_avoid_available = [r for r in ranked_available if r.get('tier') != 'avoid']
+        best_available = (non_avoid_available[:4] if non_avoid_available else ranked_available[:3])
         risky_roster = sorted(
             [r for r in roster if r.get('tier') in ('borderline', 'avoid') or _decision_risk_boost_flags(r)[0]],
             key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), _decision_points(r))
@@ -3485,7 +3520,7 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
         ):
             for rec in rows:
                 item = _decision_report_item(rec)
-                item['watch_label'] = label
+                item['watch_label'] = 'DESPERATION ONLY' if label == 'FA/WAIVER TARGET' and rec.get('tier') == 'avoid' else label
                 day_items.append(item)
 
         if day_items:
@@ -3762,7 +3797,8 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .decision-meta { margin-top: 3px; color: #888; font-size: 11px; }
 .decision-notes { margin-top: 4px; color: #777; font-size: 11px; line-height: 1.35; }
 .decision-reasons { margin-top: 5px; color: #aaa; font-size: 11px; line-height: 1.35; display: grid; gap: 2px; }
-.decision-reason-label { color: #777; font-weight: 700; text-transform: uppercase; font-size: 9px; letter-spacing: 0.4px; margin-right: 4px; }
+.decision-reason-label { color: #777; font-weight: 700; text-transform: uppercase; font-size: 9px; letter-spacing: 0.4px; margin-right: 5px; }
+.decision-overlap { display: inline-block; margin-top: 4px; color: #777; font-size: 10px; }
 .decision-risk { color: #fca5a5; }
 .decision-boost { color: #86efac; }
 .decision-confidence { color: #ddd; font-weight: 700; }
@@ -3771,7 +3807,7 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .decision-confidence.conf-borderline { color: #fbbf24; }
 .decision-confidence.conf-avoid { color: #f87171; }
 .decision-empty { padding: 10px 9px; color: #555; font-size: 12px; }
-.watch-label { display: inline-block; margin-right: 6px; padding: 1px 5px; border-radius: 3px; background: #1a1a24; color: #aaa; border: 1px solid #2a2a35; font-size: 9px; font-weight: 700; letter-spacing: 0.3px; }
+.watch-label { display: inline-block; margin-right: 7px; margin-bottom: 2px; padding: 1px 5px; border-radius: 3px; background: #1a1a24; color: #aaa; border: 1px solid #2a2a35; font-size: 9px; font-weight: 700; letter-spacing: 0.3px; vertical-align: baseline; }
 .watch-day { border-top: 1px solid #1a1a24; }
 .watch-day:first-child { border-top: none; }
 .watch-date { padding: 8px 16px 0; color: #ddd; font-size: 12px; font-weight: 700; }
@@ -4073,14 +4109,16 @@ function renderDecisionItem(item) {
   if (risks.length) notes.push('<span class="decision-risk">Risk: ' + risks.map(escHtml).join('; ') + '</span>');
   if (boosts.length) notes.push('<span class="decision-boost">Boost: ' + boosts.map(escHtml).join('; ') + '</span>');
   if (!notes.length) notes.push('<span>Notes: none</span>');
-  var labelHtml = item.watch_label ? '<span class="watch-label">' + escHtml(item.watch_label) + '</span>' : '';
+  var labelHtml = item.watch_label ? '<span class="watch-label">' + escHtml(item.watch_label) + '</span> ' : '';
+  var overlapHtml = item.also_listed ? '<span class="decision-overlap">Also listed above</span>' : '';
   return '<div class="decision-row">' +
     '<div class="decision-line1"><span class="decision-name">' + escHtml(item.name) + '</span><span class="decision-pts">' + pts.toFixed(1) + ' pts</span></div>' +
     '<div class="decision-meta">' + labelHtml + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; <span class="decision-confidence ' + confCls + '">' + escHtml(conf) + '</span> &bull; ' + escHtml(matchup) + ' (' + escHtml(item.home_away || '?') + ')</div>' +
     '<div class="decision-reasons">' +
-      '<div><span class="decision-reason-label">Why</span>' + escHtml(item.main_reason || 'Projection is the main signal') + '</div>' +
-      '<div><span class="decision-reason-label">Risk</span>' + escHtml(item.risk_reason || 'No major red flag in logged signals') + '</div>' +
+      '<div><span class="decision-reason-label">Why:</span>' + escHtml(item.main_reason || 'Projection is the main signal') + '</div>' +
+      '<div><span class="decision-reason-label">Risk:</span>' + escHtml(item.risk_reason || 'No major red flag in logged signals') + '</div>' +
     '</div>' +
+    overlapHtml +
     '<div class="decision-notes">' + notes.join('<br>') + '</div>' +
     '</div>';
 }
