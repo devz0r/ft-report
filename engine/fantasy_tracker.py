@@ -2789,6 +2789,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           global_emerging=None, hold_asof_label=None,
                           calibration=None, learned_candidates=None,
                           learned_biases_override=None,
+                          learning_sample_summary=None,
                           feature_log_status_override=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
@@ -3067,6 +3068,7 @@ var STREAMING = $STREAMING_JSON;
 var CALIBRATION = $CALIBRATION_JSON;
 var LEARNED_BIASES = $LEARNED_BIASES_JSON;
 var LEARNED_CANDIDATES = $LEARNED_CANDIDATES_JSON;
+var LEARNING_SAMPLE_SUMMARY = $LEARNING_SAMPLE_SUMMARY_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -3455,6 +3457,13 @@ function renderAccuracy() {
   h += renderMissList('Most over-predicted (we said go, they bombed)', cal.worst_overpredictions, 'over');
   h += renderMissList('Best surprises (we underestimated)', cal.best_underpredictions, 'under');
 
+  h += '<div class="stream-note" style="margin:8px 0;color:#777">';
+  h += 'Learning uses one selected pregame snapshot per actual start, so duplicate logs and repeated snapshots do not overweight the model.';
+  if (LEARNING_SAMPLE_SUMMARY && LEARNING_SAMPLE_SUMMARY.raw_rows !== undefined && LEARNING_SAMPLE_SUMMARY.unique_actual_starts !== undefined) {
+    h += ' Latest selection: ' + LEARNING_SAMPLE_SUMMARY.raw_rows + ' raw outcome rows &rarr; ' + LEARNING_SAMPLE_SUMMARY.unique_actual_starts + ' unique starts used for learning.';
+  }
+  h += '</div>';
+
   // Emerging candidate signals — close to statistical significance but not
   // yet auto-applied. Lets the user see what's about to kick in.
   if (LEARNED_CANDIDATES && LEARNED_CANDIDATES.length) {
@@ -3532,6 +3541,7 @@ renderAccuracy();
             learned_biases_override if learned_biases_override is not None else (load_learned_biases() or {})
         ),
         LEARNED_CANDIDATES_JSON=json.dumps(learned_candidates or []),
+        LEARNING_SAMPLE_SUMMARY_JSON=json.dumps(learning_sample_summary) if learning_sample_summary else 'null',
         FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
         TOP_BANNER_HTML=top_banner_html or '',
     )
@@ -5622,7 +5632,7 @@ def _learning_outcome_source_counts():
     return jsonl_stats, parquet_stats
 
 
-def _load_outcomes_for_learning():
+def _load_outcomes_for_learning(return_stats=False):
     """Load joined outcome records for learned-bias scanning."""
     warehouse_records, warehouse_stats = _load_outcomes_from_warehouse_for_learning(return_stats=True)
     if warehouse_records:
@@ -5639,7 +5649,7 @@ def _load_outcomes_for_learning():
             f"{warehouse_stats['snapshot_rows_removed']} snapshot rows collapsed)"
         )
         print("Learning outcomes loaded from warehouse Parquet")
-        return warehouse_records
+        return (warehouse_records, warehouse_stats) if return_stats else warehouse_records
 
     jsonl_records, jsonl_stats = _load_outcomes_from_jsonl_for_learning(return_stats=True)
     print(
@@ -5651,7 +5661,7 @@ def _load_outcomes_for_learning():
     print("Learning outcomes loaded from JSONL fallback")
     if _warehouse_parquet_files('outcomes'):
         print(f"Learning outcome count check: jsonl={jsonl_stats['unique_actual_starts']} parquet=0")
-    return jsonl_records
+    return (jsonl_records, jsonl_stats) if return_stats else jsonl_records
 
 
 GENERAL_BUCKET_MIN_SAMPLES = 20
@@ -5732,7 +5742,7 @@ def compute_learned_biases(min_samples=GENERAL_BUCKET_MIN_SAMPLES, min_abs_delta
       - Per-pitcher buckets require a larger sample than before and get
         stronger shrinkage because individual starts are noisy.
     """
-    samples = _load_outcomes_for_learning()
+    samples, learning_stats = _load_outcomes_for_learning(return_stats=True)
     if not samples:
         return {}
 
@@ -5897,6 +5907,7 @@ def compute_learned_biases(min_samples=GENERAL_BUCKET_MIN_SAMPLES, min_abs_delta
         'candidates': candidates[:12],
         'tests_run': test_count,
         'samples': len(samples),
+        'sample_selection': learning_stats,
     }
 
 
@@ -6344,11 +6355,13 @@ def main():
     # this run's predictions get the freshest correction layer.
     learned_biases = {}
     learned_candidates = []
+    learning_sample_summary = None
     try:
         result = timed("learned biases", compute_learned_biases)
         if isinstance(result, dict) and 'biases' in result:
             learned_biases = result.get('biases', {}) or {}
             learned_candidates = result.get('candidates', []) or []
+            learning_sample_summary = result.get('sample_selection')
             tests = result.get('tests_run', 0)
             n_samples = result.get('samples', 0)
             print(f"Bias scan: {n_samples} outcomes, {tests} buckets tested, "
@@ -6599,6 +6612,7 @@ def main():
         hold_asof_label=hold_asof_label,
         calibration=cal,
         learned_candidates=learned_candidates,
+        learning_sample_summary=learning_sample_summary,
     )
 
     print("\nDone!")
