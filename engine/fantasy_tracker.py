@@ -641,9 +641,23 @@ def fetch_weekly_schedule(start_date, end_date):
             home_pp = home.get('probablePitcher')
             away_pp = away.get('probablePitcher')
 
+            venue = game.get('venue') or {}
+            venue_location = venue.get('location') or {}
+            # MLB schedule data is already fetched for probables. Capture only
+            # pregame-safe metadata here; outdoor weather/roof status remain
+            # null until a reliable weather/roof source is wired.
             base = {
                 'date': game_date, 'day': day_label,
                 'game_time': game.get('gameDate', ''),
+                'game_datetime': game.get('gameDate', ''),
+                'game_pk': game.get('gamePk'),
+                'venue_id': venue.get('id'),
+                'venue_name': venue.get('name'),
+                'venue_lat': venue_location.get('latitude'),
+                'venue_lon': venue_location.get('longitude'),
+                'roof_type': venue.get('roofType') or venue.get('roof_type'),
+                'roof_status': None,
+                'is_indoor_or_dome': None,
             }
 
             if home_pp:
@@ -2606,10 +2620,14 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         if learned_adj_total != 0:
             tier = classify_tier(final_pts - pitch_adj, pitch_matchup_score)
 
+        weather_venue = _logged_weather_venue_context(game)
+
         entry = {
             'date': game['date'], 'day': game['day'],
             'name': fg_name, 'team': pitcher_team,
             'opponent': opp, 'home_away': game['home_away'],
+            'game_pk': game.get('game_pk'),
+            'pitcher_id': mlb_id,
             'pts': round(final_pts, 1),
             'pts_pre_adj': round(pts_pre_adj, 1),
             'adj_total': round(learned_adj_total, 2),
@@ -2644,6 +2662,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'emerging': emerging,
             'opp_il': opp_il,
             'opp_il_returns': opp_il_returns,
+            **weather_venue,
         }
 
         # Phase 2 enrichment: attach advanced features for auto-correlation
@@ -2707,6 +2726,39 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
     return streaming
 
 
+def _logged_weather_venue_context(game):
+    """Return logged-only weather/venue fields from already-fetched schedule data."""
+    roof_type = game.get('roof_type')
+    is_dome = None
+    if isinstance(roof_type, str) and roof_type.strip():
+        is_dome = roof_type.strip().lower() in {'dome', 'fixed roof', 'indoor'}
+    return {
+        'game_datetime': game.get('game_datetime') or game.get('game_time'),
+        'venue_name': game.get('venue_name'),
+        'venue_lat': _safe_float(game.get('venue_lat')),
+        'venue_lon': _safe_float(game.get('venue_lon')),
+        'roof_type': roof_type,
+        'roof_status': game.get('roof_status'),
+        'is_indoor_or_dome': is_dome,
+        'weather_source': None,
+        'weather_snapshot_time': None,
+        'weather_temp_f': None,
+        'weather_wind_speed_mph': None,
+        'weather_wind_direction': None,
+        'wind_out_to_cf_score': None,
+        'wind_in_from_cf_score': None,
+        'wind_cross_score': None,
+        'weather_precip_prob': None,
+        'weather_humidity': None,
+        'weather_pressure': None,
+        'weather_run_boost': None,
+        'weather_hr_boost': None,
+        'weather_note': (
+            'Venue/game time from MLB schedule; outdoor weather and roof status not wired yet.'
+        ),
+    }
+
+
 # =============================================================================
 # HTML REPORT GENERATION
 # =============================================================================
@@ -2720,7 +2772,8 @@ def prediction_feature_log_status():
     }
     weather_fields = {
         'game_datetime', 'venue_name', 'roof_type', 'roof_status',
-        'is_indoor_or_dome', 'weather_source', 'weather_temp_f',
+        'is_indoor_or_dome', 'weather_source', 'weather_snapshot_time',
+        'weather_temp_f', 'weather_wind_speed_mph', 'weather_wind_direction',
         'weather_run_boost', 'weather_hr_boost', 'weather_note',
     }
     try:
@@ -5617,6 +5670,14 @@ def audit_warehouse():
     else:
         print("  None")
 
+    print("\nSP start feature weather/venue/roof coverage")
+    weather_coverage = _sp_start_feature_weather_coverage()
+    if weather_coverage:
+        for col, populated, total, pct in weather_coverage:
+            print(f"  - {col}: {pct}% populated ({populated}/{total})")
+    else:
+        print("  None")
+
     print("\nTraining view training_sp_starts")
     print(f"  rows: {training['rows']}")
     print(f"  rows with labels: {training['rows_with_labels']}")
@@ -6119,6 +6180,29 @@ def _sp_start_feature_null_heavy():
     return out
 
 
+def _sp_start_feature_weather_coverage():
+    frames = []
+    for path in _sp_start_feature_files():
+        try:
+            frames.append(pd.read_parquet(path, columns=None))
+        except Exception:
+            continue
+    if not frames:
+        return []
+    df = pd.concat(frames, ignore_index=True, sort=False)
+    total = len(df)
+    if total == 0:
+        return []
+    out = []
+    for col in WEATHER_VENUE_FEATURES:
+        if col in df.columns:
+            populated = int(df[col].notna().sum())
+        else:
+            populated = 0
+        out.append((col, populated, total, round(100 * populated / total)))
+    return out
+
+
 def _training_sp_starts_stats():
     stats = {
         'rows': 0,
@@ -6512,6 +6596,15 @@ def analyze_model_baselines():
 
 
 FEATURE_REGISTRY = {}
+WEATHER_VENUE_FEATURES = [
+    'game_datetime', 'venue_name', 'venue_lat', 'venue_lon',
+    'roof_type', 'roof_status', 'is_indoor_or_dome',
+    'weather_source', 'weather_snapshot_time', 'weather_temp_f',
+    'weather_wind_speed_mph', 'weather_wind_direction',
+    'wind_out_to_cf_score', 'wind_in_from_cf_score', 'wind_cross_score',
+    'weather_precip_prob', 'weather_humidity', 'weather_pressure',
+    'weather_run_boost', 'weather_hr_boost', 'weather_note',
+]
 
 
 def _register_features(names, category, used_by=None, leakage_status='pregame_safe', logged=True):
@@ -6568,15 +6661,7 @@ _register_features([
     'workload_risk_score', 'workload_note',
 ], 'workload', ['learned_bias_scan', 'prediction_log', 'future_model'])
 
-_register_features([
-    'game_datetime', 'venue_name', 'venue_lat', 'venue_lon',
-    'roof_type', 'roof_status', 'is_indoor_or_dome',
-    'weather_source', 'weather_snapshot_time', 'weather_temp_f',
-    'weather_wind_speed_mph', 'weather_wind_direction',
-    'wind_out_to_cf_score', 'wind_in_from_cf_score', 'wind_cross_score',
-    'weather_precip_prob', 'weather_humidity', 'weather_pressure',
-    'weather_run_boost', 'weather_hr_boost', 'weather_note',
-], 'weather_roof_environment', ['prediction_log', 'feature_audit', 'future_model'])
+_register_features(WEATHER_VENUE_FEATURES, 'weather_roof_environment', ['prediction_log', 'feature_audit', 'future_model'])
 
 
 def _recent_prediction_files(limit=5):
@@ -6669,6 +6754,11 @@ def audit_features():
             n_null = null_counts.get(field, 0)
             if n_null / total_records >= 0.70:
                 null_heavy.append((field, n_null, total_records, round(100 * n_null / total_records)))
+    weather_coverage = []
+    if total_records:
+        for field in WEATHER_VENUE_FEATURES:
+            present = total_records - null_counts.get(field, 0)
+            weather_coverage.append((field, present, total_records, round(100 * present / total_records)))
 
     def print_list(title, items, formatter=None):
         print(f"\n{title}")
@@ -6698,6 +6788,11 @@ def audit_features():
         lambda x: f"{x[0]}: {x[3]}% null/missing ({x[1]}/{x[2]})",
     )
     print_list(
+        "Weather/venue/roof coverage",
+        weather_coverage,
+        lambda x: f"{x[0]}: {x[3]}% populated ({x[1]}/{x[2]})",
+    )
+    print_list(
         "Generated/cache files modified but probably should not be committed",
         _modified_generated_files(),
     )
@@ -6721,6 +6816,8 @@ def log_prediction(entry):
             'team': entry.get('team'),
             'opponent': entry.get('opponent'),
             'home_away': entry.get('home_away'),
+            'game_pk': entry.get('game_pk'),
+            'pitcher_id': entry.get('pitcher_id'),
             # predicted_pts is the FINAL number we're committing to (post-learning)
             'predicted_pts': entry.get('pts'),
             # predicted_pts_raw is the rule-based prediction BEFORE learned
@@ -6791,6 +6888,29 @@ def log_prediction(entry):
                 'opp_bullpen_whip': entry.get('opp_bullpen_whip'),
                 'days_rest': entry.get('days_rest'),
                 'last_pitch_count': entry.get('last_pitch_count'),
+                # Logged-only weather/venue context. These are for audit and
+                # later analysis only; they do not alter projected points.
+                'game_datetime': entry.get('game_datetime'),
+                'venue_name': entry.get('venue_name'),
+                'venue_lat': entry.get('venue_lat'),
+                'venue_lon': entry.get('venue_lon'),
+                'roof_type': entry.get('roof_type'),
+                'roof_status': entry.get('roof_status'),
+                'is_indoor_or_dome': entry.get('is_indoor_or_dome'),
+                'weather_source': entry.get('weather_source'),
+                'weather_snapshot_time': entry.get('weather_snapshot_time'),
+                'weather_temp_f': entry.get('weather_temp_f'),
+                'weather_wind_speed_mph': entry.get('weather_wind_speed_mph'),
+                'weather_wind_direction': entry.get('weather_wind_direction'),
+                'wind_out_to_cf_score': entry.get('wind_out_to_cf_score'),
+                'wind_in_from_cf_score': entry.get('wind_in_from_cf_score'),
+                'wind_cross_score': entry.get('wind_cross_score'),
+                'weather_precip_prob': entry.get('weather_precip_prob'),
+                'weather_humidity': entry.get('weather_humidity'),
+                'weather_pressure': entry.get('weather_pressure'),
+                'weather_run_boost': entry.get('weather_run_boost'),
+                'weather_hr_boost': entry.get('weather_hr_boost'),
+                'weather_note': entry.get('weather_note'),
             },
         }
         _runtime_prediction_records.append(dict(record))
