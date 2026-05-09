@@ -103,6 +103,8 @@ ABBR_TO_MLB_TEAM = {v: k for k, v in MLB_TEAM_TO_ABBR.items()}
 STREAMING_CACHE_DIR = os.path.join(SCRIPT_DIR, "streaming_cache")
 ROSTER_STATUS_CACHE_FILE = os.path.join(STREAMING_CACHE_DIR, "roster_status_cache.json")
 _runtime_prediction_records = []
+OPEN_METEO_WEATHER_CACHE_FILE = 'open_meteo_weather.json'
+_open_meteo_weather_cache = None
 
 # Pitching scoring weights (for per-start calculation)
 PIT_SCORING = {'IP': 3, 'H': -1, 'ER': -2, 'BB': -1, 'K': 1, 'W': 5, 'L': -5}
@@ -568,6 +570,180 @@ def _save_streaming_cache(filename, data):
     filepath = os.path.join(STREAMING_CACHE_DIR, filename)
     with open(filepath, 'w') as f:
         json.dump(data, f, indent=2)
+
+
+def _parse_game_datetime_utc(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except Exception:
+        return None
+
+
+def _wind_direction_label(degrees):
+    deg = _safe_float(degrees)
+    if deg is None:
+        return None
+    directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                  'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+    return directions[int((deg + 11.25) // 22.5) % 16]
+
+
+def _weather_blank(note):
+    return {
+        'weather_source': None,
+        'weather_snapshot_time': None,
+        'weather_temp_f': None,
+        'weather_wind_speed_mph': None,
+        'weather_wind_direction': None,
+        'wind_out_to_cf_score': None,
+        'wind_in_from_cf_score': None,
+        'wind_cross_score': None,
+        'weather_precip_prob': None,
+        'weather_humidity': None,
+        'weather_pressure': None,
+        'weather_run_boost': None,
+        'weather_hr_boost': None,
+        'weather_note': note,
+    }
+
+
+def _open_meteo_cache():
+    global _open_meteo_weather_cache
+    if _open_meteo_weather_cache is None:
+        cached, _ = _load_streaming_cache(OPEN_METEO_WEATHER_CACHE_FILE, max_age_hours=12)
+        _open_meteo_weather_cache = cached if isinstance(cached, dict) else {}
+    return _open_meteo_weather_cache
+
+
+def _open_meteo_cache_key(lat, lon, game_dt):
+    return f"{round(float(lat), 4)}|{round(float(lon), 4)}|{game_dt.date().isoformat()}"
+
+
+def _fetch_open_meteo_hourly(lat, lon, game_dt):
+    cache = _open_meteo_cache()
+    key = _open_meteo_cache_key(lat, lon, game_dt)
+    cached = cache.get(key)
+    if cached:
+        return cached
+
+    params = {
+        'latitude': lat,
+        'longitude': lon,
+        'start_date': game_dt.date().isoformat(),
+        'end_date': game_dt.date().isoformat(),
+        'hourly': ','.join([
+            'temperature_2m',
+            'relative_humidity_2m',
+            'precipitation_probability',
+            'surface_pressure',
+            'wind_speed_10m',
+            'wind_direction_10m',
+        ]),
+        'temperature_unit': 'fahrenheit',
+        'wind_speed_unit': 'mph',
+        'timezone': 'UTC',
+    }
+    resp = requests.get('https://api.open-meteo.com/v1/forecast', params=params, timeout=20)
+    resp.raise_for_status()
+    payload = {
+        'fetched_at': datetime.utcnow().isoformat(timespec='seconds') + 'Z',
+        'data': resp.json(),
+    }
+    cache[key] = payload
+    _save_streaming_cache(OPEN_METEO_WEATHER_CACHE_FILE, cache)
+    return payload
+
+
+def _hourly_weather_at_game_time(payload, game_dt):
+    hourly = (payload or {}).get('data', {}).get('hourly') or {}
+    times = hourly.get('time') or []
+    if not times:
+        return None
+    target = game_dt.replace(tzinfo=None)
+    best_idx = None
+    best_delta = None
+    for idx, raw_time in enumerate(times):
+        try:
+            hour_dt = datetime.fromisoformat(raw_time)
+        except Exception:
+            continue
+        delta = abs((hour_dt - target).total_seconds())
+        if best_delta is None or delta < best_delta:
+            best_idx = idx
+            best_delta = delta
+    if best_idx is None:
+        return None
+
+    def value(name):
+        values = hourly.get(name) or []
+        if best_idx >= len(values):
+            return None
+        return values[best_idx]
+
+    return {
+        'temp_f': value('temperature_2m'),
+        'wind_speed_mph': value('wind_speed_10m'),
+        'wind_direction_degrees': value('wind_direction_10m'),
+        'precip_prob': value('precipitation_probability'),
+        'humidity': value('relative_humidity_2m'),
+        'pressure': value('surface_pressure'),
+    }
+
+
+def _logged_outdoor_weather_snapshot(features):
+    """Fetch pregame outdoor weather for logged-only analysis when clearly safe."""
+    game_dt = _parse_game_datetime_utc(features.get('game_datetime'))
+    if not game_dt:
+        return _weather_blank('missing game_datetime')
+    lat = _safe_float(features.get('venue_lat'))
+    lon = _safe_float(features.get('venue_lon'))
+    if lat is None or lon is None:
+        return _weather_blank('missing venue coordinates')
+
+    roof_type = str(features.get('roof_type') or 'unknown').lower()
+    is_indoor = features.get('is_indoor_or_dome')
+    if roof_type == 'dome' or (is_indoor is True and roof_type != 'outdoor'):
+        return _weather_blank('indoor/dome or retractable-roof game; outdoor weather not assumed without roof status')
+    if roof_type not in ('outdoor', 'unknown'):
+        return _weather_blank('roof status unknown; outdoor weather not assumed')
+
+    try:
+        payload = _fetch_open_meteo_hourly(lat, lon, game_dt)
+        weather = _hourly_weather_at_game_time(payload, game_dt)
+        if not weather:
+            return _weather_blank('Open-Meteo hourly weather unavailable for game time')
+        wind_dir_degrees = weather.get('wind_direction_degrees')
+        wind_label = _wind_direction_label(wind_dir_degrees)
+        note = 'Open-Meteo hourly forecast at nearest game-time hour; wind-to-field orientation not modeled yet.'
+        return {
+            'weather_source': 'open-meteo',
+            'weather_snapshot_time': payload.get('fetched_at'),
+            'weather_temp_f': _safe_float(weather.get('temp_f')),
+            'weather_wind_speed_mph': _safe_float(weather.get('wind_speed_mph')),
+            'weather_wind_direction': wind_label,
+            'wind_out_to_cf_score': None,
+            'wind_in_from_cf_score': None,
+            'wind_cross_score': None,
+            'weather_precip_prob': _safe_float(weather.get('precip_prob')),
+            'weather_humidity': _safe_float(weather.get('humidity')),
+            'weather_pressure': _safe_float(weather.get('pressure')),
+            'weather_run_boost': None,
+            'weather_hr_boost': None,
+            'weather_note': note,
+        }
+    except Exception as e:
+        return _weather_blank(f'weather unavailable: {type(e).__name__}')
+
+
+def _features_with_weather_metadata(features, record=None):
+    """Fill logged-only weather fields for prediction/warehouse feature rows."""
+    out = _features_with_venue_metadata(features, record)
+    if out.get('weather_source') and out.get('weather_temp_f') is not None:
+        return out
+    out.update(_logged_outdoor_weather_snapshot(out))
+    return out
 
 
 def fetch_fg_projected_team_batting():
@@ -2812,35 +2988,21 @@ def _logged_weather_venue_context(game):
     """Return logged-only weather/venue fields from already-fetched schedule data."""
     game = dict(game or {})
     game_features = _features_with_venue_metadata(game, game)
-    roof_type = game.get('roof_type')
+    roof_type = game_features.get('roof_type')
     is_dome = game_features.get('is_indoor_or_dome')
     if isinstance(roof_type, str) and roof_type.strip():
         is_dome = roof_type.strip().lower() in {'dome', 'fixed roof', 'indoor', 'retractable'}
-    return {
+    context = {
         'game_datetime': game_features.get('game_datetime') or game.get('game_time'),
         'venue_name': game_features.get('venue_name'),
         'venue_lat': _safe_float(game_features.get('venue_lat')),
         'venue_lon': _safe_float(game_features.get('venue_lon')),
-        'roof_type': game_features.get('roof_type'),
+        'roof_type': roof_type,
         'roof_status': game.get('roof_status'),
         'is_indoor_or_dome': is_dome,
-        'weather_source': None,
-        'weather_snapshot_time': None,
-        'weather_temp_f': None,
-        'weather_wind_speed_mph': None,
-        'weather_wind_direction': None,
-        'wind_out_to_cf_score': None,
-        'wind_in_from_cf_score': None,
-        'wind_cross_score': None,
-        'weather_precip_prob': None,
-        'weather_humidity': None,
-        'weather_pressure': None,
-        'weather_run_boost': None,
-        'weather_hr_boost': None,
-        'weather_note': (
-            'Venue/game time from MLB schedule; outdoor weather and roof status not wired yet.'
-        ),
     }
+    context.update(_logged_outdoor_weather_snapshot(context))
+    return context
 
 
 # =============================================================================
@@ -5031,7 +5193,7 @@ def _start_id_for_record(record):
 
 def _prediction_record_to_wh_row(record):
     """Flatten one prediction JSONL record into warehouse-friendly columns."""
-    features = _features_with_venue_metadata(record.get('features') or {}, record)
+    features = _features_with_weather_metadata(record.get('features') or {}, record)
     row = {
         'start_id': _start_id_for_record(record),
         'game_date': record.get('date'),
@@ -5281,7 +5443,7 @@ def backfill_warehouse_outcomes():
 
 def _sp_start_feature_record_to_wh_row(record):
     """Flatten one prediction record into pregame-only SP start features."""
-    features = _features_with_venue_metadata(record.get('features') or {}, record)
+    features = _features_with_weather_metadata(record.get('features') or {}, record)
     game_date = record.get('date')
     snapshot_time = record.get('snapshot_time') or record.get('logged_at')
     pitcher_name = record.get('name')

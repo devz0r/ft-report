@@ -46,5 +46,13 @@ else
   rm -f -- "$roster_status_cache"
 fi
 
+echo "Removing local Open-Meteo weather cache..."
+open_meteo_cache="engine/streaming_cache/open_meteo_weather.json"
+if git ls-files --error-unmatch "$open_meteo_cache" >/dev/null 2>&1; then
+  echo "  Skipping tracked Open-Meteo weather cache; untrack it before removing as generated."
+else
+  rm -f -- "$open_meteo_cache"
+fi
+
 echo "Status after cleanup:"
 git status --short
