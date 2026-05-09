@@ -105,6 +105,7 @@ ROSTER_STATUS_CACHE_FILE = os.path.join(STREAMING_CACHE_DIR, "roster_status_cach
 _runtime_prediction_records = []
 OPEN_METEO_WEATHER_CACHE_FILE = 'open_meteo_weather.json'
 _open_meteo_weather_cache = None
+PITCHER_WORKLOAD_HISTORY_CACHE_FILE = 'pitcher_workload_history.json'
 
 # Pitching scoring weights (for per-start calculation)
 PIT_SCORING = {'IP': 3, 'H': -1, 'ER': -2, 'BB': -1, 'K': 1, 'W': 5, 'L': -5}
@@ -1978,14 +1979,244 @@ def fetch_team_bullpens():
     return out
 
 
-def compute_pitcher_workload(predictions_dir, outcomes_log):
-    """Derive days-rest-since-last-start and last-start pitch count for each
-    pitcher from our own historical predictions+outcomes (no extra API calls).
-    Returns dict {normalized_name: {last_start_date, last_pitch_count, days_rest_to_next}}.
+def _safe_int(value, default=None):
+    try:
+        if value is None or value == '':
+            return default
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return default
+        return int(float(value))
+    except Exception:
+        return default
+
+
+def _pitch_count_from_stat(stat):
+    """Return exact pitch count only when MLB supplies one; never estimate."""
+    if not isinstance(stat, dict):
+        return None
+    for key in ('pitchesThrown', 'numberOfPitches', 'pitchCount', 'pitches'):
+        val = _safe_int(stat.get(key))
+        if val is not None and val > 0:
+            return val
+    return None
+
+
+def _workload_ip_to_float(value):
+    """Parse workload IP from either decimal JSON outcomes or MLB 5.2 notation."""
+    if value is None or value == '':
+        return None
+    if isinstance(value, (int, float)):
+        return _safe_float(value)
+    raw = str(value).strip()
+    if '.' in raw:
+        whole, frac = raw.split('.', 1)
+        if len(frac) == 1 and frac in ('0', '1', '2'):
+            return _ip_to_float(raw)
+    return _safe_float(raw)
+
+
+def _game_log_start_date(split):
+    for key in ('date', 'gameDate'):
+        raw = split.get(key)
+        if raw:
+            return str(raw)[:10]
+    game = split.get('game') or {}
+    for key in ('gameDate', 'officialDate'):
+        raw = game.get(key)
+        if raw:
+            return str(raw)[:10]
+    return None
+
+
+def _add_workload_start(workload, pitcher_norm, start):
+    if not pitcher_norm or not start.get('date'):
+        return
+    starts = workload.setdefault(pitcher_norm, {'starts': []})['starts']
+    existing = next((s for s in starts if s.get('date') == start.get('date')), None)
+    if existing:
+        # Prefer records with exact pitch counts, then keep any missing IP/source
+        # detail from the newer candidate.
+        if existing.get('pitch_count') is None and start.get('pitch_count') is not None:
+            existing['pitch_count'] = start.get('pitch_count')
+            existing['pitch_count_source'] = start.get('pitch_count_source')
+        if existing.get('ip') is None and start.get('ip') is not None:
+            existing['ip'] = start.get('ip')
+        sources = {existing.get('source'), start.get('source')}
+        existing['source'] = '+'.join(sorted(s for s in sources if s))
+        return
+    starts.append(start)
+
+
+def _fetch_mlb_pitcher_workload_starts(pitcher_ids):
+    """Fetch cached MLB game-log starts for exact pitch count/IP workload fields."""
+    pitcher_ids = sorted({str(pid) for pid in (pitcher_ids or []) if pid})
+    if not pitcher_ids:
+        return {}
+
+    cached, age = _load_streaming_cache(PITCHER_WORKLOAD_HISTORY_CACHE_FILE, max_age_hours=12)
+    cache = cached if isinstance(cached, dict) else {}
+    current_year = date.today().year
+    missing = [pid for pid in pitcher_ids if pid not in cache]
+    if missing:
+        print(f"  Fetching MLB workload game logs ({len(missing)} new, {len(pitcher_ids) - len(missing)} cached)...")
+
+    def fetch_one(pid):
+        starts = []
+        try:
+            resp = requests.get(
+                f"https://statsapi.mlb.com/api/v1/people/{pid}/stats",
+                params={'stats': 'gameLog', 'group': 'pitching', 'season': current_year},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception:
+            return pid, starts
+
+        for group in data.get('stats', []):
+            for split in group.get('splits', []):
+                stat = split.get('stat') or {}
+                if _safe_int(stat.get('gamesStarted'), 0) <= 0:
+                    continue
+                start_date = _game_log_start_date(split)
+                if not start_date:
+                    continue
+                ip = _workload_ip_to_float(stat.get('inningsPitched'))
+                starts.append({
+                    'date': start_date,
+                    'ip': round(ip, 2) if ip is not None else None,
+                    'pitch_count': _pitch_count_from_stat(stat),
+                    'pitch_count_source': 'mlb_game_log' if _pitch_count_from_stat(stat) is not None else None,
+                    'source': 'mlb_game_log',
+                })
+        starts.sort(key=lambda s: s.get('date') or '')
+        return pid, starts
+
+    if missing:
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            for pid, starts in ex.map(fetch_one, missing):
+                cache[pid] = {
+                    'fetched_at': datetime.utcnow().isoformat(timespec='seconds') + 'Z',
+                    'season': current_year,
+                    'starts': starts,
+                }
+        _save_streaming_cache(PITCHER_WORKLOAD_HISTORY_CACHE_FILE, cache)
+    elif age is not None:
+        print(f"  Using cached MLB workload game logs ({age:.1f}h old)")
+    return cache
+
+
+def _workload_features_for_game(workload_entry, target_game_date):
+    starts = list((workload_entry or {}).get('starts') or [])
+    try:
+        target_dt = date.fromisoformat(str(target_game_date)[:10])
+    except Exception:
+        return {
+            'days_rest': None,
+            'last_pitch_count': None,
+            'last_start_ip': None,
+            'last_start_pitch_count': None,
+            'avg_ip_last_3_starts': None,
+            'avg_pitch_count_last_3_starts': None,
+            'max_pitch_count_last_5_starts': None,
+            'season_avg_ip_per_start': None,
+            'season_avg_pitches_per_start': None,
+            'short_rest_flag': None,
+            'extra_rest_flag': None,
+            'workload_risk_score': None,
+            'workload_note': 'missing target game date',
+        }
+
+    prior = [s for s in starts if s.get('date') and s.get('date') < target_dt.isoformat()]
+    prior.sort(key=lambda s: s.get('date') or '')
+    if not prior:
+        return {
+            'days_rest': None,
+            'last_pitch_count': None,
+            'last_start_ip': None,
+            'last_start_pitch_count': None,
+            'avg_ip_last_3_starts': None,
+            'avg_pitch_count_last_3_starts': None,
+            'max_pitch_count_last_5_starts': None,
+            'season_avg_ip_per_start': None,
+            'season_avg_pitches_per_start': None,
+            'short_rest_flag': None,
+            'extra_rest_flag': None,
+            'workload_risk_score': 0.35,
+            'workload_note': 'No prior starts found before game date.',
+        }
+
+    last = prior[-1]
+    last_date = date.fromisoformat(last['date'])
+    days_rest = (target_dt - last_date).days
+    last3 = prior[-3:]
+    last5 = prior[-5:]
+    season_starts = [s for s in prior if str(s.get('date', '')).startswith(str(target_dt.year))]
+
+    def avg(values):
+        vals = [v for v in values if v is not None]
+        return round(sum(vals) / len(vals), 2) if vals else None
+
+    last_ip = _safe_float(last.get('ip'))
+    last_pitch_count = _safe_int(last.get('pitch_count'))
+    avg_ip3 = avg([_safe_float(s.get('ip')) for s in last3])
+    pc3_values = [_safe_int(s.get('pitch_count')) for s in last3]
+    pc5_values = [_safe_int(s.get('pitch_count')) for s in last5]
+    season_ip_avg = avg([_safe_float(s.get('ip')) for s in season_starts])
+    season_pc_avg = avg([_safe_int(s.get('pitch_count')) for s in season_starts])
+
+    risk = 0.0
+    notes = []
+    if days_rest <= 4:
+        risk += 0.35
+        notes.append(f'short rest ({days_rest} days)')
+    elif days_rest >= 7:
+        risk += 0.08
+        notes.append(f'extra rest ({days_rest} days)')
+    else:
+        notes.append(f'{days_rest} days rest')
+    if last_ip is not None and last_ip < 4.0:
+        risk += 0.18
+        notes.append(f'last start {last_ip:.1f} IP')
+    if avg_ip3 is not None and avg_ip3 < 4.5:
+        risk += 0.16
+        notes.append(f'avg {avg_ip3:.1f} IP last 3')
+    if last_pitch_count is not None and last_pitch_count >= 105:
+        risk += 0.18
+        notes.append(f'{last_pitch_count} pitches last start')
+    if not any(v is not None for v in pc3_values):
+        notes.append('exact pitch counts unavailable')
+
+    ip_text = f"{last_ip:.1f} IP" if last_ip is not None else "IP unavailable"
+    pc_text = f", {last_pitch_count} pitches" if last_pitch_count is not None else ", exact pitch count unavailable"
+    note = f"Last start {last['date']}: {ip_text}{pc_text}; " + '; '.join(notes[:3])
+    return {
+        'days_rest': days_rest,
+        'last_pitch_count': last_pitch_count,
+        'last_start_ip': round(last_ip, 2) if last_ip is not None else None,
+        'last_start_pitch_count': last_pitch_count,
+        'avg_ip_last_3_starts': avg_ip3,
+        'avg_pitch_count_last_3_starts': avg(pc3_values),
+        'max_pitch_count_last_5_starts': max([v for v in pc5_values if v is not None], default=None),
+        'season_avg_ip_per_start': season_ip_avg,
+        'season_avg_pitches_per_start': season_pc_avg,
+        'short_rest_flag': days_rest <= 4,
+        'extra_rest_flag': days_rest >= 7,
+        'workload_risk_score': round(min(max(risk, 0.0), 1.0), 2),
+        'workload_note': note[:180],
+    }
+
+
+def compute_pitcher_workload(predictions_dir, outcomes_log, pitcher_ids_by_name=None):
+    """Build pregame-safe workload history from cached outcomes plus MLB game logs.
+
+    Returns dict keyed by normalized pitcher name with prior starts only; callers
+    resolve features against each target game date to avoid future leakage.
     """
     workload = {}
 
-    # 1. Past outcomes give us actual start dates + IP (proxy for pitch count)
     if os.path.exists(outcomes_log):
         try:
             with open(outcomes_log) as f:
@@ -1997,24 +2228,35 @@ def compute_pitcher_workload(predictions_dir, outcomes_log):
                     if s.get('no_start'):
                         continue
                     pname = normalize_name(s.get('name', ''))
-                    if not pname:
-                        continue
                     sdate = s.get('date')
-                    if not sdate:
+                    if not pname or not sdate:
                         continue
                     line_data = s.get('actual_line') or {}
-                    ip = line_data.get('IP', 0) or 0
-                    # Approximate pitch count from IP: ~16 pitches/inning league avg
-                    approx_pc = round(ip * 16)
-                    prev = workload.get(pname)
-                    if prev is None or sdate > prev.get('last_start_date', '0'):
-                        workload[pname] = {
-                            'last_start_date': sdate,
-                            'last_ip': round(ip, 1),
-                            'last_pitch_count': approx_pc,
-                        }
+                    if isinstance(line_data, str):
+                        try:
+                            line_data = json.loads(line_data)
+                        except Exception:
+                            line_data = {}
+                    pitch_count = _pitch_count_from_stat(line_data)
+                    _add_workload_start(workload, pname, {
+                        'date': str(sdate)[:10],
+                        'ip': _workload_ip_to_float(line_data.get('IP')),
+                        'pitch_count': pitch_count,
+                        'pitch_count_source': 'outcome_actual_line' if pitch_count is not None else None,
+                        'source': 'predictions_outcomes',
+                    })
         except Exception:
             pass
+
+    ids_by_name = pitcher_ids_by_name or {}
+    game_logs = _fetch_mlb_pitcher_workload_starts(ids_by_name.values())
+    for pname, pid in ids_by_name.items():
+        entry = game_logs.get(str(pid)) or {}
+        for start in entry.get('starts') or []:
+            _add_workload_start(workload, pname, dict(start))
+
+    for entry in workload.values():
+        entry['starts'].sort(key=lambda s: s.get('date') or '')
     return workload
 
 
@@ -2961,10 +3203,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                 'opp_bullpen_whip': opp_bp.get('whip'),
                 # Workload
                 'last_pitch_count': wl.get('last_pitch_count'),
-                'days_rest': (
-                    (date.fromisoformat(game['date']) - date.fromisoformat(wl['last_start_date'])).days
-                    if wl.get('last_start_date') else None
-                ),
+                **_workload_features_for_game(wl, game['date']),
             })
         except Exception:
             pass
@@ -3419,6 +3658,10 @@ def _decision_record_from_streaming_entry(entry):
     for key in (
         'workload_risk_score', 'workload_note', 'days_rest',
         'last_start_ip', 'last_start_pitch_count',
+        'avg_ip_last_3_starts', 'avg_pitch_count_last_3_starts',
+        'max_pitch_count_last_5_starts', 'season_avg_ip_per_start',
+        'season_avg_pitches_per_start', 'short_rest_flag',
+        'extra_rest_flag', 'last_pitch_count',
     ):
         if key in entry:
             features[key] = entry.get(key)
@@ -5928,6 +6171,14 @@ def audit_warehouse():
     else:
         print("  None")
 
+    print("\nSP start feature workload/leash coverage")
+    workload_coverage = _sp_start_feature_workload_coverage()
+    if workload_coverage:
+        for col, populated, total, pct in workload_coverage:
+            print(f"  - {col}: {pct}% populated ({populated}/{total})")
+    else:
+        print("  None")
+
     print("\nTraining view training_sp_starts")
     print(f"  rows: {training['rows']}")
     print(f"  rows with labels: {training['rows_with_labels']}")
@@ -6445,6 +6696,29 @@ def _sp_start_feature_weather_coverage():
         return []
     out = []
     for col in WEATHER_VENUE_FEATURES:
+        if col in df.columns:
+            populated = int(df[col].notna().sum())
+        else:
+            populated = 0
+        out.append((col, populated, total, round(100 * populated / total)))
+    return out
+
+
+def _sp_start_feature_workload_coverage():
+    frames = []
+    for path in _sp_start_feature_files():
+        try:
+            frames.append(pd.read_parquet(path, columns=None))
+        except Exception:
+            continue
+    if not frames:
+        return []
+    df = pd.concat(frames, ignore_index=True, sort=False)
+    total = len(df)
+    if total == 0:
+        return []
+    out = []
+    for col in WORKLOAD_FEATURES:
         if col in df.columns:
             populated = int(df[col].notna().sum())
         else:
@@ -7360,6 +7634,13 @@ WEATHER_VENUE_FEATURES = [
     'weather_precip_prob', 'weather_humidity', 'weather_pressure',
     'weather_run_boost', 'weather_hr_boost', 'weather_note',
 ]
+WORKLOAD_FEATURES = [
+    'days_rest', 'last_pitch_count', 'last_start_ip', 'last_start_pitch_count',
+    'avg_ip_last_3_starts', 'avg_pitch_count_last_3_starts',
+    'max_pitch_count_last_5_starts', 'season_avg_ip_per_start',
+    'season_avg_pitches_per_start', 'short_rest_flag', 'extra_rest_flag',
+    'workload_risk_score', 'workload_note',
+]
 
 
 def _register_features(names, category, used_by=None, leakage_status='pregame_safe', logged=True):
@@ -7408,13 +7689,7 @@ _register_features([
     'fip', 'xfip', 'siera',
 ], 'fangraphs_advanced', ['learned_bias_scan', 'prediction_log'])
 
-_register_features([
-    'days_rest', 'last_pitch_count', 'last_start_ip', 'last_start_pitch_count',
-    'avg_ip_last_3_starts', 'avg_pitch_count_last_3_starts',
-    'max_pitch_count_last_5_starts', 'season_avg_ip_per_start',
-    'season_avg_pitches_per_start', 'short_rest_flag', 'extra_rest_flag',
-    'workload_risk_score', 'workload_note',
-], 'workload', ['learned_bias_scan', 'prediction_log', 'future_model'])
+_register_features(WORKLOAD_FEATURES, 'workload', ['learned_bias_scan', 'prediction_log', 'future_model'])
 
 _register_features(WEATHER_VENUE_FEATURES, 'weather_roof_environment', ['prediction_log', 'feature_audit', 'future_model'])
 
@@ -7514,6 +7789,11 @@ def audit_features():
         for field in WEATHER_VENUE_FEATURES:
             present = total_records - null_counts.get(field, 0)
             weather_coverage.append((field, present, total_records, round(100 * present / total_records)))
+    workload_coverage = []
+    if total_records:
+        for field in WORKLOAD_FEATURES:
+            present = total_records - null_counts.get(field, 0)
+            workload_coverage.append((field, present, total_records, round(100 * present / total_records)))
 
     def print_list(title, items, formatter=None):
         print(f"\n{title}")
@@ -7545,6 +7825,11 @@ def audit_features():
     print_list(
         "Weather/venue/roof coverage",
         weather_coverage,
+        lambda x: f"{x[0]}: {x[3]}% populated ({x[1]}/{x[2]})",
+    )
+    print_list(
+        "Workload/leash coverage",
+        workload_coverage,
         lambda x: f"{x[0]}: {x[3]}% populated ({x[1]}/{x[2]})",
     )
     print_list(
@@ -7643,6 +7928,17 @@ def log_prediction(entry):
                 'opp_bullpen_whip': entry.get('opp_bullpen_whip'),
                 'days_rest': entry.get('days_rest'),
                 'last_pitch_count': entry.get('last_pitch_count'),
+                'last_start_ip': entry.get('last_start_ip'),
+                'last_start_pitch_count': entry.get('last_start_pitch_count'),
+                'avg_ip_last_3_starts': entry.get('avg_ip_last_3_starts'),
+                'avg_pitch_count_last_3_starts': entry.get('avg_pitch_count_last_3_starts'),
+                'max_pitch_count_last_5_starts': entry.get('max_pitch_count_last_5_starts'),
+                'season_avg_ip_per_start': entry.get('season_avg_ip_per_start'),
+                'season_avg_pitches_per_start': entry.get('season_avg_pitches_per_start'),
+                'short_rest_flag': entry.get('short_rest_flag'),
+                'extra_rest_flag': entry.get('extra_rest_flag'),
+                'workload_risk_score': entry.get('workload_risk_score'),
+                'workload_note': entry.get('workload_note'),
                 # Logged-only weather/venue context. These are for audit and
                 # later analysis only; they do not alter projected points.
                 'game_datetime': entry.get('game_datetime'),
@@ -9107,17 +9403,27 @@ def main():
 
         # Collect MLB IDs for probable pitchers to fetch details
         mlb_ids = set()
+        pitcher_ids_by_name = {}
         for g in schedule:
             mid = g.get('pitcher_mlb_id')
             if mid:
                 mlb_ids.add(mid)
+                pname = normalize_name(g.get('pitcher_name', ''))
+                if pname:
+                    pitcher_ids_by_name[pname] = mid
         pitcher_details = timed("stream fetch: pitcher details", fetch_pitcher_details, list(mlb_ids))
         savant_data = timed("stream fetch: Savant arsenal", fetch_savant_pitch_arsenal)
         # Phase 2 enrichment: more data sources for the auto-learning engine
         savant_advanced = timed("stream fetch: Savant advanced", fetch_savant_advanced_pitcher_stats)
         fg_pitching_plus = timed("stream fetch: FG pitching plus", fetch_fg_pitching_plus)
         team_bullpens = timed("stream fetch: team bullpens", fetch_team_bullpens)
-        pitcher_workload = timed("stream build: workload features", compute_pitcher_workload, PREDICTIONS_DIR, OUTCOMES_LOG)
+        pitcher_workload = timed(
+            "stream build: workload features",
+            compute_pitcher_workload,
+            PREDICTIONS_DIR,
+            OUTCOMES_LOG,
+            pitcher_ids_by_name,
+        )
         il_hitters, il_returns = timed("stream fetch: team IL hitters", fetch_team_il_hitters, players_list)
 
         # Build a global emerging/HOLD map for ALL FA + rostered SPs based on recent form,

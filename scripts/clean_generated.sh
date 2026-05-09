@@ -54,5 +54,13 @@ else
   rm -f -- "$open_meteo_cache"
 fi
 
+echo "Removing local pitcher workload cache..."
+pitcher_workload_cache="engine/streaming_cache/pitcher_workload_history.json"
+if git ls-files --error-unmatch "$pitcher_workload_cache" >/dev/null 2>&1; then
+  echo "  Skipping tracked pitcher workload cache; untrack it before removing as generated."
+else
+  rm -f -- "$pitcher_workload_cache"
+fi
+
 echo "Status after cleanup:"
 git status --short

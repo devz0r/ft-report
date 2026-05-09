@@ -3,6 +3,7 @@ engine/.ft-report-password
 engine/tracker_report.html
 engine/streaming_cache/roster_status_cache.json
 engine/streaming_cache/open_meteo_weather.json
+engine/streaming_cache/pitcher_workload_history.json
 engine/local_preview/
 engine/__pycache__/
 *.pyc
