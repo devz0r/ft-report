@@ -1,6 +1,7 @@
 engine/tracker_config.json
 engine/.ft-report-password
 engine/tracker_report.html
+engine/streaming_cache/roster_status_cache.json
 engine/local_preview/
 engine/__pycache__/
 *.pyc

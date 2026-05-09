@@ -39,7 +39,12 @@ if [[ -d engine/streaming_cache/il_snapshots ]]; then
 fi
 
 echo "Removing local roster/status cache..."
-rm -f -- engine/streaming_cache/roster_status_cache.json
+roster_status_cache="engine/streaming_cache/roster_status_cache.json"
+if git ls-files --error-unmatch "$roster_status_cache" >/dev/null 2>&1; then
+  echo "  Skipping tracked roster/status cache; untrack it before removing as generated."
+else
+  rm -f -- "$roster_status_cache"
+fi
 
 echo "Status after cleanup:"
 git status --short

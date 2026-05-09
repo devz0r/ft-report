@@ -17,6 +17,12 @@ scripts/clean_generated.sh
 echo "Clearing any pre-existing staged changes..."
 git restore --staged -- .
 
+roster_status_cache="engine/streaming_cache/roster_status_cache.json"
+if git ls-files --error-unmatch "$roster_status_cache" >/dev/null 2>&1; then
+  echo "Stopping tracking for generated roster/status cache..."
+  git rm --cached --quiet --ignore-unmatch "$roster_status_cache"
+fi
+
 scripts/preflight.sh
 
 echo "Current diff:"
