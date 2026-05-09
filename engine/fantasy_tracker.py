@@ -3087,11 +3087,12 @@ def daily_decision_audit(target_date=None):
         print("\nNo prediction log found for today. Run a preview or normal tracker first to create current predictions.")
         return {'date': target_date, 'rows': 0}
 
-    original_actionable = sum(1 for r in records if r.get('status') in ('FA', 'MY ROSTER'))
+    actionable_statuses = {'FA', 'MY ROSTER', 'WAIVER'}
+    original_actionable = sum(1 for r in records if r.get('status') in actionable_statuses)
     records, enrichment = _enrich_decision_statuses(records)
-    actionable = [r for r in records if r.get('status') in ('FA', 'MY ROSTER')]
+    actionable = [r for r in records if r.get('status') in actionable_statuses]
     unknown_status = [r for r in records if not r.get('status')]
-    hidden_non_actionable = [r for r in records if r.get('status') not in ('FA', 'MY ROSTER')]
+    hidden_other = [r for r in records if r.get('status') and r.get('status') not in actionable_statuses]
     if enrichment['roster_status_cache_sources']:
         print("\nLocal roster/status cache sources:")
         for source in enrichment['roster_status_cache_sources']:
@@ -3113,15 +3114,17 @@ def daily_decision_audit(target_date=None):
         )
 
     fa_rows = [r for r in actionable if r.get('status') == 'FA']
+    waiver_rows = [r for r in actionable if r.get('status') == 'WAIVER']
     roster_rows = [r for r in actionable if r.get('status') == 'MY ROSTER']
-    fa_ranked = sorted(fa_rows, key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_decision_points(r)))
+    available_rows = fa_rows + waiver_rows
+    fa_ranked = sorted(available_rows, key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_decision_points(r)))
     roster_ranked = sorted(roster_rows, key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_decision_points(r)))
     risky_roster = sorted(
         [r for r in roster_rows if r.get('tier') in ('borderline', 'avoid') or _decision_risk_boost_flags(r)[0]],
         key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), _decision_points(r))
     )
     avoid_traps = sorted(
-        [r for r in fa_rows if r.get('tier') == 'avoid' or len(_decision_risk_boost_flags(r)[0]) >= 2],
+        [r for r in available_rows if r.get('tier') == 'avoid' or len(_decision_risk_boost_flags(r)[0]) >= 2],
         key=lambda r: (_decision_points(r), -len(_decision_risk_boost_flags(r)[0]))
     )
 
@@ -3129,9 +3132,12 @@ def daily_decision_audit(target_date=None):
     print(f"Original actionable rows: {original_actionable}")
     print(f"Rows enriched from roster/status cache: {enrichment['roster_enriched_count']}")
     print(f"Rows enriched from prediction-log status history: {enrichment['prediction_enriched_count']}")
-    print(f"Final actionable rows: {len(actionable)} ({len(fa_rows)} FA, {len(roster_rows)} MY ROSTER)")
-    print(f"Rows still unknown/hidden: {len(hidden_non_actionable)}")
-    print(f"Rows still blank unknown: {len(unknown_status)}")
+    print(
+        f"Final actionable rows: {len(actionable)} "
+        f"({len(roster_rows)} MY ROSTER, {len(fa_rows)} FA, {len(waiver_rows)} WAIVER)"
+    )
+    print(f"Hidden rows rostered by other teams / OTHER: {len(hidden_other)}")
+    print(f"Hidden rows still unknown or blank: {len(unknown_status)}")
     print(f"Prediction-log status cache rows: {enrichment['prediction_status_cache_rows']}")
     print(f"Local roster/status cache rows: {enrichment['roster_status_cache_rows']}")
     print("Rostered-by-other-team rows are excluded unless they are MY ROSTER.")
@@ -3145,9 +3151,8 @@ def daily_decision_audit(target_date=None):
     problems = []
     if unknown_status:
         problems.append(f"{len(unknown_status)} prediction rows have blank roster/FA status and were hidden from decisions.")
-    other_hidden = [r for r in hidden_non_actionable if r.get('status') and r.get('status') not in ('FA', 'MY ROSTER')]
-    if other_hidden:
-        problems.append(f"{len(other_hidden)} rows appear rostered by other teams and were hidden from actionable recommendations.")
+    if hidden_other:
+        problems.append(f"{len(hidden_other)} rows appear rostered by other teams/OTHER and were hidden from actionable recommendations.")
     tbd_rows = [r for r in records if r.get('tbd') or (r.get('name') or '').upper() == 'TBD']
     if tbd_rows:
         for rec in tbd_rows:
