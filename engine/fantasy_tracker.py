@@ -3538,6 +3538,123 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
     return summary
 
 
+def _action_matchup_text(item):
+    if item.get('home_away') == 'H':
+        return f"vs {item.get('opponent') or '?'}"
+    if item.get('home_away') == 'A':
+        return f"at {item.get('opponent') or '?'}"
+    return f"vs {item.get('opponent') or '?'}"
+
+
+def _action_date_text(date_value, base_date):
+    if not date_value or date_value == base_date:
+        return 'today'
+    try:
+        delta = (date.fromisoformat(date_value) - date.fromisoformat(base_date)).days
+    except Exception:
+        delta = None
+    if delta == 1:
+        return 'tomorrow'
+    try:
+        return datetime.strptime(date_value, '%Y-%m-%d').strftime('%a')
+    except Exception:
+        return date_value
+
+
+def _action_item(kind, text, item, date_value, base_date, priority):
+    return {
+        'kind': kind,
+        'text': _compact_decision_text(text, 120),
+        'date': date_value,
+        'date_label': _action_date_text(date_value, base_date),
+        'name': item.get('name'),
+        'team': item.get('team'),
+        'opponent': item.get('opponent'),
+        'home_away': item.get('home_away'),
+        'status': item.get('status'),
+        'points': item.get('points'),
+        'confidence': item.get('confidence'),
+        'priority': priority,
+    }
+
+
+def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_summary=None):
+    """Create a short, conservative action list from existing report summaries."""
+    actions = []
+    seen = set()
+
+    def add_action(kind, text, item, date_value, priority):
+        key = (
+            kind,
+            date_value,
+            normalize_name(item.get('name') or ''),
+            item.get('team'),
+            item.get('opponent'),
+        )
+        if key in seen:
+            return
+        seen.add(key)
+        actions.append(_action_item(kind, text, item, date_value, base_date, priority))
+
+    daily_sections = (daily_summary or {}).get('sections') or {}
+    for item in daily_sections.get('best_available', [])[:3]:
+        matchup = _action_matchup_text(item)
+        pts = item.get('points') or 0
+        if item.get('tier') in ('must_start', 'start'):
+            text = f"Add {item.get('name')} for today against {item.get('opponent')} ({pts:.1f} pts) if available."
+            add_action('ADD', text, item, (daily_summary or {}).get('date') or base_date, 10)
+        elif item.get('tier') == 'borderline':
+            text = f"Consider {item.get('name')} only if you need a borderline stream today {matchup} ({pts:.1f} pts)."
+            add_action('CONSIDER', text, item, (daily_summary or {}).get('date') or base_date, 30)
+        else:
+            text = f"Desperation only: {item.get('name')} today {matchup} ({pts:.1f} pts)."
+            add_action('DESPERATION', text, item, (daily_summary or {}).get('date') or base_date, 80)
+
+    for day in (watchlist_summary or {}).get('days', []):
+        day_date = day.get('date')
+        for item in day.get('items', []):
+            label = item.get('watch_label')
+            if label not in ('FA/WAIVER TARGET', 'DESPERATION ONLY'):
+                continue
+            pts = item.get('points') or 0
+            date_text = _action_date_text(day_date, base_date)
+            matchup = _action_matchup_text(item)
+            if label == 'DESPERATION ONLY' or item.get('tier') == 'avoid':
+                text = f"Desperation only: {item.get('name')} {date_text} {matchup} ({pts:.1f} pts)."
+                add_action('DESPERATION', text, item, day_date, 85)
+            elif item.get('tier') in ('must_start', 'start'):
+                text = f"Add or queue {item.get('name')} for {date_text} {matchup} ({pts:.1f} pts)."
+                add_action('ADD', text, item, day_date, 20)
+            else:
+                text = f"Watch {item.get('name')} for {date_text}; borderline stream {matchup} ({pts:.1f} pts)."
+                add_action('WATCH', text, item, day_date, 45)
+
+    for item in daily_sections.get('risky_roster', [])[:4]:
+        pts = item.get('points') or 0
+        matchup = _action_matchup_text(item)
+        if item.get('tier') == 'avoid':
+            text = f"Bench {item.get('name')} unless desperate today {matchup} ({pts:.1f} pts)."
+            add_action('BENCH', text, item, (daily_summary or {}).get('date') or base_date, 25)
+        elif item.get('tier') == 'borderline':
+            text = f"Be careful with {item.get('name')} today {matchup}; borderline profile ({pts:.1f} pts)."
+            add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 50)
+        elif item.get('risks'):
+            text = f"Check risk on {item.get('name')} today {matchup} before locking him in ({pts:.1f} pts)."
+            add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 55)
+
+    for item in daily_sections.get('avoid_traps', [])[:3]:
+        pts = item.get('points') or 0
+        text = f"Avoid {item.get('name')} today despite name value ({pts:.1f} pts vs {item.get('opponent') or '?'})."
+        add_action('AVOID', text, item, (daily_summary or {}).get('date') or base_date, 70)
+
+    actions = sorted(actions, key=lambda a: (a.get('priority', 99), a.get('date') or '', a.get('name') or ''))[:8]
+    return {
+        'date': base_date,
+        'items': actions,
+        'count': len(actions),
+    }
+
+
 def daily_decision_audit(target_date=None):
     """Read-only daily pitching decision summary from existing prediction logs."""
     target_date = target_date or date.today().isoformat()
@@ -3608,6 +3725,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           feature_log_status_override=None,
                           daily_decision_summary=None,
                           next_watchlist_summary=None,
+                          add_drop_priority_summary=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
     from string import Template
@@ -3634,6 +3752,10 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
             )
         else:
             next_watchlist_summary = build_next_watchlist_summary(snapshot_date)
+    if add_drop_priority_summary is None:
+        add_drop_priority_summary = build_add_drop_priority_summary(
+            snapshot_date, daily_decision_summary, next_watchlist_summary
+        )
 
     # Build a lookup of emerging (HOLD) pitchers.
     # Prefer the global emerging map (assesses ALL FA + MY ROSTER SPs by recent form,
@@ -3812,6 +3934,15 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .watch-day:first-child { border-top: none; }
 .watch-date { padding: 8px 16px 0; color: #ddd; font-size: 12px; font-weight: 700; }
 .watch-grid { padding-top: 8px; }
+.action-list { padding: 10px 16px 14px; display: grid; gap: 7px; }
+.action-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 8px 9px; border: 1px solid #20202a; border-radius: 6px; background: #0d0d14; }
+.action-kind { padding: 2px 6px; border-radius: 3px; background: #1a1a24; color: #ddd; border: 1px solid #2a2a35; font-size: 9px; font-weight: 800; letter-spacing: 0.4px; }
+.action-kind.add { color: #34d399; border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.08); }
+.action-kind.consider, .action-kind.watch { color: #fbbf24; border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.08); }
+.action-kind.bench, .action-kind.avoid, .action-kind.desperation { color: #f87171; border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.08); }
+.action-text { color: #e5e7eb; font-size: 12px; line-height: 1.35; min-width: 0; }
+.action-meta { color: #888; font-size: 11px; white-space: nowrap; }
+@media (max-width: 720px) { .action-row { grid-template-columns: 1fr; gap: 4px; } .action-meta { white-space: normal; } }
 .tier-header { padding: 6px 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; border-top: 1px solid #222; }
 .tier-header:first-child { border-top: none; }
 .tier-must_start { color: #34d399; background: rgba(52,211,153,0.05); }
@@ -3920,6 +4051,7 @@ $TOP_BANNER_HTML
 <div class="tab-view" id="tab-streaming">
 <div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold</div>
 <div id="decisionContent"></div>
+<div id="addDropContent"></div>
 <div id="watchlistContent"></div>
 <div id="streamContent"></div>
 </div><!-- end tab-streaming -->
@@ -3940,6 +4072,7 @@ var LEARNED_CANDIDATES = $LEARNED_CANDIDATES_JSON;
 var LEARNING_SAMPLE_SUMMARY = $LEARNING_SAMPLE_SUMMARY_JSON;
 var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
 var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
+var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -4164,6 +4297,31 @@ function renderDailyDecisions() {
   container.innerHTML = h;
 }
 
+function renderAddDropPriority() {
+  var container = document.getElementById('addDropContent');
+  if (!container || !ADD_DROP_PRIORITY) return;
+  var items = ADD_DROP_PRIORITY.items || [];
+  var h = '<div class="day-card decision-card">';
+  h += '<div class="day-header"><span class="day-date">Add / Drop Priority</span><span class="day-count">' + items.length + ' action' + (items.length === 1 ? '' : 's') + '</span></div>';
+  if (!items.length) {
+    h += '<div class="decision-empty">No priority add/drop actions from the current prediction set.</div>';
+  } else {
+    h += '<div class="action-list">';
+    items.forEach(function(item) {
+      var kind = (item.kind || 'WATCH').toLowerCase();
+      var meta = (item.date_label || '') + ' &bull; ' + (item.status || '') + ' &bull; ' + (Number(item.points || 0)).toFixed(1) + ' pts';
+      h += '<div class="action-row">';
+      h += '<span class="action-kind ' + kind + '">' + escHtml(item.kind || 'WATCH') + '</span>';
+      h += '<div class="action-text">' + escHtml(item.text || '') + '</div>';
+      h += '<div class="action-meta">' + escHtml(meta) + '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+  container.innerHTML = h;
+}
+
 function renderWatchlist() {
   var container = document.getElementById('watchlistContent');
   if (!container || !NEXT_WATCHLIST) return;
@@ -4373,6 +4531,7 @@ function ordinal(n) {
 }
 
 renderDailyDecisions();
+renderAddDropPriority();
 renderWatchlist();
 renderStreaming();
 
@@ -4525,6 +4684,7 @@ renderAccuracy();
         LEARNING_SAMPLE_SUMMARY_JSON=json.dumps(learning_sample_summary) if learning_sample_summary else 'null',
         DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
         NEXT_WATCHLIST_JSON=json.dumps(next_watchlist_summary) if next_watchlist_summary else 'null',
+        ADD_DROP_PRIORITY_JSON=json.dumps(add_drop_priority_summary) if add_drop_priority_summary else 'null',
         FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
         TOP_BANNER_HTML=top_banner_html or '',
     )
