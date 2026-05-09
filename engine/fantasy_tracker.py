@@ -6811,29 +6811,33 @@ def _print_start_sit_examples(title, rows):
         print(f"  - {_start_sit_example_line(row)}")
 
 
+def _load_start_sit_analysis_rows():
+    """Load the labeled rows used by start/sit decision analysis."""
+    df, source = _start_sit_rows_from_warehouse()
+    skipped_source = None
+    if df is None or df.empty:
+        skipped_source = source
+        df, source = _start_sit_rows_from_outcome_jsonl()
+    if df is None or df.empty:
+        return pd.DataFrame(), source or 'none', skipped_source
+    work = _start_sit_prepare_dataframe(df)
+    work = work[work['predicted_advice'] != 'UNKNOWN']
+    return work, source, skipped_source
+
+
 def analyze_start_sit_quality():
     """Read-only evaluation of fantasy start/sit decision quality."""
     print("START/SIT DECISION QUALITY ANALYSIS")
     print("=" * 60)
     print("Analysis only: this does not change scoring, predictions, tiers, or learned corrections.")
 
-    df, source = _start_sit_rows_from_warehouse()
-    if df is None or df.empty:
-        fallback_df, fallback_source = _start_sit_rows_from_outcome_jsonl()
-        if source:
-            print(f"Warehouse source skipped: {source}")
-        df = fallback_df
-        source = fallback_source
+    work, source, skipped_source = _load_start_sit_analysis_rows()
+    if skipped_source:
+        print(f"Warehouse source skipped: {skipped_source}")
     print(f"Source: {source}")
 
-    if df is None or df.empty:
-        print("No labeled starts with actual fantasy points are available yet.")
-        return {'labeled_rows': 0}
-
-    work = _start_sit_prepare_dataframe(df)
-    work = work[work['predicted_advice'] != 'UNKNOWN']
     if work.empty:
-        print("No labeled rows had enough tier/projected-point information to evaluate advice.")
+        print("No labeled starts with actual fantasy points are available yet.")
         return {'labeled_rows': 0}
 
     metrics = _print_start_sit_metric_block("Overall decision quality", work)
@@ -6888,6 +6892,212 @@ def analyze_start_sit_quality():
             print("  Borderline calls are mixed; treat them as matchup-dependent until the sample grows.")
     print("  These results are diagnostic only and are not fed back into recommendations yet.")
     return {'labeled_rows': len(work), 'metrics': metrics}
+
+
+def _start_sit_signal_patterns(row):
+    """Return compact pregame signal labels available on a start/sit row."""
+    patterns = []
+    opp_rank = _safe_float(row.get('opp_rank'))
+    opp_ops = _safe_float(row.get('opp_ops') or row.get('opp_ops_raw'))
+    park_factor = _safe_float(row.get('park_factor'))
+    pitch_matchup_score = _safe_float(row.get('pitch_matchup_score'))
+    workload_risk = _safe_float(row.get('workload_risk_score'))
+    hard_hit_pct = _safe_float(row.get('hard_hit_pct'))
+    xera = _safe_float(row.get('xera'))
+    siera = _safe_float(row.get('siera'))
+    fip = _safe_float(row.get('fip'))
+    proj_era = _safe_float(row.get('proj_era'))
+    proj_k9 = _safe_float(row.get('proj_k9') or row.get('k9'))
+    proj_so = _safe_float(row.get('proj_so'))
+    learned_adj = _safe_float(row.get('learned_adj_total') or row.get('adj_total'))
+    platoon = str(row.get('platoon') or '').lower()
+    trend = str(row.get('trend') or '').lower()
+    status_group = row.get('status_group') or _start_sit_status_group(row.get('status'))
+
+    if opp_rank is not None:
+        if opp_rank <= 10:
+            patterns.append('top-10 opponent offense')
+        elif opp_rank >= 21:
+            patterns.append('bottom-10 opponent offense')
+    if opp_ops is not None:
+        if opp_ops >= 0.740:
+            patterns.append('high opponent OPS')
+        elif opp_ops <= 0.690:
+            patterns.append('low opponent OPS')
+    if park_factor is not None:
+        if park_factor >= 1.03:
+            patterns.append('hitter-friendly park')
+        elif park_factor <= 0.97:
+            patterns.append('pitcher-friendly park')
+    if platoon == 'risk':
+        patterns.append('platoon risk')
+    elif platoon == 'edge':
+        patterns.append('platoon edge')
+    if trend == 'cold':
+        patterns.append('cold recent trend')
+    elif trend == 'hot':
+        patterns.append('hot recent trend')
+    if workload_risk is not None and workload_risk >= 0.4:
+        patterns.append('workload risk')
+    if pitch_matchup_score is not None:
+        if pitch_matchup_score <= -0.05:
+            patterns.append('negative pitch-matchup score')
+        elif pitch_matchup_score >= 0.05:
+            patterns.append('positive pitch-matchup score')
+    if hard_hit_pct is not None and hard_hit_pct >= 45:
+        patterns.append('high hard-hit rate allowed')
+    if xera is not None and xera >= 4.50:
+        patterns.append('high xERA')
+    if siera is not None and siera >= 4.50:
+        patterns.append('high SIERA')
+    if fip is not None and fip >= 4.50:
+        patterns.append('high FIP')
+    if proj_era is not None and proj_era >= 4.50:
+        patterns.append('high projected ERA')
+    if proj_k9 is not None:
+        if proj_k9 < 7.5:
+            patterns.append('low projected K/9')
+        elif proj_k9 >= 9.0:
+            patterns.append('high projected K/9')
+    if proj_so is not None and proj_so >= 6:
+        patterns.append('high projected strikeouts')
+    if learned_adj is not None:
+        if learned_adj >= 2.0:
+            patterns.append('positive learned adjustment')
+        elif learned_adj <= -2.0:
+            patterns.append('negative learned adjustment')
+    if status_group:
+        patterns.append(f'status {status_group}')
+    return patterns
+
+
+def _start_sit_group_summary(df):
+    if df.empty:
+        return {'count': 0, 'avg_predicted': 0.0, 'avg_actual': 0.0, 'avg_residual': 0.0, 'patterns': []}
+    pred = pd.to_numeric(df['predicted_pts'], errors='coerce')
+    actual = pd.to_numeric(df['actual_pts'], errors='coerce')
+    residual = actual - pred
+    from collections import Counter
+    counter = Counter()
+    for _, row in df.iterrows():
+        counter.update(_start_sit_signal_patterns(row))
+    return {
+        'count': int(len(df)),
+        'avg_predicted': float(pred.mean()) if pred.notna().any() else 0.0,
+        'avg_actual': float(actual.mean()) if actual.notna().any() else 0.0,
+        'avg_residual': float(residual.mean()) if residual.notna().any() else 0.0,
+        'patterns': counter.most_common(8),
+    }
+
+
+def _print_start_sit_miss_group(name, rows):
+    summary = _start_sit_group_summary(rows)
+    print(f"\n{name}")
+    print(f"  count: {summary['count']}")
+    if summary['count']:
+        print(f"  average predicted points: {summary['avg_predicted']:.2f}")
+        print(f"  average actual points: {summary['avg_actual']:.2f}")
+        print(f"  average residual: {summary['avg_residual']:+.2f}")
+        print("  common pregame patterns:")
+        for label, count in summary['patterns']:
+            print(f"    - {label}: {count}/{summary['count']}")
+    else:
+        print("  common pregame patterns: none")
+    return summary
+
+
+def _start_sit_signal_text(row, limit=4):
+    patterns = _start_sit_signal_patterns(row)
+    if not patterns:
+        return 'no highlighted pregame signals'
+    return '; '.join(patterns[:limit])
+
+
+def _print_start_sit_miss_examples(title, rows):
+    print(f"\n{title}")
+    if rows.empty:
+        print("  None")
+        return
+    for _, row in rows.head(5).iterrows():
+        print(f"  - {_start_sit_example_line(row)}")
+        print(f"    signals: {_start_sit_signal_text(row)}")
+
+
+def analyze_start_sit_misses():
+    """Read-only explanation analysis for start/sit decision misses."""
+    print("START/SIT MISS EXPLANATION ANALYSIS")
+    print("=" * 60)
+    print("Analysis only: this does not change scoring, predictions, tiers, or learned corrections.")
+
+    work, source, skipped_source = _load_start_sit_analysis_rows()
+    if skipped_source:
+        print(f"Warehouse source skipped: {skipped_source}")
+    print(f"Source: {source}")
+    if work.empty:
+        print("No labeled starts with actual fantasy points are available yet.")
+        return {'labeled_rows': 0, 'groups': {}}
+
+    groups = {
+        'start_busts': work[(work['predicted_advice'] == 'START') & (work['actual_pts'] < 5)],
+        'strong_start_busts': work[
+            (work['tier_group'].isin(['must_start', 'start']))
+            & (work['actual_pts'] < 5)
+        ],
+        'missed_good_sits': work[(work['predicted_advice'] == 'SIT') & (work['actual_pts'] >= 12)],
+        'missed_usable_sits': work[(work['predicted_advice'] == 'SIT') & (work['actual_pts'] >= 8)],
+        'borderline_hits': work[(work['predicted_advice'] == 'BORDERLINE') & (work['actual_pts'] >= 8)],
+        'borderline_busts': work[(work['predicted_advice'] == 'BORDERLINE') & (work['actual_pts'] < 5)],
+    }
+
+    print(f"\nLabeled rows analyzed: {len(work)}")
+    if len(work) < 100:
+        print("Small-sample warning: fewer than 100 labeled decisions are available.")
+
+    summaries = {}
+    for name, rows in groups.items():
+        summaries[name] = _print_start_sit_miss_group(name, rows)
+
+    _print_start_sit_miss_examples(
+        "Top start bust examples",
+        groups['start_busts'].sort_values('actual_pts', ascending=True),
+    )
+    _print_start_sit_miss_examples(
+        "Top missed good sit examples",
+        groups['missed_good_sits'].sort_values('actual_pts', ascending=False),
+    )
+    _print_start_sit_miss_examples(
+        "Borderline hit examples",
+        groups['borderline_hits'].sort_values('actual_pts', ascending=False),
+    )
+    _print_start_sit_miss_examples(
+        "Borderline bust examples",
+        groups['borderline_busts'].sort_values('actual_pts', ascending=True),
+    )
+
+    bust_patterns = summaries['start_busts']['patterns']
+    missed_sit_patterns = summaries['missed_good_sits']['patterns'] or summaries['missed_usable_sits']['patterns']
+    borderline_hit_rate = _start_sit_rate(len(groups['borderline_hits']), len(work[work['predicted_advice'] == 'BORDERLINE']))
+    borderline_bust_rate = _start_sit_rate(len(groups['borderline_busts']), len(work[work['predicted_advice'] == 'BORDERLINE']))
+
+    print("\nInterpretation")
+    if bust_patterns:
+        top = ', '.join(label for label, _ in bust_patterns[:3])
+        print(f"  Start busts most often share: {top}.")
+    else:
+        print("  There are no start busts in the labeled sample yet.")
+    if missed_sit_patterns:
+        top = ', '.join(label for label, _ in missed_sit_patterns[:3])
+        print(f"  Missed good/usable sits most often share: {top}.")
+    else:
+        print("  There are no missed good sits in the labeled sample yet.")
+    if borderline_bust_rate > borderline_hit_rate:
+        print("  Borderline calls currently look too aggressive.")
+    elif borderline_hit_rate > borderline_bust_rate:
+        print("  Borderline calls currently look conservative enough to find some usable starts.")
+    else:
+        print("  Borderline calls are evenly split between useful and bad outcomes so far.")
+    print("  Treat these as diagnostic clues only; no recommendations are changed automatically.")
+    return {'labeled_rows': len(work), 'groups': summaries}
 
 
 FEATURE_REGISTRY = {}
@@ -8303,6 +8513,7 @@ def main():
     parser.add_argument('--analyze-feature-errors', action='store_true', help='Read-only exploratory feature/error analysis from warehouse training rows')
     parser.add_argument('--analyze-model-baselines', action='store_true', help='Read-only warehouse comparison of current predictions against baseline layers')
     parser.add_argument('--analyze-start-sit-quality', action='store_true', help='Read-only start/sit decision-quality analysis from labeled starts')
+    parser.add_argument('--analyze-start-sit-misses', action='store_true', help='Read-only explanation analysis for start/sit decision misses')
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
@@ -8366,6 +8577,10 @@ def main():
 
     if args.analyze_start_sit_quality:
         analyze_start_sit_quality()
+        return
+
+    if args.analyze_start_sit_misses:
+        analyze_start_sit_misses()
         return
 
     if args.daily_decision_audit:
