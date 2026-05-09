@@ -3385,6 +3385,10 @@ def _decision_plain_reasons(record, risks=None, boosts=None, confidence=None):
         risk_reasons.append(str(risks[0]))
     main_reason = boost_reasons[0] if boost_reasons else f"{confidence} based on {pts:.1f} projected points"
     risk_reason = risk_reasons[0] if risk_reasons else "No major red flag in logged signals"
+    if tier == 'borderline':
+        main_reason = f"Playable for volume, not a safe start at {pts:.1f} projected points"
+        if not risk_reasons:
+            risk_reason = "Borderline stream, not a priority add"
     return _compact_decision_text(main_reason), _compact_decision_text(risk_reason)
 
 
@@ -3393,7 +3397,7 @@ def _decision_report_item(record):
     confidence = {
         'must_start': 'Strong Start',
         'start': 'Start',
-        'borderline': 'Borderline',
+        'borderline': 'Playable, Not Safe',
         'avoid': 'Avoid',
     }.get(record.get('tier'), 'Borderline')
     main_reason, risk_reason = _decision_plain_reasons(record, risks, boosts, confidence)
@@ -3657,7 +3661,7 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
             text = f"Add {item.get('name')} for today against {item.get('opponent')} ({pts:.1f} pts) if available."
             add_action('ADD', text, item, (daily_summary or {}).get('date') or base_date, 10)
         elif item.get('tier') == 'borderline':
-            text = f"Consider {item.get('name')} only if you need a borderline stream today {matchup} ({pts:.1f} pts)."
+            text = f"Consider {item.get('name')} only if you need volume today {matchup} ({pts:.1f} pts); playable but not safe."
             add_action('CONSIDER', text, item, (daily_summary or {}).get('date') or base_date, 30)
         else:
             text = f"Desperation only: {item.get('name')} today {matchup} ({pts:.1f} pts)."
@@ -3679,7 +3683,7 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
                 text = f"Add or queue {item.get('name')} for {date_text} {matchup} ({pts:.1f} pts)."
                 add_action('ADD', text, item, day_date, 20)
             else:
-                text = f"Watch {item.get('name')} for {date_text}; borderline stream {matchup} ({pts:.1f} pts)."
+                text = f"Watch {item.get('name')} for {date_text}; borderline stream, not a priority add {matchup} ({pts:.1f} pts)."
                 add_action('WATCH', text, item, day_date, 45)
 
     for item in daily_sections.get('risky_roster', [])[:4]:
@@ -3689,7 +3693,7 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
             text = f"Bench {item.get('name')} unless desperate today {matchup} ({pts:.1f} pts)."
             add_action('BENCH', text, item, (daily_summary or {}).get('date') or base_date, 25)
         elif item.get('tier') == 'borderline':
-            text = f"Be careful with {item.get('name')} today {matchup}; borderline profile ({pts:.1f} pts)."
+            text = f"Be careful with {item.get('name')} today {matchup}; playable but not safe ({pts:.1f} pts)."
             add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 50)
         elif item.get('risks'):
             text = f"Check risk on {item.get('name')} today {matchup} before locking him in ({pts:.1f} pts)."
