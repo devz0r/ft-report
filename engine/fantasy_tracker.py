@@ -4935,6 +4935,157 @@ def _training_sp_starts_stats():
                 pass
 
 
+FEATURE_ERROR_EXCLUDED_COLUMNS = {
+    'actual_pts', 'actual_ip', 'actual_k', 'actual_er', 'actual_bb',
+    'actual_h', 'actual_hits', 'actual_hr', 'actual_win', 'actual_decision',
+    'actual_line', 'residual', 'residual_raw', 'no_start', 'has_label',
+    'start_id', 'game_id', 'game_pk', 'game_date', 'snapshot_time',
+    'logged_at', 'pitcher_name', 'pitcher_id', 'team', 'opponent',
+    'home_away', 'status', 'lineup_status', 'probable_status',
+    'learned_adjustments',
+}
+
+
+def _is_numeric_series(series):
+    try:
+        return pd.api.types.is_numeric_dtype(series)
+    except Exception:
+        return False
+
+
+def analyze_feature_errors(min_bucket_n=12, max_features=25):
+    """Read-only exploratory error analysis over warehouse training rows."""
+    print("WAREHOUSE FEATURE ERROR ANALYSIS")
+    print("=" * 60)
+    print("Analysis only: these findings are not automatically applied to predictions.")
+
+    try:
+        conn = wh_conn()
+        cols = _table_columns(conn, 'training_sp_starts')
+        if not cols:
+            print("No warehouse training view is available yet.")
+            conn.close()
+            return {'labeled_rows': 0, 'features_analyzed': 0, 'findings': []}
+        df = conn.execute(
+            "SELECT * FROM training_sp_starts WHERE COALESCE(has_label, FALSE)"
+        ).fetchdf()
+        feature_dates = conn.execute(
+            "SELECT MIN(game_date), MAX(game_date), COUNT(*) FROM training_sp_starts"
+        ).fetchone()
+        outcome_dates = (None, None)
+        if 'warehouse_outcomes' in {
+                row[0] for row in conn.execute(
+                    "SELECT table_name FROM information_schema.tables WHERE table_type = 'VIEW'"
+                ).fetchall()
+        }:
+            outcome_dates = conn.execute(
+                "SELECT MIN(game_date), MAX(game_date) FROM warehouse_outcomes"
+            ).fetchone()
+        conn.close()
+    except Exception as e:
+        print(f"Feature error analysis unavailable: {type(e).__name__}: {e}")
+        return {'labeled_rows': 0, 'features_analyzed': 0, 'findings': []}
+
+    if df.empty:
+        print("No labeled training rows yet. Feature rows are currently after the latest outcome date.")
+        if feature_dates and feature_dates[2]:
+            print(f"  Feature date range: {feature_dates[0]} through {feature_dates[1]}")
+        if outcome_dates and outcome_dates[0]:
+            print(f"  Latest outcome date: {outcome_dates[1]}")
+        return {'labeled_rows': 0, 'features_analyzed': 0, 'findings': []}
+
+    if 'actual_pts' not in df.columns or df['actual_pts'].isna().all():
+        print("No usable actual_pts labels found in training_sp_starts.")
+        return {'labeled_rows': len(df), 'features_analyzed': 0, 'findings': []}
+
+    if 'predicted_pts' in df.columns and not df['predicted_pts'].isna().all():
+        df['_analysis_predicted_pts'] = pd.to_numeric(df['predicted_pts'], errors='coerce')
+    elif 'residual' in df.columns:
+        actual = pd.to_numeric(df['actual_pts'], errors='coerce')
+        residual = pd.to_numeric(df['residual'], errors='coerce')
+        df['_analysis_predicted_pts'] = actual - residual
+    else:
+        print("No prediction-point column or residual is available for analysis.")
+        return {'labeled_rows': len(df), 'features_analyzed': 0, 'findings': []}
+
+    df['_analysis_actual_pts'] = pd.to_numeric(df['actual_pts'], errors='coerce')
+    df['_analysis_residual'] = df['_analysis_actual_pts'] - df['_analysis_predicted_pts']
+    df['_analysis_abs_error'] = df['_analysis_residual'].abs()
+    df = df.dropna(subset=['_analysis_predicted_pts', '_analysis_actual_pts', '_analysis_residual'])
+    if df.empty:
+        print("No rows have both predicted and actual points available for analysis.")
+        return {'labeled_rows': 0, 'features_analyzed': 0, 'findings': []}
+
+    excluded = set(FEATURE_ERROR_EXCLUDED_COLUMNS) | {
+        '_analysis_predicted_pts', '_analysis_actual_pts',
+        '_analysis_residual', '_analysis_abs_error',
+    }
+    feature_cols = []
+    for col in df.columns:
+        c = col.lower()
+        if col in excluded or c in excluded:
+            continue
+        if c.startswith('actual_') or 'residual' in c:
+            continue
+        if not _is_numeric_series(df[col]):
+            continue
+        if df[col].notna().sum() >= min_bucket_n * 2:
+            feature_cols.append(col)
+
+    findings = []
+    features_analyzed = 0
+    for col in sorted(feature_cols):
+        work = df[[col, '_analysis_predicted_pts', '_analysis_actual_pts', '_analysis_residual', '_analysis_abs_error']].dropna()
+        if len(work) < min_bucket_n * 2:
+            continue
+        unique_vals = work[col].nunique(dropna=True)
+        if unique_vals < 2:
+            continue
+        q = min(4, max(2, len(work) // min_bucket_n))
+        q = min(q, unique_vals)
+        try:
+            work['_bucket'] = pd.qcut(work[col], q=q, duplicates='drop')
+        except Exception:
+            continue
+        if work['_bucket'].nunique(dropna=True) < 2:
+            continue
+        features_analyzed += 1
+        for bucket, bucket_df in work.groupby('_bucket', observed=True):
+            n = len(bucket_df)
+            if n < min_bucket_n:
+                continue
+            mean_residual = float(bucket_df['_analysis_residual'].mean())
+            findings.append({
+                'feature': col,
+                'bucket': str(bucket),
+                'n': int(n),
+                'mean_predicted': float(bucket_df['_analysis_predicted_pts'].mean()),
+                'mean_actual': float(bucket_df['_analysis_actual_pts'].mean()),
+                'mean_residual': mean_residual,
+                'mae': float(bucket_df['_analysis_abs_error'].mean()),
+            })
+
+    findings.sort(key=lambda row: (-abs(row['mean_residual']), row['feature'], row['bucket']))
+    print(f"\nLabeled training rows analyzed: {len(df)}")
+    print(f"Numeric features analyzed: {features_analyzed}")
+    print(f"Minimum bucket sample size: {min_bucket_n}")
+    if not findings:
+        print("\nNo reliable feature buckets met the sample-size threshold yet.")
+        return {'labeled_rows': len(df), 'features_analyzed': features_analyzed, 'findings': []}
+
+    print("\nTop exploratory feature-error buckets")
+    print(f"{'Feature':<28s} {'Bucket/range':<28s} {'n':>4s} {'Pred':>7s} {'Actual':>7s} {'Resid':>7s} {'MAE':>7s}")
+    print("-" * 96)
+    for row in findings[:max_features]:
+        print(
+            f"{row['feature'][:28]:<28s} {row['bucket'][:28]:<28s} "
+            f"{row['n']:>4d} {row['mean_predicted']:>7.2f} "
+            f"{row['mean_actual']:>7.2f} {row['mean_residual']:>+7.2f} {row['mae']:>7.2f}"
+        )
+    print("\nExploratory only: use this to inspect error patterns; it does not change scoring or learned corrections.")
+    return {'labeled_rows': len(df), 'features_analyzed': features_analyzed, 'findings': findings}
+
+
 FEATURE_REGISTRY = {}
 
 
@@ -6307,6 +6458,7 @@ def main():
     parser.add_argument('--dedupe-outcomes', action='store_true', help='Backup and rewrite predictions_outcomes.jsonl without stable duplicates')
     parser.add_argument('--backfill-warehouse-outcomes', action='store_true', help='Backfill outcome Parquet files from predictions_outcomes.jsonl')
     parser.add_argument('--backfill-warehouse-features', action='store_true', help='Backfill prediction and SP feature Parquet files from prediction JSONL')
+    parser.add_argument('--analyze-feature-errors', action='store_true', help='Read-only exploratory feature/error analysis from warehouse training rows')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
     parser.add_argument('--timing', action='store_true', help='Print runtime timing summary (normal runs print it by default)')
@@ -6353,6 +6505,10 @@ def main():
 
     if args.backfill_warehouse_features:
         backfill_warehouse_features()
+        return
+
+    if args.analyze_feature_errors:
+        analyze_feature_errors()
         return
 
     if args.setup:
