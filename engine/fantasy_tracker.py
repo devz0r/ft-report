@@ -2774,6 +2774,7 @@ def _fast_preview_streaming_entry(record):
         'adjustments': record.get('adjustments') or [],
         'tier': record.get('tier') or 'borderline',
         'status': record.get('status') or '',
+        'features': features,
         'tbd': False,
         'era': _fast_preview_float(features.get('proj_era') or recent_era, 0.0),
         'k9': _fast_preview_float(features.get('proj_k9') or features.get('recent_k9'), 0.0),
@@ -3080,7 +3081,8 @@ def _decision_record_from_streaming_entry(entry):
     """Make a report streaming row look like a prediction-log decision record."""
     if not isinstance(entry, dict):
         return {}
-    features = {
+    features = dict(entry.get('features') or {})
+    feature_defaults = {
         'proj_era': entry.get('era'),
         'proj_k9': entry.get('k9'),
         'opp_ops': entry.get('opp_ops'),
@@ -3101,6 +3103,9 @@ def _decision_record_from_streaming_entry(entry):
         'opp_il_count': len(entry.get('opp_il', []) or []),
         'opp_il_returns_count': len(entry.get('opp_il_returns', []) or []),
     }
+    for key, value in feature_defaults.items():
+        if features.get(key) in (None, '') and value not in (None, ''):
+            features[key] = value
     pitch_analysis = entry.get('pitch_analysis') or {}
     if isinstance(pitch_analysis, dict):
         features['pitch_matchup_score'] = pitch_analysis.get('pitch_matchup_score')
@@ -3120,6 +3125,8 @@ def _decision_record_from_streaming_entry(entry):
         'predicted_pts': entry.get('predicted_pts', entry.get('pts')),
         'final_pts': entry.get('final_pts', entry.get('pts')),
         'predicted_pts_raw': entry.get('predicted_pts_raw', entry.get('pts_pre_adj')),
+        'adj_total': entry.get('adj_total'),
+        'adjustments': entry.get('adjustments') or [],
         'tier': entry.get('tier'),
         'status': entry.get('status'),
         'tbd': entry.get('tbd'),
@@ -3234,8 +3241,101 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
     return summary
 
 
+def _decision_plain_reasons(record, risks=None, boosts=None, confidence=None):
+    """Summarize logged decision signals in plain English for the report UI."""
+    features = record.get('features') or {}
+    pts = _decision_points(record)
+    tier = record.get('tier') or 'borderline'
+    confidence = confidence or {
+        'must_start': 'Strong Start',
+        'start': 'Start',
+        'borderline': 'Borderline',
+        'avoid': 'Avoid',
+    }.get(tier, 'Borderline')
+    risks = risks if risks is not None else _decision_risk_boost_flags(record)[0]
+    boosts = boosts if boosts is not None else _decision_risk_boost_flags(record)[1]
+
+    opp_rank = _feature_float(features, 'opp_rank')
+    opp_ops = features.get('opp_ops') or features.get('opp_ops_raw')
+    park_factor = _feature_float(features, 'park_factor')
+    pitch_matchup = _feature_float(features, 'pitch_matchup_score')
+    workload_risk = _feature_float(features, 'workload_risk_score')
+    adj_total = _safe_float(record.get('adj_total'))
+    if adj_total is None:
+        adjustments = record.get('adjustments') or []
+        try:
+            adj_total = sum(_safe_float(a.get('delta')) or 0 for a in adjustments if isinstance(a, dict))
+        except Exception:
+            adj_total = None
+
+    boost_reasons = []
+    if adj_total is not None and adj_total >= 0.3:
+        boost_reasons.append(f"learned correction adds {adj_total:+.1f} pts")
+    if pts >= 12:
+        boost_reasons.append(f"projects for {pts:.1f} points")
+    elif confidence in ('Strong Start', 'Start'):
+        boost_reasons.append(f"{confidence.lower()} profile at {pts:.1f} projected points")
+    if opp_rank is not None and opp_rank >= 21:
+        detail = f"rank {int(opp_rank)}"
+        if opp_ops:
+            detail += f", {opp_ops} OPS"
+        boost_reasons.append(f"soft opponent offense ({detail})")
+    if park_factor is not None and park_factor <= 0.96:
+        boost_reasons.append(f"pitcher-friendly park ({park_factor:.2f})")
+    if features.get('platoon') == 'edge':
+        boost_reasons.append("platoon edge")
+    if features.get('trend') == 'hot':
+        boost_reasons.append("hot recent form")
+    if pitch_matchup is not None and pitch_matchup >= 0.05:
+        boost_reasons.append("arsenal matches this opponent well")
+    if _feature_float(features, 'opp_il_count', 0):
+        boost_reasons.append("opponent is missing notable bats")
+    if features.get('tag') in ('ACE', 'SAFE', 'UPSIDE'):
+        boost_reasons.append(f"{features.get('tag').lower()} tag")
+
+    risk_reasons = []
+    if adj_total is not None and adj_total <= -0.3:
+        risk_reasons.append(f"learned correction trims {adj_total:.1f} pts")
+    if tier == 'avoid':
+        risk_reasons.append("avoid-tier projection")
+    elif tier == 'borderline':
+        risk_reasons.append("borderline projection")
+    if opp_rank is not None and opp_rank <= 10:
+        detail = f"rank {int(opp_rank)}"
+        if opp_ops:
+            detail += f", {opp_ops} OPS"
+        risk_reasons.append(f"tough opponent offense ({detail})")
+    if park_factor is not None and park_factor >= 1.05:
+        risk_reasons.append(f"hitter-friendly park ({park_factor:.2f})")
+    if features.get('platoon') == 'risk':
+        risk_reasons.append("platoon risk")
+    if features.get('trend') == 'cold':
+        risk_reasons.append("cold recent form")
+    if pitch_matchup is not None and pitch_matchup <= -0.05:
+        risk_reasons.append("arsenal matchup concern")
+    if _feature_float(features, 'opp_il_returns_count', 0):
+        risk_reasons.append("opponent has hitters returning")
+    if workload_risk is not None and workload_risk >= 0.6:
+        risk_reasons.append("elevated workload/leash risk")
+
+    if not boost_reasons and boosts:
+        boost_reasons.append(str(boosts[0]))
+    if not risk_reasons and risks:
+        risk_reasons.append(str(risks[0]))
+    main_reason = boost_reasons[0] if boost_reasons else f"{confidence} based on {pts:.1f} projected points"
+    risk_reason = risk_reasons[0] if risk_reasons else "No major red flag in logged signals"
+    return main_reason, risk_reason
+
+
 def _decision_report_item(record):
     risks, boosts = _decision_risk_boost_flags(record)
+    confidence = {
+        'must_start': 'Strong Start',
+        'start': 'Start',
+        'borderline': 'Borderline',
+        'avoid': 'Avoid',
+    }.get(record.get('tier'), 'Borderline')
+    main_reason, risk_reason = _decision_plain_reasons(record, risks, boosts, confidence)
     return {
         'name': record.get('name') or record.get('pitcher_name') or 'Unknown',
         'team': record.get('team') or '',
@@ -3243,7 +3343,10 @@ def _decision_report_item(record):
         'home_away': record.get('home_away') or '',
         'status': record.get('status') or 'UNKNOWN',
         'tier': record.get('tier') or 'unknown',
+        'confidence': confidence,
         'points': round(_decision_points(record), 1),
+        'main_reason': main_reason,
+        'risk_reason': risk_reason,
         'risks': risks[:3],
         'boosts': boosts[:3],
     }
@@ -3536,8 +3639,15 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .decision-pts { color: #34d399; font-weight: 700; font-size: 13px; white-space: nowrap; }
 .decision-meta { margin-top: 3px; color: #888; font-size: 11px; }
 .decision-notes { margin-top: 4px; color: #777; font-size: 11px; line-height: 1.35; }
+.decision-reasons { margin-top: 5px; color: #aaa; font-size: 11px; line-height: 1.35; display: grid; gap: 2px; }
+.decision-reason-label { color: #777; font-weight: 700; text-transform: uppercase; font-size: 9px; letter-spacing: 0.4px; margin-right: 4px; }
 .decision-risk { color: #fca5a5; }
 .decision-boost { color: #86efac; }
+.decision-confidence { color: #ddd; font-weight: 700; }
+.decision-confidence.conf-strong { color: #34d399; }
+.decision-confidence.conf-start { color: #60a5fa; }
+.decision-confidence.conf-borderline { color: #fbbf24; }
+.decision-confidence.conf-avoid { color: #f87171; }
 .decision-empty { padding: 10px 9px; color: #555; font-size: 12px; }
 .tier-header { padding: 6px 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; border-top: 1px solid #222; }
 .tier-header:first-child { border-top: none; }
@@ -3826,6 +3936,8 @@ function tierLabel(tier) {
 function renderDecisionItem(item) {
   var pts = Number(item.points || 0);
   var matchup = item.home_away === 'H' ? 'vs ' + (item.opponent || '?') : '@ ' + (item.opponent || '?');
+  var conf = item.confidence || tierLabel(item.tier);
+  var confCls = conf === 'Strong Start' ? 'conf-strong' : conf === 'Start' ? 'conf-start' : conf === 'Avoid' ? 'conf-avoid' : 'conf-borderline';
   var risks = (item.risks || []).slice(0, 2);
   var boosts = (item.boosts || []).slice(0, 2);
   var notes = [];
@@ -3834,7 +3946,11 @@ function renderDecisionItem(item) {
   if (!notes.length) notes.push('<span>Notes: none</span>');
   return '<div class="decision-row">' +
     '<div class="decision-line1"><span class="decision-name">' + escHtml(item.name) + '</span><span class="decision-pts">' + pts.toFixed(1) + ' pts</span></div>' +
-    '<div class="decision-meta">' + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; ' + escHtml(tierLabel(item.tier)) + ' &bull; ' + escHtml(matchup) + ' (' + escHtml(item.home_away || '?') + ')</div>' +
+    '<div class="decision-meta">' + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; <span class="decision-confidence ' + confCls + '">' + escHtml(conf) + '</span> &bull; ' + escHtml(matchup) + ' (' + escHtml(item.home_away || '?') + ')</div>' +
+    '<div class="decision-reasons">' +
+      '<div><span class="decision-reason-label">Why</span>' + escHtml(item.main_reason || 'Projection is the main signal') + '</div>' +
+      '<div><span class="decision-reason-label">Risk</span>' + escHtml(item.risk_reason || 'No major red flag in logged signals') + '</div>' +
+    '</div>' +
     '<div class="decision-notes">' + notes.join('<br>') + '</div>' +
     '</div>';
 }
