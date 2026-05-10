@@ -85,6 +85,15 @@ ESPN_POS_MAP = {
     1: 'SP', 2: 'C', 3: '1B', 4: '2B', 5: '3B',
     6: 'SS', 7: 'LF', 8: 'CF', 9: 'RF', 10: 'DH', 11: 'RP'
 }
+ESPN_LINEUP_SLOT_MAP = {
+    0: 'C', 1: '1B', 2: '2B', 3: '3B', 4: 'SS',
+    5: 'OF', 6: '2B/SS', 7: '1B/3B', 8: 'LF', 9: 'CF',
+    10: 'RF', 11: 'DH', 12: 'UTIL', 13: 'P', 14: 'SP',
+    15: 'RP', 16: 'BE', 17: 'IL', 18: 'IL', 19: 'IL',
+    20: 'IL', 21: 'IL', 22: 'IL', 23: 'IL', 24: 'IL',
+}
+ESPN_BENCH_SLOT_IDS = {16}
+ESPN_INJURY_SLOT_IDS = {17, 18, 19, 20, 21, 22, 23, 24}
 
 PREMIUM_POS_ORDER = ['C', 'SS', '2B', '3B', 'OF', '1B', 'DH']
 
@@ -545,6 +554,349 @@ def fetch_espn_rosters(config):
         pass  # Non-critical, roster view is the primary source
 
     return roster_map
+
+
+def _espn_auth_parts(config):
+    espn_s2 = (config or {}).get('espn_s2', '')
+    swid = (config or {}).get('SWID', '') or (config or {}).get('swid', '')
+    if not espn_s2 or not swid:
+        return None
+    return {
+        'headers': {'User-Agent': 'Mozilla/5.0'},
+        'cookies': {'espn_s2': espn_s2, 'SWID': swid},
+    }
+
+
+def _espn_league_url():
+    return f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/flb/seasons/2026/segments/0/leagues/{ESPN_LEAGUE_ID}"
+
+
+def fetch_espn_league_payload(config, views=None, scoring_period_id=None):
+    """Read-only ESPN league payload using the same stored session cookies."""
+    auth = _espn_auth_parts(config)
+    if not auth:
+        return None, "missing ESPN auth; run --setup"
+    params = []
+    for view in views or []:
+        params.append(('view', view))
+    if scoring_period_id is not None:
+        params.append(('scoringPeriodId', scoring_period_id))
+    try:
+        resp = requests.get(
+            _espn_league_url(),
+            params=params,
+            headers=auth['headers'],
+            cookies=auth['cookies'],
+            timeout=30,
+        )
+        if resp.status_code in (401, 403):
+            return None, "ESPN auth failed; cookies may be expired"
+        resp.raise_for_status()
+        return resp.json(), None
+    except requests.RequestException as e:
+        return None, f"ESPN matchup fetch failed: {e}"
+
+
+def _espn_team_name(team):
+    if not isinstance(team, dict):
+        return ''
+    return team.get('name') or f"{team.get('location', '')} {team.get('nickname', '')}".strip() or f"Team {team.get('id', '?')}"
+
+
+def _espn_current_period(payload):
+    status = (payload or {}).get('status') or {}
+    return (
+        status.get('currentMatchupPeriod')
+        or status.get('currentScoringPeriod')
+        or status.get('latestScoringPeriod')
+        or (payload or {}).get('scoringPeriodId')
+    )
+
+
+def _espn_box_score(entry):
+    for key in ('totalPoints', 'totalPointsLive', 'appliedStatTotal', 'points', 'score'):
+        val = _safe_float((entry or {}).get(key))
+        if val is not None:
+            return val
+    return None
+
+
+def _espn_schedule_team_id(side):
+    if not isinstance(side, dict):
+        return None
+    return side.get('teamId') or (side.get('team') or {}).get('id')
+
+
+def _espn_schedule_score(side):
+    if not isinstance(side, dict):
+        return None
+    for key in ('totalPoints', 'totalPointsLive', 'pointsByScoringPeriod'):
+        value = side.get(key)
+        if isinstance(value, dict):
+            vals = [_safe_float(v) for v in value.values()]
+            vals = [v for v in vals if v is not None]
+            if vals:
+                return round(sum(vals), 2)
+        val = _safe_float(value)
+        if val is not None:
+            return val
+    return None
+
+
+def _find_current_matchup(payload, my_team_id):
+    schedule = (payload or {}).get('schedule') or []
+    for matchup in schedule:
+        sides = [matchup.get('home') or {}, matchup.get('away') or {}]
+        team_ids = [_espn_schedule_team_id(side) for side in sides]
+        if my_team_id not in team_ids:
+            continue
+        my_side = sides[0] if team_ids[0] == my_team_id else sides[1]
+        opp_side = sides[1] if team_ids[0] == my_team_id else sides[0]
+        return {
+            'matchup': matchup,
+            'my_score': _espn_schedule_score(my_side),
+            'opponent_team_id': _espn_schedule_team_id(opp_side),
+            'opponent_score': _espn_schedule_score(opp_side),
+        }
+    return None
+
+
+def _espn_roster_player(entry):
+    ppe = (entry or {}).get('playerPoolEntry') or {}
+    player = ppe.get('player') or {}
+    return player
+
+
+def _espn_entry_name(entry):
+    player = _espn_roster_player(entry)
+    return player.get('fullName') or player.get('name') or f"Player {entry.get('playerId', '?')}"
+
+
+def _espn_entry_pos(entry):
+    player = _espn_roster_player(entry)
+    default_pos = player.get('defaultPositionId')
+    return ESPN_POS_MAP.get(default_pos, str(default_pos or ''))
+
+
+def _espn_entry_injury(entry):
+    player = _espn_roster_player(entry)
+    status = player.get('injuryStatus') or player.get('injuryStatusAbbrev') or player.get('status')
+    injured = player.get('injured')
+    if status and str(status).upper() not in ('ACTIVE', 'NORMAL', 'OK'):
+        return str(status)
+    if injured:
+        return 'injured'
+    return ''
+
+
+def _espn_roster_rows(team):
+    rows = []
+    entries = ((team or {}).get('roster') or {}).get('entries') or []
+    for entry in entries:
+        slot_id = entry.get('lineupSlotId')
+        slot = ESPN_LINEUP_SLOT_MAP.get(slot_id, str(slot_id or '?'))
+        row = {
+            'name': _espn_entry_name(entry),
+            'slot': slot,
+            'slot_id': slot_id,
+            'pos': _espn_entry_pos(entry),
+            'team': ESPN_TEAM_MAP.get((_espn_roster_player(entry) or {}).get('proTeamId'), ''),
+            'injury': _espn_entry_injury(entry),
+            'points': _espn_box_score(entry),
+        }
+        rows.append(row)
+    return rows
+
+
+def _split_roster_rows(rows):
+    active, bench, injured = [], [], []
+    for row in rows:
+        slot_id = row.get('slot_id')
+        if slot_id in ESPN_INJURY_SLOT_IDS or row.get('injury'):
+            injured.append(row)
+        if slot_id in ESPN_BENCH_SLOT_IDS:
+            bench.append(row)
+        elif slot_id not in ESPN_INJURY_SLOT_IDS:
+            active.append(row)
+    return active, bench, injured
+
+
+def _empty_lineup_slots(active_rows):
+    # This is deliberately conservative: ESPN roster entries usually omit truly
+    # empty slots, and league lineup rules can vary. Only report explicit empty
+    # placeholder entries if ESPN sends them.
+    return [r.get('slot') for r in active_rows if not r.get('name') or str(r.get('name')).startswith('Player ?')]
+
+
+def _format_matchup_player(row):
+    meta = []
+    if row.get('slot'):
+        meta.append(row['slot'])
+    if row.get('pos'):
+        meta.append(row['pos'])
+    if row.get('team'):
+        meta.append(row['team'])
+    pts = row.get('points')
+    pts_text = f" — {pts:.1f} pts" if pts is not None else ""
+    injury = f" [{row['injury']}]" if row.get('injury') else ""
+    meta_text = f" ({', '.join(meta)})" if meta else ""
+    return f"{row.get('name') or 'Unknown'}{meta_text}{pts_text}{injury}"
+
+
+def _print_matchup_list(title, rows, limit=18):
+    print(f"\n{title}")
+    if not rows:
+        print("  None detected")
+        return
+    for row in rows[:limit]:
+        print(f"  - {_format_matchup_player(row)}")
+    if len(rows) > limit:
+        print(f"  ... {len(rows) - limit} more")
+
+
+def build_matchup_snapshot():
+    """Return read-only current ESPN H2H matchup snapshot data."""
+    config = load_config()
+    payload, err = fetch_espn_league_payload(
+        config,
+        views=['mTeam', 'mRoster', 'mMatchup', 'mSettings'],
+    )
+    if err:
+        return {'error': err}
+
+    period = _espn_current_period(payload)
+    if period:
+        period_payload, period_err = fetch_espn_league_payload(
+            config,
+            views=['mTeam', 'mRoster', 'mMatchup', 'mSettings'],
+            scoring_period_id=period,
+        )
+        if not period_err and period_payload:
+            payload = period_payload
+
+    teams = {team.get('id'): team for team in (payload.get('teams') or []) if team.get('id') is not None}
+    my_team = teams.get(ESPN_TEAM_ID)
+    if not my_team:
+        return {
+            'error': f"My team id {ESPN_TEAM_ID} was not found in the ESPN payload.",
+            'available_teams': {tid: _espn_team_name(team) for tid, team in sorted(teams.items())},
+        }
+
+    matchup = _find_current_matchup(payload, ESPN_TEAM_ID)
+    opponent_id = matchup.get('opponent_team_id') if matchup else None
+    opponent = teams.get(opponent_id) if opponent_id is not None else None
+
+    my_rows = _espn_roster_rows(my_team)
+    opp_rows = _espn_roster_rows(opponent) if opponent else []
+    my_active, my_bench, my_injured = _split_roster_rows(my_rows)
+    opp_active, opp_bench, opp_injured = _split_roster_rows(opp_rows)
+    my_empty = _empty_lineup_slots(my_active)
+    opp_empty = _empty_lineup_slots(opp_active)
+
+    my_score = matchup.get('my_score') if matchup else None
+    opp_score = matchup.get('opponent_score') if matchup else None
+    margin = round(my_score - opp_score, 2) if my_score is not None and opp_score is not None else None
+    injury_notes = []
+    for row in my_injured:
+        injury_notes.append(f"MY: {_format_matchup_player(row)}")
+    for row in opp_injured:
+        injury_notes.append(f"OPP: {_format_matchup_player(row)}")
+    for slot in my_empty:
+        injury_notes.append(f"MY empty active slot: {slot}")
+    for slot in opp_empty:
+        injury_notes.append(f"OPP empty active slot: {slot}")
+    snapshot = {
+        'scoring_period': period,
+        'my_team': {'id': ESPN_TEAM_ID, 'name': _espn_team_name(my_team)},
+        'opponent': {'id': opponent_id, 'name': _espn_team_name(opponent) if opponent else None},
+        'score': {'mine': my_score, 'opponent': opp_score, 'margin': margin},
+        'my_active': my_active,
+        'my_bench': my_bench,
+        'opponent_active': opp_active,
+        'opponent_bench': opp_bench,
+        'injury_notes': injury_notes,
+        'empty_slots': {'mine': my_empty, 'opponent': opp_empty},
+        'available_fields': {
+            'teams': len(teams),
+            'schedule_entries': len(payload.get('schedule') or []),
+            'my_roster_entries': len(my_rows),
+            'opponent_roster_entries': len(opp_rows),
+            'score_fields': my_score is not None and opp_score is not None,
+        },
+    }
+    return snapshot
+
+
+def _print_matchup_snapshot(snapshot, include_actions=False):
+    print("MATCHUP SNAPSHOT")
+    print("=" * 60)
+    if not snapshot or snapshot.get('error'):
+        print(f"Unable to load ESPN matchup data: {(snapshot or {}).get('error') or 'unknown error'}")
+        if (snapshot or {}).get('available_teams'):
+            print("Available teams:")
+            for tid, name in snapshot['available_teams'].items():
+                print(f"  - {tid}: {name}")
+        print("No files were modified.")
+        return
+
+    my_team_name = (snapshot.get('my_team') or {}).get('name') or 'my team'
+    opponent_name = (snapshot.get('opponent') or {}).get('name') or 'not available'
+    score = snapshot.get('score') or {}
+    my_score = score.get('mine')
+    opp_score = score.get('opponent')
+    margin = score.get('margin')
+    print(f"Scoring period: {snapshot.get('scoring_period') or 'unknown'}")
+    print(f"My team: {my_team_name}")
+    print(f"Opponent: {opponent_name}")
+    if my_score is not None and opp_score is not None:
+        print(f"Score: {my_team_name} {my_score:.1f} — {opponent_name} {opp_score:.1f}")
+        print(f"Margin: {margin:+.1f}")
+    else:
+        print("Score: not available from current ESPN matchup payload")
+        print("Margin: not available")
+
+    _print_matchup_list("My active players", snapshot.get('my_active') or [])
+    _print_matchup_list("Opponent active players", snapshot.get('opponent_active') or [])
+
+    my_bench = snapshot.get('my_bench') or []
+    bench_watch = [r for r in my_bench if r.get('injury') or r.get('points') is not None]
+    if not bench_watch:
+        bench_watch = my_bench[:8]
+    _print_matchup_list("My bench watch items", bench_watch, limit=10)
+
+    injury_notes = snapshot.get('injury_notes') or []
+    _print_matchup_list("Injury / empty-slot notes", [{'name': note, 'slot': ''} for note in injury_notes], limit=12)
+
+    fields = snapshot.get('available_fields') or {}
+    print("\nAvailable ESPN matchup fields")
+    print(f"  - teams: {fields.get('teams', 0)}")
+    print(f"  - schedule/matchup entries: {fields.get('schedule_entries', 0)}")
+    print(f"  - my roster entries: {fields.get('my_roster_entries', 0)}")
+    print(f"  - opponent roster entries: {fields.get('opponent_roster_entries', 0)}")
+    print(f"  - score fields: {'available' if fields.get('score_fields') else 'missing'}")
+
+    print("\nMissing / TODO")
+    if not (snapshot.get('opponent') or {}).get('id'):
+        print("  - Current head-to-head matchup was not present in the ESPN schedule payload.")
+    if my_score is None or opp_score is None:
+        print("  - Live matchup score needs a richer ESPN boxscore/matchup helper if this view stays blank.")
+    if not (snapshot.get('opponent') or {}).get('name'):
+        print("  - Opponent roster requires resolving the current matchup opponent first.")
+    empty_slots = snapshot.get('empty_slots') or {}
+    if not empty_slots.get('mine') and not empty_slots.get('opponent'):
+        print("  - Empty lineup slot detection is conservative; ESPN does not expose empty slots as roster entries here.")
+    print("  - Win probability is not implemented yet.")
+
+    if include_actions:
+        actions = build_matchup_action_recommendations(snapshot)
+        print_matchup_actions(actions)
+
+
+def matchup_snapshot():
+    """Read-only current ESPN H2H matchup snapshot foundation."""
+    snapshot = build_matchup_snapshot()
+    _print_matchup_snapshot(snapshot, include_actions=True)
+    return snapshot
 
 
 # =============================================================================
@@ -4199,6 +4551,195 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
         'items': actions,
         'count': len(actions),
     }
+
+
+def _matchup_action(kind, text, priority, source='matchup', meta=None):
+    return {
+        'kind': kind,
+        'text': _compact_decision_text(text, 150),
+        'priority': priority,
+        'source': source,
+        'meta': meta or {},
+    }
+
+
+def _matchup_action_label_priority(kind):
+    return {
+        'LOCK IN': 0,
+        'ADD': 10,
+        'CONSIDER': 30,
+        'BENCH': 40,
+        'WATCH': 60,
+        'AVOID': 80,
+    }.get(kind, 99)
+
+
+def _matchup_player_is_pitcher(row):
+    values = {str(row.get('slot') or ''), str(row.get('pos') or '')}
+    return bool(values & {'P', 'SP', 'RP'})
+
+
+def _matchup_player_is_hitter(row):
+    return bool(row.get('name')) and not _matchup_player_is_pitcher(row) and row.get('slot_id') not in ESPN_INJURY_SLOT_IDS
+
+
+def _matchup_today_team_set(records, target_date=None):
+    target_date = target_date or date.today().isoformat()
+    teams = set()
+    for rec in records or []:
+        if (rec.get('date') or rec.get('game_date')) != target_date:
+            continue
+        if rec.get('team'):
+            teams.add(rec.get('team'))
+        if rec.get('opponent'):
+            teams.add(rec.get('opponent'))
+    return teams
+
+
+def _matchup_decision_item_text(prefix, item, date_label='today'):
+    matchup = _action_matchup_text(item)
+    pts = item.get('points') or 0
+    return f"{prefix} {item.get('name')} {date_label} {matchup} ({pts:.1f} pts, {item.get('confidence') or item.get('tier')})."
+
+
+def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10):
+    """Read-only weekly matchup actions from ESPN snapshot + existing predictions."""
+    base_date = base_date or date.today().isoformat()
+    snapshot = snapshot or build_matchup_snapshot()
+    actions = []
+    seen = set()
+
+    def add(kind, text, priority=None, source='matchup', meta=None):
+        key = (kind, _compact_decision_text(text, 120))
+        if key in seen:
+            return
+        seen.add(key)
+        actions.append(_matchup_action(
+            kind,
+            text,
+            _matchup_action_label_priority(kind) if priority is None else priority,
+            source=source,
+            meta=meta,
+        ))
+
+    if not snapshot or snapshot.get('error'):
+        add('WATCH', f"Matchup snapshot unavailable: {(snapshot or {}).get('error') or 'unknown ESPN error'}.", 90)
+        return {'date': base_date, 'items': actions, 'count': len(actions), 'notes': ['ESPN snapshot unavailable']}
+
+    daily_raw = build_daily_decision_summary(base_date)
+    daily = decision_summary_for_report(daily_raw)
+    watchlist = build_next_watchlist_summary(base_date)
+    prediction_records = daily_raw.get('records') or []
+
+    for slot in (snapshot.get('empty_slots') or {}).get('mine') or []:
+        add('LOCK IN', f"Fill empty active lineup slot {slot} if ESPN still shows it open.", 1, 'espn_matchup')
+
+    active_injured = [
+        row for row in snapshot.get('my_active') or []
+        if row.get('injury') and row.get('slot_id') not in ESPN_INJURY_SLOT_IDS
+    ]
+    injured_active_names = {normalize_name(row.get('name') or '') for row in active_injured if row.get('name')}
+    for row in active_injured[:3]:
+        add(
+            'BENCH',
+            f"Check {row.get('name')} in active slot {row.get('slot')}: ESPN injury status is {row.get('injury')}.",
+            5 if str(row.get('injury')).upper() in ('OUT', 'FIFTEEN_DAY_DL', 'TEN_DAY_DL') else 35,
+            'espn_roster',
+        )
+
+    today_teams = _matchup_today_team_set(prediction_records, base_date)
+    if today_teams:
+        active_hitters_without_game = [
+            row for row in snapshot.get('my_active') or []
+            if _matchup_player_is_hitter(row) and row.get('team') and row.get('team') not in today_teams
+        ]
+        bench_hitters_with_game = [
+            row for row in snapshot.get('my_bench') or []
+            if _matchup_player_is_hitter(row) and row.get('team') in today_teams and not row.get('injury')
+        ]
+        for active in active_hitters_without_game[:2]:
+            if not bench_hitters_with_game:
+                break
+            bench = bench_hitters_with_game[0]
+            add(
+                'CONSIDER',
+                f"Check hitter volume: {active.get('name')} appears active with no game today; {bench.get('name')} has a game if eligible.",
+                28,
+                'espn_roster',
+            )
+
+    sections = (daily or {}).get('sections') or {}
+    for item in sections.get('my_roster', [])[:4]:
+        if normalize_name(item.get('name') or '') in injured_active_names:
+            continue
+        if item.get('tier') in ('must_start', 'start') and not item.get('risks'):
+            add('LOCK IN', _matchup_decision_item_text('Lock in', item), 12, 'prediction_log')
+
+    for item in sections.get('risky_roster', [])[:4]:
+        if normalize_name(item.get('name') or '') in injured_active_names:
+            continue
+        if item.get('tier') == 'avoid':
+            add('BENCH', _matchup_decision_item_text('Bench unless desperate:', item), 18, 'prediction_log')
+        elif item.get('tier') == 'borderline':
+            add('CONSIDER', _matchup_decision_item_text('Use only if you need volume:', item), 38, 'prediction_log')
+        else:
+            risk = (item.get('risks') or ['risk flags'])[0]
+            add('CONSIDER', f"Check {item.get('name')} before lock: {risk}.", 42, 'prediction_log')
+
+    for item in sections.get('best_available', [])[:4]:
+        if item.get('tier') in ('must_start', 'start'):
+            add('ADD', _matchup_decision_item_text('Add/start', item), 20, 'prediction_log')
+        elif item.get('tier') == 'borderline':
+            add('CONSIDER', _matchup_decision_item_text('Consider only for volume:', item), 45, 'prediction_log')
+
+    for item in sections.get('avoid_traps', [])[:3]:
+        add('AVOID', _matchup_decision_item_text('Avoid streaming', item), 70, 'prediction_log')
+
+    for day in (watchlist or {}).get('days', []):
+        date_label = _action_date_text(day.get('date'), base_date)
+        for item in day.get('items', [])[:4]:
+            if item.get('status') not in ('FA', 'WAIVER'):
+                continue
+            if item.get('tier') in ('must_start', 'start'):
+                add('WATCH', _matchup_decision_item_text('Queue streamer', item, date_label), 55, 'prediction_log')
+            elif item.get('tier') == 'borderline':
+                add('WATCH', _matchup_decision_item_text('Watch as volume fallback', item, date_label), 62, 'prediction_log')
+            if len(actions) >= limit + 4:
+                break
+
+    notes = []
+    if (daily or {}).get('status_unreliable'):
+        notes.append('Roster/FA filtering may be stale; refresh with --preview-local if recommendations look sparse.')
+    if not today_teams:
+        notes.append('Could not infer MLB teams playing today from prediction logs; hitter no-game checks were skipped.')
+    if not actions:
+        add('WATCH', 'No clear matchup action found from current snapshot and prediction logs.', 95)
+
+    actions = sorted(actions, key=lambda a: (a.get('priority', 99), a.get('kind'), a.get('text')))[:limit]
+    return {'date': base_date, 'items': actions, 'count': len(actions), 'notes': notes}
+
+
+def print_matchup_actions(action_summary):
+    print("\nMATCHUP ACTION RECOMMENDATIONS")
+    print("=" * 60)
+    print("Read-only: uses existing prediction logs, roster data, and matchup snapshot. No roster moves are made.")
+    items = (action_summary or {}).get('items') or []
+    if not items:
+        print("  None")
+    for idx, action in enumerate(items[:10], 1):
+        print(f"{idx:>2}. {action.get('kind')}: {action.get('text')}")
+    notes = (action_summary or {}).get('notes') or []
+    if notes:
+        print("\nNotes")
+        for note in notes:
+            print(f"  - {note}")
+
+
+def matchup_actions():
+    snapshot = build_matchup_snapshot()
+    actions = build_matchup_action_recommendations(snapshot)
+    print_matchup_actions(actions)
+    return actions
 
 
 def daily_decision_audit(target_date=None):
@@ -9062,6 +9603,8 @@ def main():
     parser.add_argument('--analyze-start-sit-quality', action='store_true', help='Read-only start/sit decision-quality analysis from labeled starts')
     parser.add_argument('--analyze-start-sit-misses', action='store_true', help='Read-only explanation analysis for start/sit decision misses')
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
+    parser.add_argument('--matchup-snapshot', action='store_true', help='Read-only ESPN head-to-head matchup snapshot')
+    parser.add_argument('--matchup-actions', action='store_true', help='Read-only matchup action recommendations from existing data')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
     parser.add_argument('--timing', action='store_true', help='Print runtime timing summary (normal runs print it by default)')
@@ -9132,6 +9675,14 @@ def main():
 
     if args.daily_decision_audit:
         daily_decision_audit()
+        return
+
+    if args.matchup_snapshot:
+        matchup_snapshot()
+        return
+
+    if args.matchup_actions:
+        matchup_actions()
         return
 
     if args.setup:
