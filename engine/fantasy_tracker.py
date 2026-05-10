@@ -4556,7 +4556,7 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
 def _matchup_action(kind, text, priority, source='matchup', meta=None):
     return {
         'kind': kind,
-        'text': _compact_decision_text(text, 150),
+        'text': _compact_decision_text(text, 220),
         'priority': priority,
         'source': source,
         'meta': meta or {},
@@ -4602,6 +4602,40 @@ def _matchup_decision_item_text(prefix, item, date_label='today'):
     return f"{prefix} {item.get('name')} {date_label} {matchup} ({pts:.1f} pts, {item.get('confidence') or item.get('tier')})."
 
 
+def _matchup_projection_records(base_date=None, days=3):
+    """Read existing prediction logs for today through the next N days."""
+    try:
+        start = date.fromisoformat(base_date or date.today().isoformat())
+    except Exception:
+        start = date.today()
+    records = []
+    for offset in range(days + 1):
+        target = (start + timedelta(days=offset)).isoformat()
+        rows, _ = _latest_prediction_records_by_date(target)
+        records.extend(rows)
+    return records
+
+
+def _matchup_projection_lookup(records):
+    lookup = {}
+    for rec in records or []:
+        name = normalize_name(rec.get('name') or rec.get('pitcher_name') or '')
+        if not name:
+            continue
+        lookup.setdefault(name, []).append(rec)
+    for rows in lookup.values():
+        rows.sort(key=lambda r: (r.get('date') or r.get('game_date') or '', -(float(_decision_points(r) or 0))))
+    return lookup
+
+
+def _matchup_projection_context(record):
+    game_date = record.get('date') or record.get('game_date') or 'unknown date'
+    opponent = record.get('opponent') or '?'
+    home_away = record.get('home_away') or '?'
+    matchup = f"vs {opponent}" if home_away == 'H' else f"at {opponent}" if home_away == 'A' else f"{home_away} {opponent}"
+    return f"{game_date} {matchup}, {_decision_points(record):.1f} pts, {record.get('tier') or 'unknown'}"
+
+
 def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10):
     """Read-only weekly matchup actions from ESPN snapshot + existing predictions."""
     base_date = base_date or date.today().isoformat()
@@ -4629,7 +4663,8 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
     daily_raw = build_daily_decision_summary(base_date)
     daily = decision_summary_for_report(daily_raw)
     watchlist = build_next_watchlist_summary(base_date)
-    prediction_records = daily_raw.get('records') or []
+    prediction_records = _matchup_projection_records(base_date, days=3)
+    projection_lookup = _matchup_projection_lookup(prediction_records)
 
     for slot in (snapshot.get('empty_slots') or {}).get('mine') or []:
         add('LOCK IN', f"Fill empty active lineup slot {slot} if ESPN still shows it open.", 1, 'espn_matchup')
@@ -4640,12 +4675,30 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
     ]
     injured_active_names = {normalize_name(row.get('name') or '') for row in active_injured if row.get('name')}
     for row in active_injured[:3]:
-        add(
-            'BENCH',
-            f"Check {row.get('name')} in active slot {row.get('slot')}: ESPN injury status is {row.get('injury')}.",
-            5 if str(row.get('injury')).upper() in ('OUT', 'FIFTEEN_DAY_DL', 'TEN_DAY_DL') else 35,
-            'espn_roster',
-        )
+        name_key = normalize_name(row.get('name') or '')
+        projections = projection_lookup.get(name_key) or []
+        if projections:
+            context = _matchup_projection_context(projections[0])
+            add(
+                'WATCH',
+                (
+                    f"{row.get('name')} in active slot {row.get('slot')}: ESPN injury status "
+                    f"{row.get('injury')} conflicts with current projection/start data ({context}). "
+                    "Verify manually before locking lineup."
+                ),
+                4,
+                'espn_roster+prediction_log',
+            )
+        else:
+            add(
+                'BENCH',
+                (
+                    f"Check {row.get('name')} in active slot {row.get('slot')}: ESPN injury status "
+                    f"is {row.get('injury')}; no current projection/start data found."
+                ),
+                5 if str(row.get('injury')).upper() in ('OUT', 'FIFTEEN_DAY_DL', 'TEN_DAY_DL') else 35,
+                'espn_roster',
+            )
 
     today_teams = _matchup_today_team_set(prediction_records, base_date)
     if today_teams:
