@@ -9481,5 +9481,42 @@
       "ip": "85.0"
     },
     "splits_window_years": 3
+  },
+  "837227": {
+    "mlb_id": 837227,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 94.6897302346939,
+        "pct": 0.47804877
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 77.60269016666668,
+        "pct": 0.029268293
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 85.72597816666666,
+        "pct": 0.029268293
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 86.94187357954547,
+        "pct": 0.4292683
+      },
+      {
+        "code": "FS",
+        "desc": "Splitter",
+        "velo": 84.621269,
+        "pct": 0.034146342
+      }
+    ],
+    "fb_velo": 94.7,
+    "pitch_count": 5
   }
 }
