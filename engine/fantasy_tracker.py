@@ -3550,6 +3550,8 @@ TIER_LABELS = {
 TIER_ORDER = {'must_start': 0, 'start': 1, 'borderline': 2, 'avoid': 3}
 PROBABLE_SOURCE_RANK = {'mlb': 3, 'espn': 2, 'inferred_roster': 1, None: 0, '': 0}
 MIN_STARTER_REST_DAYS = 4
+HARD_START_EVIDENCE_SOURCES = {'completed_start', 'mlb_game_log', 'predictions_outcomes'}
+SOFT_START_EVIDENCE_SOURCES = {'prediction_log_recent_start', 'predictions_outcomes_recent_log'}
 
 
 def _probable_game_label(game):
@@ -3717,6 +3719,26 @@ def _recent_start_reason_label(source):
     return 'actual start'
 
 
+def _start_evidence_reliability(source):
+    parts = {p for p in str(source or '').split('+') if p}
+    if parts & HARD_START_EVIDENCE_SOURCES:
+        return 'hard'
+    if parts & SOFT_START_EVIDENCE_SOURCES:
+        return 'soft'
+    return 'soft'
+
+
+def _split_recent_start_evidence(mapping):
+    hard = {}
+    soft = {}
+    for norm, info in (mapping or {}).items():
+        if _start_evidence_reliability((info or {}).get('source')) == 'hard':
+            hard[norm] = dict(info)
+        else:
+            soft[norm] = dict(info)
+    return hard, soft
+
+
 def _recent_prediction_start_evidence(dates):
     """Read-only fallback evidence for pitchers already projected today/yesterday."""
     out = {}
@@ -3756,10 +3778,14 @@ def _validate_probable_schedule(schedule, recent_completed_starts=None,
     This leaves projection math untouched; it only prevents low-confidence
     pitcher/date assignments from becoming normal actionable starts.
     """
-    recent_completed_starts = recent_completed_starts or {}
-    workload_recent_starts = _recent_actual_starts_from_workload(pitcher_workload)
+    hard_recent_starts, soft_recent_starts = _split_recent_start_evidence(recent_completed_starts or {})
+    workload_hard, workload_soft = _split_recent_start_evidence(_recent_actual_starts_from_workload(pitcher_workload))
+    hard_recent_starts = _merge_recent_start_maps(hard_recent_starts, workload_hard)
+    soft_recent_starts = _merge_recent_start_maps(soft_recent_starts, workload_soft)
     suppressed = {}
+    warnings = {}
     examples = []
+    warning_examples = []
 
     by_pitcher = defaultdict(list)
     for game in schedule or []:
@@ -3779,6 +3805,18 @@ def _validate_probable_schedule(schedule, recent_completed_starts=None,
                 'assignment': _probable_game_label(game),
             })
 
+    def warn(game, reason):
+        key = _probable_assignment_id(game)
+        if key in warnings or key in suppressed:
+            return
+        warnings[key] = reason
+        if len(warning_examples) < example_limit:
+            warning_examples.append({
+                'pitcher': game.get('pitcher_name'),
+                'reason': reason,
+                'assignment': _probable_game_label(game),
+            })
+
     # Suppress projected starts 1-3 calendar days after a real completed start
     # from boxscore/outcome/workload history. Runtime probable sources can go
     # stale; source code must not trust them over completed-start evidence.
@@ -3791,23 +3829,30 @@ def _validate_probable_schedule(schedule, recent_completed_starts=None,
             completed = _recent_start_before_date(
                 norm,
                 game_date.isoformat(),
-                recent_completed_starts,
-                workload_recent_starts,
+                hard_recent_starts,
             )
-            if not completed or not completed.get('date'):
-                continue
-            try:
-                completed_date = date.fromisoformat(str(completed.get('date'))[:10])
-            except Exception:
-                continue
-            days_since = (game_date - completed_date).days
-            if 1 <= days_since < MIN_STARTER_REST_DAYS:
+            soft_completed = _recent_start_before_date(
+                norm,
+                game_date.isoformat(),
+                soft_recent_starts,
+            )
+
+            def rest_conflict(info):
+                if not info or not info.get('date'):
+                    return None, None
+                try:
+                    prior_date = date.fromisoformat(str(info.get('date'))[:10])
+                except Exception:
+                    return None, None
+                days = (game_date - prior_date).days
+                if 1 <= days < MIN_STARTER_REST_DAYS:
+                    return prior_date, days
+                return None, None
+
+            completed_date, days_since = rest_conflict(completed)
+            if completed_date is not None:
                 source = completed.get('source') or 'recent_start'
                 evidence_label = _recent_start_reason_label(source)
-                # A prior prediction log is weaker than a completed boxscore,
-                # but a normal starter projected again inside four days is
-                # still too risky to present as actionable. Convert it to a
-                # problem row so the user verifies manually.
                 mark(
                     game,
                     (
@@ -3817,6 +3862,20 @@ def _validate_probable_schedule(schedule, recent_completed_starts=None,
                         "converted to TBD/problem"
                     ),
                 )
+                continue
+
+            soft_date, soft_days = rest_conflict(soft_completed)
+            if soft_date is not None:
+                source = soft_completed.get('source') or 'recent_start'
+                msg = (
+                    f"prior prediction-log conflict: {soft_date.isoformat()} "
+                    f"from {source}, projected again after {soft_days} day(s) "
+                    f"with source={game.get('probable_source') or 'unknown'}; verify manually"
+                )
+                if game.get('probable_source') == 'mlb':
+                    warn(game, msg)
+                else:
+                    mark(game, msg + "; converted to TBD/problem")
 
     # Suppress duplicate pitcher assignments too close together. MLB official
     # probable data wins over ESPN; otherwise keep the earlier assignment.
@@ -3856,31 +3915,44 @@ def _validate_probable_schedule(schedule, recent_completed_starts=None,
 
     validated = []
     for game in schedule or []:
-        reason = suppressed.get(_probable_assignment_id(game))
+        key = _probable_assignment_id(game)
+        reason = suppressed.get(key)
         if reason:
             validated.append(_suppress_probable_game(game, reason))
         else:
+            warning = warnings.get(key)
+            if warning:
+                game = dict(game)
+                game['probable_warning'] = warning
             validated.append(game)
 
     stale_count = sum(
         1 for reason in suppressed.values()
-        if str(reason).startswith(('stale probable', 'recent-start conflict'))
+        if str(reason).startswith(('stale probable', 'recent-start conflict', 'prior prediction-log conflict'))
     )
     report = {
         'duplicate_conflicts': duplicate_conflicts,
         'recent_rest_conflicts': stale_count,
         'stale_suppressed': stale_count,
+        'soft_warnings': len(warnings),
         'suppressed_total': len(suppressed),
         'examples': examples,
+        'warning_examples': warning_examples,
+        'suppressed': suppressed,
+        'warnings': warnings,
     }
     if verbose:
         print(
             "  Probable date sanity: "
             f"{duplicate_conflicts} duplicate pitcher-date conflict(s), "
-            f"{stale_count} stale/recent-rest probable start(s) suppressed"
+            f"{len(suppressed)} total start(s) suppressed, "
+            f"{stale_count} stale/recent-rest probable start(s), "
+            f"{len(warnings)} soft warning(s)"
         )
         for ex in examples:
             print(f"    - {ex['pitcher']}: {ex['reason']} ({ex['assignment']})")
+        for ex in warning_examples:
+            print(f"    - warning {ex['pitcher']}: {ex['reason']} ({ex['assignment']})")
     return validated, report
 
 
@@ -3930,6 +4002,30 @@ def _resolve_probable_schedule(schedule, espn_probables=None, my_sps_by_team=Non
     return resolved
 
 
+def _my_starting_pitchers_by_team(fg_proj, roster_map, espn_matches):
+    my_sps_by_team = {}
+    if not roster_map:
+        return my_sps_by_team
+    espn_matches_norm = {}
+    for fg_name, match_info in (espn_matches or {}).items():
+        espn_matches_norm[normalize_name(fg_name)] = (fg_name, match_info)
+    for key, proj in (fg_proj or {}).items():
+        fg_name = proj.get('name', '')
+        fg_name_norm = normalize_name(fg_name)
+        match_entry = None
+        if fg_name in (espn_matches or {}):
+            match_entry = espn_matches[fg_name]
+        elif fg_name_norm in espn_matches_norm:
+            _, match_entry = espn_matches_norm[fg_name_norm]
+        if match_entry:
+            eid = match_entry['espn_id']
+            if eid in roster_map and roster_map[eid]['team_id'] == ESPN_TEAM_ID:
+                p_team = proj.get('team', '') or (key.split('|')[-1] if '|' in key else '')
+                if proj.get('GS', 0) >= 5 and p_team:
+                    my_sps_by_team.setdefault(p_team, []).append((fg_name, proj, match_entry))
+    return my_sps_by_team
+
+
 def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                          league_avg_ops, team_handedness, pitcher_details,
                          roster_map, espn_matches, savant_data=None,
@@ -3961,24 +4057,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
     # Build lookup of MY ROSTER SPs by team for TBD resolution
     # When MLB hasn't announced a probable pitcher but the user knows their guy is starting,
     # we can infer it by matching the TBD team to the user's rostered SP on that team.
-    my_sps_by_team = {}  # team_abbr -> list of (fg_name, proj)
-    if roster_map:
-        for key, proj in fg_proj.items():
-            fg_name = proj.get('name', '')
-            fg_name_norm = normalize_name(fg_name)
-            # Check if this pitcher is on MY ROSTER
-            match_entry = None
-            if fg_name in espn_matches:
-                match_entry = espn_matches[fg_name]
-            elif fg_name_norm in espn_matches_norm:
-                _, match_entry = espn_matches_norm[fg_name_norm]
-            if match_entry:
-                eid = match_entry['espn_id']
-                if eid in espn_id_to_roster and espn_id_to_roster[eid]['team_id'] == ESPN_TEAM_ID:
-                    # Team from projection dict or parsed from the key
-                    p_team = proj.get('team', '') or (key.split('|')[-1] if '|' in key else '')
-                    if proj.get('GS', 0) >= 5 and p_team:  # Must be a real starter
-                        my_sps_by_team.setdefault(p_team, []).append((fg_name, proj, match_entry))
+    my_sps_by_team = _my_starting_pitchers_by_team(fg_proj, roster_map, espn_matches)
 
     schedule = _resolve_probable_schedule(schedule, espn_probables, my_sps_by_team)
     schedule, probable_sanity = _validate_probable_schedule(
@@ -4000,6 +4079,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                 'probable_note': game.get('probable_note'),
                 'probable_conflict_pitcher': game.get('probable_conflict_pitcher'),
                 'probable_source': game.get('probable_source'),
+                'probable_warning': game.get('probable_warning'),
             })
             continue
 
@@ -4169,6 +4249,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'tier': tier,
             'tier_label': TIER_LABELS.get(tier, ''),
             'probable_source': game.get('probable_source'),
+            'probable_warning': game.get('probable_warning'),
             'pitch_analysis': pitch_analysis,
             'emerging': emerging,
             'opp_il': opp_il,
@@ -4694,6 +4775,7 @@ def _decision_record_from_streaming_entry(entry):
         'probable_note': entry.get('probable_note'),
         'probable_conflict_pitcher': entry.get('probable_conflict_pitcher'),
         'probable_source': entry.get('probable_source'),
+        'probable_warning': entry.get('probable_warning'),
         'features': features,
     }
 
@@ -4987,8 +5069,11 @@ def validate_probable_prediction_records(records, source='prediction records',
                                          verbose=False, example_limit=8):
     """Read-time sanity filter for cached/current prediction-shaped records."""
     records = [dict(r) for r in records or []]
+    hard_recent_starts, soft_recent_starts = _split_recent_start_evidence(recent_actual_starts or {})
     suppressed = {}
+    warnings = {}
     examples = []
+    warning_examples = []
     by_pitcher = defaultdict(list)
     for idx, rec in enumerate(records):
         if rec.get('tbd'):
@@ -5011,11 +5096,25 @@ def validate_probable_prediction_records(records, source='prediction records',
                 'source': source,
             })
 
+    def warn(idx, rec, reason):
+        if idx in suppressed or idx in warnings:
+            return
+        warnings[idx] = reason
+        if len(warning_examples) < example_limit:
+            warning_examples.append({
+                'pitcher': rec.get('name') or rec.get('pitcher_name'),
+                'date': rec.get('date') or rec.get('game_date'),
+                'team': rec.get('team'),
+                'opponent': rec.get('opponent'),
+                'reason': reason,
+                'source': source,
+            })
+
     for norm, items in by_pitcher.items():
         for idx, rec in items:
             features = rec.get('features') or {}
             game_date_raw = rec.get('date') or rec.get('game_date')
-            actual = _recent_start_before_date(norm, game_date_raw, recent_actual_starts)
+            actual = _recent_start_before_date(norm, game_date_raw, hard_recent_starts)
             if actual and actual.get('date'):
                 try:
                     game_date = date.fromisoformat(str(game_date_raw)[:10])
@@ -5036,6 +5135,24 @@ def validate_probable_prediction_records(records, source='prediction records',
                         ),
                     )
                     continue
+            soft = _recent_start_before_date(norm, game_date_raw, soft_recent_starts)
+            if soft and soft.get('date'):
+                try:
+                    game_date = date.fromisoformat(str(game_date_raw)[:10])
+                    soft_date = date.fromisoformat(str(soft.get('date'))[:10])
+                    days_since = (game_date - soft_date).days
+                except Exception:
+                    days_since = None
+                if days_since is not None and 1 <= days_since < MIN_STARTER_REST_DAYS:
+                    warn(
+                        idx,
+                        rec,
+                        (
+                            f"prior prediction-log conflict: {soft_date.isoformat()} "
+                            f"from {soft.get('source') or 'recent_start'}, "
+                            f"projected again after {days_since} day(s); verify manually"
+                        ),
+                    )
             days_rest = _feature_float(features, 'days_rest')
             if days_rest is not None and days_rest <= 3:
                 mark(idx, rec, f"low-confidence probable date: only {days_rest:g} day(s) since last start")
@@ -5049,7 +5166,7 @@ def validate_probable_prediction_records(records, source='prediction records',
             except Exception:
                 continue
             for right_idx, right in sorted_items[i + 1:]:
-                if right_idx in suppressed:
+                if right_idx in suppressed or right_idx in warnings:
                     continue
                 right_date_raw = right.get('date') or right.get('game_date')
                 try:
@@ -5064,19 +5181,28 @@ def validate_probable_prediction_records(records, source='prediction records',
                     )
 
     out = [
-        _mark_probable_record_problem(rec, suppressed[idx]) if idx in suppressed else rec
+        _mark_probable_record_problem(rec, suppressed[idx]) if idx in suppressed
+        else {**rec, 'probable_warning': warnings[idx]} if idx in warnings
+        else rec
         for idx, rec in enumerate(records)
     ]
     report = {
         'records_scanned': len(records),
         'suppressed_total': len(suppressed),
+        'soft_warnings': len(warnings),
         'examples': examples,
+        'warning_examples': warning_examples,
         'source': source,
     }
     if verbose:
-        print(f"Probable date record sanity ({source}): {len(suppressed)} low-confidence record(s) flagged")
+        print(
+            f"Probable date record sanity ({source}): "
+            f"{len(suppressed)} low-confidence record(s) flagged, {len(warnings)} soft warning(s)"
+        )
         for ex in examples:
             print(f"  - {ex['pitcher']} {ex['date']} {ex['team']} vs {ex['opponent']}: {ex['reason']}")
+        for ex in warning_examples:
+            print(f"  - warning {ex['pitcher']} {ex['date']} {ex['team']} vs {ex['opponent']}: {ex['reason']}")
     return out, report
 
 
@@ -5116,6 +5242,7 @@ def audit_probable_dates():
     print(f"Prediction records scanned: {report['records_scanned']}")
     print(f"Recent actual/completed/logged starts checked: {len(recent_actual_starts)}")
     print(f"Low-confidence probable records flagged: {report['suppressed_total']}")
+    print(f"Soft prediction-log warnings: {report.get('soft_warnings', 0)}")
     examples = report.get('examples') or []
     if examples:
         print("\nExamples")
@@ -5126,12 +5253,194 @@ def audit_probable_dates():
             )
     else:
         print("\nNo impossible short-rest or duplicate-date patterns found in recent prediction logs.")
+    warning_examples = report.get('warning_examples') or []
+    if warning_examples:
+        print("\nSoft warnings")
+        for ex in warning_examples:
+            print(
+                f"  - {ex['pitcher']} on {ex['date']} "
+                f"({ex['team']} vs {ex['opponent']}): {ex['reason']}"
+            )
     names = {normalize_name(ex.get('pitcher') or ''): ex for ex in examples}
     for wanted in ('Chris Bassitt', 'Walbert Urena'):
         key = normalize_name(wanted)
-        if key not in names:
+        warning_names = {normalize_name(ex.get('pitcher') or ''): ex for ex in warning_examples}
+        if key not in names and key not in warning_names:
             print(f"  - {wanted}: no recent conflict found in scanned logs.")
     return {'records': len(records), 'flagged': report['suppressed_total']}
+
+
+def _status_for_probable_pitcher(name, team, fg_proj=None, espn_matches=None, roster_map=None):
+    roster_cache, _ = _load_local_roster_status_cache()
+    cached = roster_cache.get((normalize_name(name), team or ''))
+    if cached:
+        return cached
+    norm = normalize_name(name)
+    proj_name = None
+    for key, proj in (fg_proj or {}).items():
+        if normalize_name(proj.get('name') or '') == norm and (not team or proj.get('team') == team):
+            proj_name = proj.get('name')
+            break
+    proj_name = proj_name or name
+    match = (espn_matches or {}).get(proj_name) or (espn_matches or {}).get(name)
+    if not match:
+        for match_name, match_info in (espn_matches or {}).items():
+            if normalize_name(match_name) == norm:
+                match = match_info
+                break
+    if match and roster_map:
+        info = roster_map.get(match.get('espn_id'))
+        if info:
+            return 'MY ROSTER' if info.get('team_id') == ESPN_TEAM_ID else 'OTHER'
+    return 'FA'
+
+
+def explain_pitcher_schedule(pitcher_name):
+    """Read-only diagnostic for current streaming-window probable-date handling."""
+    global PREVIEW_LOCAL
+    old_preview = PREVIEW_LOCAL
+    PREVIEW_LOCAL = True
+    try:
+        target_norm = normalize_name(pitcher_name or '')
+        week_start, week_end = get_streaming_window()
+        print("PITCHER SCHEDULE EXPLANATION")
+        print("=" * 60)
+        print(f"Pitcher: {pitcher_name}")
+        print(f"Streaming window: {week_start} to {week_end}")
+
+        fg_proj = fetch_fg_pitcher_projections()
+        schedule = fetch_weekly_schedule(week_start, week_end)
+        espn_probables = fetch_espn_probables(week_start, week_end)
+
+        espn_matches = {}
+        roster_map = {}
+        try:
+            espn_players = fetch_espn_players()
+            fg_players = [
+                {'name': p.get('name'), 'team': p.get('team'), 'positions': ['P'], 'type': 'pitcher'}
+                for p in (fg_proj or {}).values()
+            ]
+            espn_matches, _ = match_fg_to_espn(fg_players, espn_players)
+            roster_map = fetch_espn_rosters(load_config()) or {}
+            espn_matches = reconcile_with_roster(espn_matches, roster_map, espn_players)
+        except Exception as e:
+            print(f"Roster/status lookup warning: {e}")
+
+        my_sps_by_team = _my_starting_pitchers_by_team(fg_proj, roster_map, espn_matches)
+        resolved = _resolve_probable_schedule(schedule, espn_probables, my_sps_by_team)
+
+        pitcher_ids_by_name = {}
+        for game in resolved:
+            name = game.get('pitcher_name')
+            mid = game.get('pitcher_mlb_id')
+            if name and mid:
+                pitcher_ids_by_name[normalize_name(name)] = mid
+        pitcher_ids_by_name = augment_workload_pitcher_ids(
+            pitcher_ids_by_name,
+            fg_proj,
+            espn_probables=espn_probables,
+            roster_map=roster_map,
+            espn_matches=espn_matches,
+        )
+        workload = compute_pitcher_workload(PREDICTIONS_DIR, OUTCOMES_LOG, pitcher_ids_by_name)
+
+        recent_dates = [
+            (date.today() - timedelta(days=offset)).isoformat()
+            for offset in range(0, 4)
+        ]
+        recent_completed = [
+            (d, fetch_completed_starts_for_date(d, verbose=False))
+            for d in recent_dates
+        ]
+        mixed_recent = _merge_recent_start_maps(
+            _recent_actual_starts_from_outcomes(OUTCOMES_LOG),
+            _recent_logged_start_evidence_from_outcomes(OUTCOMES_LOG, recent_dates),
+            _recent_completed_starts_map(*recent_completed),
+            _recent_prediction_start_evidence(recent_dates),
+        )
+        hard_recent, soft_recent = _split_recent_start_evidence(mixed_recent)
+        workload_hard, workload_soft = _split_recent_start_evidence(_recent_actual_starts_from_workload(workload))
+        hard_recent = _merge_recent_start_maps(hard_recent, workload_hard)
+        soft_recent = _merge_recent_start_maps(soft_recent, workload_soft)
+
+        validated, report = _validate_probable_schedule(
+            resolved,
+            recent_completed_starts=mixed_recent,
+            pitcher_workload=workload,
+            verbose=False,
+            example_limit=20,
+        )
+
+        candidates = [
+            g for g in resolved
+            if normalize_name(g.get('pitcher_name') or '') == target_norm
+        ]
+        final_rows = [
+            g for g in validated
+            if normalize_name(g.get('pitcher_name') or g.get('probable_conflict_pitcher') or '') == target_norm
+        ]
+
+        print("\nSchedule/probable candidates")
+        if not candidates:
+            print("  None found in current fetched schedule/probable data.")
+        for game in candidates:
+            key = _probable_assignment_id(game)
+            decision = 'kept'
+            if key in report.get('suppressed', {}):
+                decision = 'TBD/problem'
+            elif key in report.get('warnings', {}):
+                decision = 'kept with warning'
+            status = _status_for_probable_pitcher(
+                game.get('pitcher_name'), game.get('pitcher_team'), fg_proj, espn_matches, roster_map
+            )
+            visibility = 'actionable' if status in ('MY ROSTER', 'FA', 'WAIVER') and decision == 'kept' else decision
+            hard = _recent_start_before_date(target_norm, game.get('date'), hard_recent)
+            soft = _recent_start_before_date(target_norm, game.get('date'), soft_recent)
+            print(
+                f"  - {game.get('date')} {game.get('pitcher_team')} "
+                f"{'vs' if game.get('home_away') == 'H' else 'at'} {game.get('opponent')} "
+                f"| source={game.get('probable_source') or 'unknown'} | status={status} | {visibility}"
+            )
+            if key in report.get('suppressed', {}):
+                print(f"      validation: {report['suppressed'][key]}")
+            elif key in report.get('warnings', {}):
+                print(f"      validation: {report['warnings'][key]}")
+            else:
+                print("      validation: no rest/date conflict")
+            if hard:
+                print(f"      hard evidence: {hard.get('date')} from {hard.get('source')}")
+            else:
+                print("      hard evidence: none before this date")
+            if soft:
+                print(f"      soft evidence: {soft.get('date')} from {soft.get('source')}")
+            else:
+                print("      soft evidence: none before this date")
+
+        print("\nFinal displayed date(s)")
+        if not final_rows:
+            print("  None.")
+        for game in final_rows:
+            if game.get('pitcher_name'):
+                print(
+                    f"  - {game.get('date')} {game.get('pitcher_team')} "
+                    f"{'vs' if game.get('home_away') == 'H' else 'at'} {game.get('opponent')} "
+                    f"| source={game.get('probable_source') or 'unknown'}"
+                )
+                if game.get('probable_warning'):
+                    print(f"      warning: {game.get('probable_warning')}")
+            else:
+                print(
+                    f"  - {game.get('date')} {game.get('pitcher_team')} "
+                    f"{'vs' if game.get('home_away') == 'H' else 'at'} {game.get('opponent')} "
+                    f"| TBD/problem for {game.get('probable_conflict_pitcher')}: {game.get('probable_note')}"
+                )
+        return {
+            'candidates': len(candidates),
+            'final_rows': len(final_rows),
+            'suppressed': sum(1 for g in candidates if _probable_assignment_id(g) in report.get('suppressed', {})),
+        }
+    finally:
+        PREVIEW_LOCAL = old_preview
 
 
 def decision_summary_for_report(summary):
@@ -10813,6 +11122,7 @@ def main():
     parser.add_argument('--matchup-snapshot', action='store_true', help='Read-only ESPN head-to-head matchup snapshot')
     parser.add_argument('--matchup-actions', action='store_true', help='Read-only matchup action recommendations from existing data')
     parser.add_argument('--debug-matchup-payload', action='store_true', help='Read-only compact ESPN matchup payload diagnostic')
+    parser.add_argument('--explain-pitcher-schedule', metavar='PITCHER', help='Read-only probable-date diagnostic for one pitcher')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
     parser.add_argument('--timing', action='store_true', help='Print runtime timing summary (normal runs print it by default)')
@@ -10851,6 +11161,10 @@ def main():
 
     if args.audit_probable_dates:
         audit_probable_dates()
+        return
+
+    if args.explain_pitcher_schedule:
+        explain_pitcher_schedule(args.explain_pitcher_schedule)
         return
 
     if args.dedupe_outcomes:
