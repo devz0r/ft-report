@@ -31,6 +31,7 @@ import fnmatch
 import subprocess
 from datetime import datetime, date, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import defaultdict
 
 # =============================================================================
 # CONFIGURATION
@@ -603,14 +604,28 @@ def _espn_team_name(team):
     return team.get('name') or f"{team.get('location', '')} {team.get('nickname', '')}".strip() or f"Team {team.get('id', '?')}"
 
 
-def _espn_current_period(payload):
+def _espn_period_info(payload):
     status = (payload or {}).get('status') or {}
-    return (
-        status.get('currentMatchupPeriod')
-        or status.get('currentScoringPeriod')
-        or status.get('latestScoringPeriod')
-        or (payload or {}).get('scoringPeriodId')
-    )
+    return {
+        'current_matchup_period': (
+            status.get('currentMatchupPeriod')
+            or status.get('currentMatchupPeriodId')
+            or status.get('matchupPeriodId')
+        ),
+        'current_scoring_period': (
+            status.get('currentScoringPeriod')
+            or status.get('currentScoringPeriodId')
+            or (payload or {}).get('scoringPeriodId')
+        ),
+        'latest_scoring_period': status.get('latestScoringPeriod'),
+        'first_scoring_period': status.get('firstScoringPeriod'),
+        'final_scoring_period': status.get('finalScoringPeriod'),
+    }
+
+
+def _espn_current_period(payload):
+    info = _espn_period_info(payload)
+    return info.get('current_scoring_period') or info.get('latest_scoring_period')
 
 
 def _espn_box_score(entry):
@@ -627,38 +642,157 @@ def _espn_schedule_team_id(side):
     return side.get('teamId') or (side.get('team') or {}).get('id')
 
 
-def _espn_schedule_score(side):
+def _espn_schedule_score_info(side, scoring_period_id=None):
     if not isinstance(side, dict):
-        return None
-    for key in ('totalPoints', 'totalPointsLive', 'pointsByScoringPeriod'):
+        return None, None
+    for key in ('totalPointsLive', 'totalPoints', 'appliedStatTotal', 'points', 'score'):
         value = side.get(key)
-        if isinstance(value, dict):
-            vals = [_safe_float(v) for v in value.values()]
-            vals = [v for v in vals if v is not None]
-            if vals:
-                return round(sum(vals), 2)
         val = _safe_float(value)
         if val is not None:
-            return val
-    return None
+            return val, key
+    value = side.get('pointsByScoringPeriod')
+    if isinstance(value, dict):
+        if scoring_period_id is not None:
+            single = _safe_float(value.get(str(scoring_period_id)) or value.get(scoring_period_id))
+            if single is not None:
+                # Prefer weekly/period totals above; this single-day value is
+                # only a fallback so we can show something diagnostic.
+                return single, f'pointsByScoringPeriod[{scoring_period_id}]'
+        vals = [_safe_float(v) for v in value.values()]
+        vals = [v for v in vals if v is not None]
+        if vals:
+            return round(sum(vals), 2), 'pointsByScoringPeriod:sum'
+    return None, None
 
 
-def _find_current_matchup(payload, my_team_id):
-    schedule = (payload or {}).get('schedule') or []
-    for matchup in schedule:
+def _espn_schedule_score(side):
+    return _espn_schedule_score_info(side)[0]
+
+
+def _espn_entry_scoring_periods(matchup):
+    periods = set()
+    for side_key in ('home', 'away'):
+        points = ((matchup or {}).get(side_key) or {}).get('pointsByScoringPeriod')
+        if isinstance(points, dict):
+            for key in points.keys():
+                try:
+                    periods.add(int(key))
+                except Exception:
+                    periods.add(str(key))
+    return periods
+
+
+def _espn_schedule_matchup_period(matchup):
+    return (
+        (matchup or {}).get('matchupPeriodId')
+        or (matchup or {}).get('matchupPeriod')
+        or (matchup or {}).get('periodId')
+    )
+
+
+def _espn_schedule_scoring_period(matchup):
+    return (
+        (matchup or {}).get('scoringPeriodId')
+        or (matchup or {}).get('scoringPeriod')
+    )
+
+
+def _espn_matchup_candidates(payload, my_team_id, scoring_period_id=None):
+    teams = {team.get('id'): team for team in (payload or {}).get('teams', []) if team.get('id') is not None}
+    scoring_period = scoring_period_id or _espn_period_info(payload).get('current_scoring_period')
+    out = []
+    for idx, matchup in enumerate((payload or {}).get('schedule') or []):
         sides = [matchup.get('home') or {}, matchup.get('away') or {}]
         team_ids = [_espn_schedule_team_id(side) for side in sides]
         if my_team_id not in team_ids:
             continue
         my_side = sides[0] if team_ids[0] == my_team_id else sides[1]
         opp_side = sides[1] if team_ids[0] == my_team_id else sides[0]
-        return {
+        my_score, my_score_source = _espn_schedule_score_info(my_side, scoring_period)
+        opp_score, opp_score_source = _espn_schedule_score_info(opp_side, scoring_period)
+        opp_id = _espn_schedule_team_id(opp_side)
+        out.append({
+            'index': idx,
+            'id': matchup.get('id') or matchup.get('matchupId') or matchup.get('scheduleId'),
             'matchup': matchup,
-            'my_score': _espn_schedule_score(my_side),
-            'opponent_team_id': _espn_schedule_team_id(opp_side),
-            'opponent_score': _espn_schedule_score(opp_side),
-        }
-    return None
+            'matchup_period_id': _espn_schedule_matchup_period(matchup),
+            'scoring_period_id': _espn_schedule_scoring_period(matchup),
+            'scoring_periods': sorted(_espn_entry_scoring_periods(matchup), key=lambda v: str(v)),
+            'winner': matchup.get('winner'),
+            'status': matchup.get('status') or matchup.get('matchupStatus'),
+            'home_team_id': team_ids[0],
+            'away_team_id': team_ids[1],
+            'home_team_name': _espn_team_name(teams.get(team_ids[0])),
+            'away_team_name': _espn_team_name(teams.get(team_ids[1])),
+            'home_score': _espn_schedule_score(sides[0]),
+            'away_score': _espn_schedule_score(sides[1]),
+            'my_score': my_score,
+            'my_score_source': my_score_source,
+            'opponent_team_id': opp_id,
+            'opponent_team_name': _espn_team_name(teams.get(opp_id)),
+            'opponent_score': opp_score,
+            'opponent_score_source': opp_score_source,
+        })
+    return out
+
+
+def _find_current_matchup(payload, my_team_id, period_info=None):
+    period_info = period_info or _espn_period_info(payload)
+    current_matchup_period = period_info.get('current_matchup_period')
+    current_scoring_period = period_info.get('current_scoring_period')
+    candidates = _espn_matchup_candidates(payload, my_team_id, current_scoring_period)
+    if not candidates:
+        return None
+
+    def selected(candidate, method, confidence=True):
+        out = dict(candidate)
+        out['selection_method'] = method
+        out['confidence'] = bool(confidence)
+        return out
+
+    if current_matchup_period is not None:
+        exact = [c for c in candidates if str(c.get('matchup_period_id')) == str(current_matchup_period)]
+        if len(exact) == 1:
+            return selected(exact[0], 'currentMatchupPeriod')
+        if len(exact) > 1:
+            scored = [c for c in exact if c.get('my_score') is not None and c.get('opponent_score') is not None]
+            if len(scored) == 1:
+                return selected(scored[0], 'currentMatchupPeriod+score-fields')
+            return {
+                'confidence': False,
+                'error': f"Multiple matchup entries matched currentMatchupPeriod={current_matchup_period}.",
+                'candidates': exact,
+            }
+
+    if current_scoring_period is not None:
+        mapped = [
+            c for c in candidates
+            if str(c.get('scoring_period_id')) == str(current_scoring_period)
+            or current_scoring_period in c.get('scoring_periods', [])
+            or str(current_scoring_period) in {str(v) for v in c.get('scoring_periods', [])}
+        ]
+        if len(mapped) == 1:
+            return selected(mapped[0], 'currentScoringPeriod')
+        if len(mapped) > 1:
+            undecided = [c for c in mapped if str(c.get('winner') or '').upper() in ('', 'UNDECIDED')]
+            if len(undecided) == 1:
+                return selected(undecided[0], 'currentScoringPeriod+undecided')
+            return {
+                'confidence': False,
+                'error': f"Multiple matchup entries matched currentScoringPeriod={current_scoring_period}.",
+                'candidates': mapped,
+            }
+
+    undecided = [c for c in candidates if str(c.get('winner') or '').upper() in ('', 'UNDECIDED')]
+    if len(undecided) == 1:
+        return selected(undecided[0], 'single-undecided-matchup', confidence=True)
+    if len(candidates) == 1:
+        return selected(candidates[0], 'only-team-matchup-entry', confidence=False)
+    return {
+        'confidence': False,
+        'error': 'Unable to identify current matchup confidently from ESPN schedule entries.',
+        'candidates': candidates,
+    }
 
 
 def _espn_roster_player(entry):
@@ -754,25 +888,35 @@ def _print_matchup_list(title, rows, limit=18):
         print(f"  ... {len(rows) - limit} more")
 
 
+def _merge_period_info(primary, fallback):
+    primary = primary or {}
+    fallback = fallback or {}
+    return {key: primary.get(key) if primary.get(key) is not None else fallback.get(key)
+            for key in set(primary) | set(fallback)}
+
+
 def build_matchup_snapshot():
     """Return read-only current ESPN H2H matchup snapshot data."""
     config = load_config()
     payload, err = fetch_espn_league_payload(
         config,
-        views=['mTeam', 'mRoster', 'mMatchup', 'mSettings'],
+        views=['mTeam', 'mRoster', 'mMatchup', 'mMatchupScore', 'mSettings'],
     )
     if err:
         return {'error': err}
 
-    period = _espn_current_period(payload)
+    base_period_info = _espn_period_info(payload)
+    period = base_period_info.get('current_scoring_period') or base_period_info.get('latest_scoring_period')
+    period_info = dict(base_period_info)
     if period:
         period_payload, period_err = fetch_espn_league_payload(
             config,
-            views=['mTeam', 'mRoster', 'mMatchup', 'mSettings'],
+            views=['mTeam', 'mRoster', 'mMatchup', 'mMatchupScore', 'mSettings'],
             scoring_period_id=period,
         )
         if not period_err and period_payload:
             payload = period_payload
+            period_info = _merge_period_info(_espn_period_info(period_payload), base_period_info)
 
     teams = {team.get('id'): team for team in (payload.get('teams') or []) if team.get('id') is not None}
     my_team = teams.get(ESPN_TEAM_ID)
@@ -782,7 +926,24 @@ def build_matchup_snapshot():
             'available_teams': {tid: _espn_team_name(team) for tid, team in sorted(teams.items())},
         }
 
-    matchup = _find_current_matchup(payload, ESPN_TEAM_ID)
+    matchup = _find_current_matchup(payload, ESPN_TEAM_ID, period_info)
+    if not matchup or not matchup.get('confidence'):
+        return {
+            'error': 'Unable to identify current matchup confidently',
+            'low_confidence': True,
+            'period_info': period_info,
+            'my_team': {'id': ESPN_TEAM_ID, 'name': _espn_team_name(my_team)},
+            'available_fields': {
+                'teams': len(teams),
+                'schedule_entries': len(payload.get('schedule') or []),
+                'my_roster_entries': len(_espn_roster_rows(my_team)),
+                'opponent_roster_entries': 0,
+                'score_fields': False,
+            },
+            'candidate_count': len((matchup or {}).get('candidates') or _espn_matchup_candidates(payload, ESPN_TEAM_ID, period_info.get('current_scoring_period'))),
+            'selection_error': (matchup or {}).get('error'),
+        }
+
     opponent_id = matchup.get('opponent_team_id') if matchup else None
     opponent = teams.get(opponent_id) if opponent_id is not None else None
 
@@ -806,10 +967,24 @@ def build_matchup_snapshot():
     for slot in opp_empty:
         injury_notes.append(f"OPP empty active slot: {slot}")
     snapshot = {
-        'scoring_period': period,
+        'scoring_period': period_info.get('current_scoring_period') or period,
+        'matchup_period': period_info.get('current_matchup_period'),
+        'period_info': period_info,
+        'confidence': True,
         'my_team': {'id': ESPN_TEAM_ID, 'name': _espn_team_name(my_team)},
         'opponent': {'id': opponent_id, 'name': _espn_team_name(opponent) if opponent else None},
         'score': {'mine': my_score, 'opponent': opp_score, 'margin': margin},
+        'selected_matchup': {
+            'selection_method': matchup.get('selection_method'),
+            'schedule_index': matchup.get('index'),
+            'entry_id': matchup.get('id'),
+            'matchup_period_id': matchup.get('matchup_period_id'),
+            'scoring_period_id': matchup.get('scoring_period_id') or period_info.get('current_scoring_period'),
+            'winner': matchup.get('winner'),
+            'status': matchup.get('status'),
+            'my_score_source': matchup.get('my_score_source'),
+            'opponent_score_source': matchup.get('opponent_score_source'),
+        },
         'my_active': my_active,
         'my_bench': my_bench,
         'opponent_active': opp_active,
@@ -831,7 +1006,16 @@ def _print_matchup_snapshot(snapshot, include_actions=False):
     print("MATCHUP SNAPSHOT")
     print("=" * 60)
     if not snapshot or snapshot.get('error'):
-        print(f"Unable to load ESPN matchup data: {(snapshot or {}).get('error') or 'unknown error'}")
+        message = (snapshot or {}).get('error') or 'unknown error'
+        print(f"Unable to load ESPN matchup data: {message}")
+        if (snapshot or {}).get('low_confidence'):
+            print("Unable to identify current matchup confidently")
+            period_info = (snapshot or {}).get('period_info') or {}
+            print(f"Selected matchupPeriodId: unavailable (current={period_info.get('current_matchup_period')})")
+            print(f"Selected scoringPeriodId: unavailable (current={period_info.get('current_scoring_period')})")
+            if (snapshot or {}).get('selection_error'):
+                print(f"Selection detail: {snapshot.get('selection_error')}")
+            print(f"Candidate entries involving my team: {(snapshot or {}).get('candidate_count', 0)}")
         if (snapshot or {}).get('available_teams'):
             print("Available teams:")
             for tid, name in snapshot['available_teams'].items():
@@ -846,6 +1030,7 @@ def _print_matchup_snapshot(snapshot, include_actions=False):
     opp_score = score.get('opponent')
     margin = score.get('margin')
     print(f"Scoring period: {snapshot.get('scoring_period') or 'unknown'}")
+    print(f"Matchup period: {snapshot.get('matchup_period') or 'unknown'}")
     print(f"My team: {my_team_name}")
     print(f"Opponent: {opponent_name}")
     if my_score is not None and opp_score is not None:
@@ -854,6 +1039,14 @@ def _print_matchup_snapshot(snapshot, include_actions=False):
     else:
         print("Score: not available from current ESPN matchup payload")
         print("Margin: not available")
+
+    selected = snapshot.get('selected_matchup') or {}
+    print("\nSelected ESPN matchup")
+    print(f"  - selection method: {selected.get('selection_method') or 'unknown'}")
+    print(f"  - matchupPeriodId: {selected.get('matchup_period_id')}")
+    print(f"  - scoringPeriodId: {selected.get('scoring_period_id')}")
+    print(f"  - schedule entry: index={selected.get('schedule_index')} id={selected.get('entry_id')}")
+    print(f"  - score sources: mine={selected.get('my_score_source') or 'missing'}, opponent={selected.get('opponent_score_source') or 'missing'}")
 
     _print_matchup_list("My active players", snapshot.get('my_active') or [])
     _print_matchup_list("Opponent active players", snapshot.get('opponent_active') or [])
@@ -890,6 +1083,77 @@ def _print_matchup_snapshot(snapshot, include_actions=False):
     if include_actions:
         actions = build_matchup_action_recommendations(snapshot)
         print_matchup_actions(actions)
+
+
+def _print_matchup_payload_table(payload, label):
+    period_info = _espn_period_info(payload)
+    teams = {team.get('id'): team for team in (payload or {}).get('teams', []) if team.get('id') is not None}
+    print(f"\n{label}")
+    print("-" * 100)
+    print(
+        "status: "
+        f"currentMatchupPeriod={period_info.get('current_matchup_period')} | "
+        f"currentScoringPeriod={period_info.get('current_scoring_period')} | "
+        f"latestScoringPeriod={period_info.get('latest_scoring_period')}"
+    )
+    candidates = _espn_matchup_candidates(
+        payload,
+        ESPN_TEAM_ID,
+        period_info.get('current_scoring_period'),
+    )
+    if not candidates:
+        print("No schedule entries involving my team found.")
+        return
+    print("idx  id     matchup  scoring  home                         away                         home_score        away_score        winner/status")
+    for c in candidates:
+        home = f"{c.get('home_team_id')} {_espn_team_name(teams.get(c.get('home_team_id')))}"[:28]
+        away = f"{c.get('away_team_id')} {_espn_team_name(teams.get(c.get('away_team_id')))}"[:28]
+        home_score = c.get('home_score')
+        away_score = c.get('away_score')
+        home_txt = f"{home_score:.1f}" if home_score is not None else "--"
+        away_txt = f"{away_score:.1f}" if away_score is not None else "--"
+        status = c.get('winner') or c.get('status') or ''
+        print(
+            f"{c.get('index')!s:<4} {str(c.get('id') or ''):<6} "
+            f"{str(c.get('matchup_period_id') or ''):<8} "
+            f"{str(c.get('scoring_period_id') or ''):<8} "
+            f"{home:<28} {away:<28} "
+            f"{home_txt:<17} {away_txt:<17} {status}"
+        )
+
+
+def debug_matchup_payload():
+    """Read-only compact ESPN matchup payload diagnostic."""
+    config = load_config()
+    views = ['mTeam', 'mRoster', 'mMatchup', 'mMatchupScore', 'mSettings']
+    payload, err = fetch_espn_league_payload(config, views=views)
+    print("MATCHUP PAYLOAD DEBUG")
+    print("=" * 60)
+    if err:
+        print(err)
+        return
+    _print_matchup_payload_table(payload, "Base league payload")
+    period = _espn_period_info(payload).get('current_scoring_period') or _espn_period_info(payload).get('latest_scoring_period')
+    if period:
+        period_payload, period_err = fetch_espn_league_payload(config, views=views, scoring_period_id=period)
+        if period_err:
+            print(f"\nCurrent scoring period payload failed: {period_err}")
+        else:
+            _print_matchup_payload_table(period_payload, f"Payload with scoringPeriodId={period}")
+    snapshot = build_matchup_snapshot()
+    print("\nSelected snapshot")
+    if snapshot.get('error'):
+        print(f"  error: {snapshot.get('error')}")
+        print(f"  selection_error: {snapshot.get('selection_error')}")
+    else:
+        selected = snapshot.get('selected_matchup') or {}
+        print(f"  my team: {(snapshot.get('my_team') or {}).get('id')} {(snapshot.get('my_team') or {}).get('name')}")
+        print(f"  opponent: {(snapshot.get('opponent') or {}).get('id')} {(snapshot.get('opponent') or {}).get('name')}")
+        print(f"  matchupPeriodId: {selected.get('matchup_period_id')}")
+        print(f"  scoringPeriodId: {selected.get('scoring_period_id')}")
+        print(f"  schedule index/id: {selected.get('schedule_index')} / {selected.get('entry_id')}")
+        print(f"  score sources: {selected.get('my_score_source')} / {selected.get('opponent_score_source')}")
+    print("No files were modified.")
 
 
 def matchup_snapshot():
@@ -1279,9 +1543,10 @@ def fetch_weekly_schedule(start_date, end_date):
                     'pitcher_team': home_team,
                     'opponent': away_team,
                     'home_away': 'H',
+                    'probable_source': 'mlb',
                 })
             else:
-                games.append({**base, 'pitcher_name': None, 'pitcher_team': home_team, 'opponent': away_team, 'home_away': 'H'})
+                games.append({**base, 'pitcher_name': None, 'pitcher_team': home_team, 'opponent': away_team, 'home_away': 'H', 'probable_source': None})
 
             if away_pp:
                 games.append({
@@ -1291,9 +1556,10 @@ def fetch_weekly_schedule(start_date, end_date):
                     'pitcher_team': away_team,
                     'opponent': home_team,
                     'home_away': 'A',
+                    'probable_source': 'mlb',
                 })
             else:
-                games.append({**base, 'pitcher_name': None, 'pitcher_team': away_team, 'opponent': home_team, 'home_away': 'A'})
+                games.append({**base, 'pitcher_name': None, 'pitcher_team': away_team, 'opponent': home_team, 'home_away': 'A', 'probable_source': None})
 
     print(f"    {len(games)} pitcher slots across {len(data.get('dates', []))} days")
     return games
@@ -3243,6 +3509,238 @@ TIER_LABELS = {
 }
 
 TIER_ORDER = {'must_start': 0, 'start': 1, 'borderline': 2, 'avoid': 3}
+PROBABLE_SOURCE_RANK = {'mlb': 3, 'espn': 2, 'inferred_roster': 1, None: 0, '': 0}
+
+
+def _probable_game_label(game):
+    return (
+        f"{game.get('date')} {game.get('pitcher_team') or '?'} "
+        f"{'vs' if game.get('home_away') == 'H' else 'at'} {game.get('opponent') or '?'} "
+        f"source={game.get('probable_source') or 'unknown'}"
+    )
+
+
+def _probable_assignment_id(game):
+    return (
+        game.get('date'),
+        normalize_name(game.get('pitcher_name') or ''),
+        game.get('pitcher_team'),
+        game.get('opponent'),
+        game.get('home_away'),
+        game.get('game_pk'),
+    )
+
+
+def _recent_completed_starts_map(*dated_line_sets):
+    """Combine completed-start dicts into {normalized pitcher: latest start info}."""
+    out = {}
+    for date_iso, lines in dated_line_sets:
+        for norm, line in (lines or {}).items():
+            if not norm:
+                continue
+            prior = out.get(norm)
+            if prior is None or str(date_iso) > str(prior.get('date') or ''):
+                out[norm] = {
+                    'date': date_iso,
+                    'name': line.get('name') or norm,
+                    'team': line.get('team'),
+                    'source': line.get('source') or 'completed_start',
+                }
+    return out
+
+
+def _recent_prediction_start_evidence(dates):
+    """Read-only fallback evidence for pitchers already projected today/yesterday."""
+    out = {}
+    for date_iso in dates or []:
+        rows, _ = _latest_prediction_records_by_date(date_iso)
+        for rec in rows:
+            if rec.get('tbd'):
+                continue
+            norm = normalize_name(rec.get('name') or rec.get('pitcher_name') or '')
+            if not norm:
+                continue
+            prior = out.get(norm)
+            if prior is None or str(date_iso) > str(prior.get('date') or ''):
+                out[norm] = {
+                    'date': date_iso,
+                    'name': rec.get('name') or rec.get('pitcher_name'),
+                    'team': rec.get('team'),
+                    'source': 'prediction_log_recent_start',
+                }
+    return out
+
+
+def _suppress_probable_game(game, note, pitcher_name=None):
+    out = dict(game)
+    out['probable_conflict_pitcher'] = pitcher_name or out.get('pitcher_name')
+    out['probable_note'] = note
+    out['probable_conflict'] = True
+    out['pitcher_name'] = None
+    out['pitcher_mlb_id'] = None
+    return out
+
+
+def _validate_probable_schedule(schedule, recent_completed_starts=None, verbose=True, example_limit=8):
+    """Suppress clearly stale or conflicting probable assignments before scoring.
+
+    This leaves projection math untouched; it only prevents low-confidence
+    pitcher/date assignments from becoming normal actionable starts.
+    """
+    recent_completed_starts = recent_completed_starts or {}
+    suppressed = {}
+    examples = []
+
+    by_pitcher = defaultdict(list)
+    for game in schedule or []:
+        norm = normalize_name(game.get('pitcher_name') or '')
+        if norm:
+            by_pitcher[norm].append(game)
+
+    def mark(game, reason):
+        key = _probable_assignment_id(game)
+        if key in suppressed:
+            return
+        suppressed[key] = reason
+        if len(examples) < example_limit:
+            examples.append({
+                'pitcher': game.get('pitcher_name'),
+                'reason': reason,
+                'assignment': _probable_game_label(game),
+            })
+
+    # Suppress projected starts 1-3 calendar days after a completed or already
+    # logged recent start. This catches stale ESPN/inferred probables before
+    # they become actionable recommendations.
+    for norm, games in by_pitcher.items():
+        completed = recent_completed_starts.get(norm)
+        if not completed or not completed.get('date'):
+            continue
+        try:
+            completed_date = date.fromisoformat(str(completed.get('date'))[:10])
+        except Exception:
+            continue
+        for game in games:
+            try:
+                game_date = date.fromisoformat(str(game.get('date'))[:10])
+            except Exception:
+                continue
+            days_since = (game_date - completed_date).days
+            if 1 <= days_since <= 3:
+                source = completed.get('source') or 'recent_start'
+                if source == 'prediction_log_recent_start' and game.get('probable_source') == 'mlb':
+                    continue
+                mark(
+                    game,
+                    f"stale probable: {source} on {completed_date.isoformat()}, projected again after {days_since} day(s)",
+                )
+
+    # Suppress duplicate pitcher assignments too close together. MLB official
+    # probable data wins over ESPN; otherwise keep the earlier assignment.
+    duplicate_conflicts = 0
+    for norm, games in by_pitcher.items():
+        games = sorted(games, key=lambda g: (g.get('date') or '', -PROBABLE_SOURCE_RANK.get(g.get('probable_source'), 0)))
+        for i, left in enumerate(games):
+            if _probable_assignment_id(left) in suppressed:
+                continue
+            for right in games[i + 1:]:
+                if _probable_assignment_id(right) in suppressed:
+                    continue
+                try:
+                    left_date = date.fromisoformat(str(left.get('date'))[:10])
+                    right_date = date.fromisoformat(str(right.get('date'))[:10])
+                except Exception:
+                    continue
+                day_gap = abs((right_date - left_date).days)
+                if day_gap > 3:
+                    continue
+                duplicate_conflicts += 1
+                left_rank = PROBABLE_SOURCE_RANK.get(left.get('probable_source'), 0)
+                right_rank = PROBABLE_SOURCE_RANK.get(right.get('probable_source'), 0)
+                if left_rank > right_rank:
+                    drop, keep = right, left
+                elif right_rank > left_rank:
+                    drop, keep = left, right
+                else:
+                    drop, keep = (right, left) if str(left.get('date')) <= str(right.get('date')) else (left, right)
+                mark(
+                    drop,
+                    (
+                        "probable-date conflict: "
+                        f"kept {_probable_game_label(keep)} over {_probable_game_label(drop)}"
+                    ),
+                )
+
+    validated = []
+    for game in schedule or []:
+        reason = suppressed.get(_probable_assignment_id(game))
+        if reason:
+            validated.append(_suppress_probable_game(game, reason))
+        else:
+            validated.append(game)
+
+    stale_count = sum(1 for reason in suppressed.values() if str(reason).startswith('stale probable'))
+    report = {
+        'duplicate_conflicts': duplicate_conflicts,
+        'stale_suppressed': stale_count,
+        'suppressed_total': len(suppressed),
+        'examples': examples,
+    }
+    if verbose:
+        print(
+            "  Probable date sanity: "
+            f"{duplicate_conflicts} duplicate pitcher-date conflict(s), "
+            f"{stale_count} stale probable start(s) suppressed"
+        )
+        for ex in examples:
+            print(f"    - {ex['pitcher']}: {ex['reason']} ({ex['assignment']})")
+    return validated, report
+
+
+def _resolve_probable_schedule(schedule, espn_probables=None, my_sps_by_team=None):
+    """Fill MLB TBD slots from current ESPN probables or conservative roster inference."""
+    resolved = []
+    pitcher_start_dates = {
+        game.get('pitcher_name'): game.get('date')
+        for game in schedule or []
+        if game.get('pitcher_name') and game.get('date')
+    }
+    my_sps_by_team = my_sps_by_team or {}
+    for game in schedule or []:
+        game = dict(game)
+        if game.get('pitcher_name'):
+            resolved.append(game)
+            continue
+        team = game.get('pitcher_team')
+        pitcher_name = None
+        if espn_probables:
+            esp_name = espn_probables.get((game.get('date'), team))
+            if esp_name:
+                pitcher_name = esp_name
+                game['pitcher_name'] = esp_name
+                game['probable_source'] = 'espn'
+                pitcher_start_dates[esp_name] = game.get('date')
+        if not pitcher_name and team in my_sps_by_team:
+            candidates = my_sps_by_team[team]
+            try:
+                game_date = date.fromisoformat(game.get('date'))
+            except Exception:
+                game_date = None
+            available = []
+            for n, p, m in candidates:
+                prev_date_str = pitcher_start_dates.get(n)
+                if game_date and prev_date_str:
+                    prev_date = date.fromisoformat(prev_date_str)
+                    if abs((game_date - prev_date).days) < 5:
+                        continue
+                available.append((n, p, m))
+            if len(available) == 1:
+                fg_name, proj, match_entry = available[0]
+                game['pitcher_name'] = fg_name
+                game['probable_source'] = 'inferred_roster'
+                pitcher_start_dates[fg_name] = game.get('date')
+        resolved.append(game)
+    return resolved
 
 
 def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
@@ -3252,7 +3750,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                          global_emerging=None, espn_probables=None,
                          learned_biases=None, savant_advanced=None,
                          fg_pitching_plus=None, team_bullpens=None,
-                         pitcher_workload=None):
+                         pitcher_workload=None, recent_completed_starts=None):
     """Build the full streaming dataset for the week."""
     _runtime_prediction_records.clear()
     # Build lookup from FG name to ESPN match data
@@ -3295,55 +3793,27 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                     if proj.get('GS', 0) >= 5 and p_team:  # Must be a real starter
                         my_sps_by_team.setdefault(p_team, []).append((fg_name, proj, match_entry))
 
-    # Track pitchers already assigned to a date (announced or resolved)
-    # Maps pitcher_name -> date string, used to enforce minimum rest (4 days)
-    pitcher_start_dates = {}
-    for game in schedule:
-        if game.get('pitcher_name'):
-            pitcher_start_dates[game['pitcher_name']] = game['date']
+    schedule = _resolve_probable_schedule(schedule, espn_probables, my_sps_by_team)
+    schedule, probable_sanity = _validate_probable_schedule(
+        schedule,
+        recent_completed_starts=recent_completed_starts,
+    )
 
     streaming = []
     for game in schedule:
         pitcher_name = game.get('pitcher_name')
         if not pitcher_name:
-            # TBD slot — first try ESPN probables (often ahead of MLB), then fall
-            # back to inferring from user's roster.
             team = game['pitcher_team']
-            resolved = False
-            if espn_probables:
-                esp_name = espn_probables.get((game['date'], team))
-                if esp_name:
-                    pitcher_name = esp_name
-                    game = dict(game, pitcher_name=esp_name)
-                    pitcher_start_dates[esp_name] = game['date']
-                    resolved = True
-            if not resolved and team in my_sps_by_team:
-                candidates = my_sps_by_team[team]
-                # Filter out pitchers who already have a start in the window
-                # (a pitcher can't start twice within 4 days on normal rest)
-                game_date = date.fromisoformat(game['date'])
-                available = []
-                for n, p, m in candidates:
-                    prev_date_str = pitcher_start_dates.get(n)
-                    if prev_date_str:
-                        prev_date = date.fromisoformat(prev_date_str)
-                        if abs((game_date - prev_date).days) < 5:
-                            continue  # Too close to another start
-                    available.append((n, p, m))
-                if len(available) == 1:
-                    fg_name, proj, match_entry = available[0]
-                    pitcher_name = fg_name
-                    game = dict(game, pitcher_name=fg_name)
-                    pitcher_start_dates[fg_name] = game['date']
-                    resolved = True
-            if not resolved:
-                streaming.append({
-                    'date': game['date'], 'day': game['day'],
-                    'name': 'TBD', 'team': team,
-                    'opponent': game['opponent'], 'home_away': game['home_away'],
-                    'tbd': True,
-                })
-                continue
+            streaming.append({
+                'date': game['date'], 'day': game['day'],
+                'name': 'TBD', 'team': team,
+                'opponent': game['opponent'], 'home_away': game['home_away'],
+                'tbd': True,
+                'probable_note': game.get('probable_note'),
+                'probable_conflict_pitcher': game.get('probable_conflict_pitcher'),
+                'probable_source': game.get('probable_source'),
+            })
+            continue
 
         pitcher_team = game['pitcher_team']
         norm_key = f"{normalize_name(pitcher_name)}|{pitcher_team}"
@@ -3510,6 +3980,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'tbd': False,
             'tier': tier,
             'tier_label': TIER_LABELS.get(tier, ''),
+            'probable_source': game.get('probable_source'),
             'pitch_analysis': pitch_analysis,
             'emerging': emerging,
             'opp_il': opp_il,
@@ -4032,6 +4503,9 @@ def _decision_record_from_streaming_entry(entry):
         'tier': entry.get('tier'),
         'status': entry.get('status'),
         'tbd': entry.get('tbd'),
+        'probable_note': entry.get('probable_note'),
+        'probable_conflict_pitcher': entry.get('probable_conflict_pitcher'),
+        'probable_source': entry.get('probable_source'),
         'features': features,
     }
 
@@ -4048,6 +4522,7 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
             dict(r) for r in records
             if (r.get('date') or r.get('game_date') or target_date) == target_date
         ]
+    records, probable_report = validate_probable_prediction_records(records, source=source or path)
     summary = {
         'date': target_date,
         'source': path,
@@ -4076,6 +4551,7 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
         'waiver_count': 0,
         'actionable_count': 0,
         'status_unreliable': False,
+        'probable_sanity': probable_report,
     }
     if not records:
         summary['problems'].append('No prediction log found for today. Run a preview or normal tracker first to create current predictions.')
@@ -4122,7 +4598,13 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
     tbd_rows = [r for r in records if r.get('tbd') or (r.get('name') or r.get('pitcher_name') or '').upper() == 'TBD']
     if tbd_rows:
         for rec in tbd_rows:
-            problems.append(f"{rec.get('team') or '?'} vs {rec.get('opponent') or '?'} has TBD pitcher status.")
+            note = rec.get('probable_note')
+            pitcher = rec.get('probable_conflict_pitcher')
+            if note:
+                detail = f" ({pitcher})" if pitcher else ""
+                problems.append(f"{rec.get('team') or '?'} vs {rec.get('opponent') or '?'} has probable-date conflict{detail}: {note}.")
+            else:
+                problems.append(f"{rec.get('team') or '?'} vs {rec.get('opponent') or '?'} has TBD pitcher status.")
     else:
         problems.append("Existing prediction data does not include unresolved TBD slots; fresh tracker data is needed for live TBD discovery.")
 
@@ -4288,10 +4770,140 @@ def _risky_roster_for_report(rows, limit=6):
 def _decision_records_for_report(snapshot_date, streaming_data):
     """Return current report prediction-shaped records without changing storage."""
     if _runtime_prediction_records:
-        return [dict(rec) for rec in _runtime_prediction_records], 'current run prediction records'
+        records = [dict(rec) for rec in _runtime_prediction_records]
+        records.extend(
+            _decision_record_from_streaming_entry(s)
+            for s in (streaming_data or [])
+            if s.get('tbd') or s.get('probable_note')
+        )
+        return records, 'current run prediction records'
     if streaming_data:
         return [_decision_record_from_streaming_entry(s) for s in streaming_data], 'current report streaming rows'
     return [], 'prediction logs'
+
+
+def _mark_probable_record_problem(record, reason):
+    out = dict(record)
+    out['probable_conflict_pitcher'] = out.get('name') or out.get('pitcher_name')
+    out['probable_note'] = reason
+    out['probable_conflict'] = True
+    out['tbd'] = True
+    out['name'] = 'TBD'
+    out['pitcher_name'] = 'TBD'
+    out['status'] = ''
+    return out
+
+
+def validate_probable_prediction_records(records, source='prediction records', verbose=False, example_limit=8):
+    """Read-time sanity filter for cached/current prediction-shaped records."""
+    records = [dict(r) for r in records or []]
+    suppressed = {}
+    examples = []
+    by_pitcher = defaultdict(list)
+    for idx, rec in enumerate(records):
+        if rec.get('tbd'):
+            continue
+        norm = normalize_name(rec.get('name') or rec.get('pitcher_name') or '')
+        if norm:
+            by_pitcher[norm].append((idx, rec))
+
+    def mark(idx, rec, reason):
+        if idx in suppressed:
+            return
+        suppressed[idx] = reason
+        if len(examples) < example_limit:
+            examples.append({
+                'pitcher': rec.get('name') or rec.get('pitcher_name'),
+                'date': rec.get('date') or rec.get('game_date'),
+                'team': rec.get('team'),
+                'opponent': rec.get('opponent'),
+                'reason': reason,
+                'source': source,
+            })
+
+    for norm, items in by_pitcher.items():
+        for idx, rec in items:
+            features = rec.get('features') or {}
+            days_rest = _feature_float(features, 'days_rest')
+            if days_rest is not None and days_rest <= 3:
+                mark(idx, rec, f"low-confidence probable date: only {days_rest:g} day(s) since last start")
+        sorted_items = sorted(items, key=lambda item: (item[1].get('date') or item[1].get('game_date') or '', -_decision_points(item[1])))
+        for i, (left_idx, left) in enumerate(sorted_items):
+            if left_idx in suppressed:
+                continue
+            left_date_raw = left.get('date') or left.get('game_date')
+            try:
+                left_date = date.fromisoformat(str(left_date_raw)[:10])
+            except Exception:
+                continue
+            for right_idx, right in sorted_items[i + 1:]:
+                if right_idx in suppressed:
+                    continue
+                right_date_raw = right.get('date') or right.get('game_date')
+                try:
+                    right_date = date.fromisoformat(str(right_date_raw)[:10])
+                except Exception:
+                    continue
+                if abs((right_date - left_date).days) <= 3:
+                    mark(
+                        right_idx,
+                        right,
+                        f"probable-date conflict: also appears on {left_date.isoformat()}",
+                    )
+
+    out = [
+        _mark_probable_record_problem(rec, suppressed[idx]) if idx in suppressed else rec
+        for idx, rec in enumerate(records)
+    ]
+    report = {
+        'records_scanned': len(records),
+        'suppressed_total': len(suppressed),
+        'examples': examples,
+        'source': source,
+    }
+    if verbose:
+        print(f"Probable date record sanity ({source}): {len(suppressed)} low-confidence record(s) flagged")
+        for ex in examples:
+            print(f"  - {ex['pitcher']} {ex['date']} {ex['team']} vs {ex['opponent']}: {ex['reason']}")
+    return out, report
+
+
+def audit_probable_dates():
+    """Read-only audit for impossible or stale probable pitcher dates in logs."""
+    records = []
+    files = _recent_prediction_files(limit=10)
+    for path in files:
+        target_date = os.path.basename(path).replace('.jsonl', '')
+        rows, _ = _latest_prediction_records_by_date(target_date)
+        records.extend(rows)
+    validated, report = validate_probable_prediction_records(
+        records,
+        source='recent prediction logs',
+        verbose=False,
+        example_limit=20,
+    )
+    print("PROBABLE DATE AUDIT")
+    print("=" * 60)
+    print("Read-only: inspects recent prediction logs for low-confidence pitcher/date assignments.")
+    print(f"Prediction files scanned: {len(files)}")
+    print(f"Prediction records scanned: {report['records_scanned']}")
+    print(f"Low-confidence probable records flagged: {report['suppressed_total']}")
+    examples = report.get('examples') or []
+    if examples:
+        print("\nExamples")
+        for ex in examples:
+            print(
+                f"  - {ex['pitcher']} on {ex['date']} "
+                f"({ex['team']} vs {ex['opponent']}): {ex['reason']}"
+            )
+    else:
+        print("\nNo impossible short-rest or duplicate-date patterns found in recent prediction logs.")
+    names = {normalize_name(ex.get('pitcher') or ''): ex for ex in examples}
+    for wanted in ('Chris Bassitt', 'Walbert Urena'):
+        key = normalize_name(wanted)
+        if key not in names:
+            print(f"  - {wanted}: no recent conflict found in scanned logs.")
+    return {'records': len(records), 'flagged': report['suppressed_total']}
 
 
 def decision_summary_for_report(summary):
@@ -4345,6 +4957,7 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
         r for r in records
         if (r.get('date') or r.get('game_date')) in set(watch_dates)
     ]
+    records, probable_report = validate_probable_prediction_records(records, source=source or 'prediction records')
     summary = {
         'base_date': base_date,
         'date_range': f"{watch_dates[0]} to {watch_dates[-1]}" if watch_dates else '',
@@ -4355,6 +4968,7 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
         'hidden_unknown_count': 0,
         'days': [],
         'problems': [],
+        'probable_sanity': probable_report,
     }
     if not records:
         summary['problems'].append('No upcoming prediction records found for the next 3 days.')
@@ -4435,6 +5049,10 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
             })
     if not summary['days']:
         summary['problems'].append('No actionable upcoming starts matched the watchlist rules.')
+    if summary.get('probable_sanity', {}).get('suppressed_total'):
+        summary['problems'].append(
+            f"{summary['probable_sanity']['suppressed_total']} low-confidence probable date(s) were moved to problem/TBD status."
+        )
     return summary
 
 
@@ -4754,7 +5372,14 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
             ),
         )
 
-    if not snapshot or snapshot.get('error'):
+    if not snapshot or snapshot.get('low_confidence'):
+        return {
+            'date': base_date,
+            'items': [],
+            'count': 0,
+            'notes': ['Matchup actions suppressed: unable to identify current ESPN matchup confidently.'],
+        }
+    if snapshot.get('error'):
         add('WATCH', f"Matchup snapshot unavailable: {(snapshot or {}).get('error') or 'unknown ESPN error'}.", 90)
         return {'date': base_date, 'items': actions, 'count': len(actions), 'notes': ['ESPN snapshot unavailable']}
 
@@ -4908,6 +5533,10 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
                 break
 
     notes.insert(0, f"Pitcher start dates source: {prediction_source_kind}.")
+    for label, summary_obj in (('today', daily_raw), ('next 3 days', watchlist)):
+        suppressed = (summary_obj or {}).get('probable_sanity', {}).get('suppressed_total', 0)
+        if suppressed:
+            notes.append(f"{suppressed} low-confidence probable date(s) suppressed from {label} recommendations; verify manually.")
     if (daily or {}).get('status_unreliable'):
         notes.append('Roster/FA filtering may be stale; refresh with --preview-local if recommendations look sparse.')
     if not today_teams:
@@ -4969,6 +5598,7 @@ def matchup_snapshot_for_report(snapshot):
     return {
         'available': True,
         'scoring_period': snapshot.get('scoring_period'),
+        'matchup_period': snapshot.get('matchup_period'),
         'my_team': (snapshot.get('my_team') or {}).get('name'),
         'opponent': (snapshot.get('opponent') or {}).get('name'),
         'my_score': score.get('mine'),
@@ -5030,6 +5660,13 @@ def daily_decision_audit(target_date=None):
     print(f"Prediction-log status cache rows: {enrichment['prediction_status_cache_rows']}")
     print(f"Local roster/status cache rows: {enrichment['roster_status_cache_rows']}")
     print("Rostered-by-other-team rows are excluded unless they are MY ROSTER.")
+    probable_sanity = summary.get('probable_sanity') or {}
+    if probable_sanity.get('suppressed_total'):
+        print(f"Low-confidence probable date rows hidden from decisions: {probable_sanity['suppressed_total']}")
+        for ex in (probable_sanity.get('examples') or [])[:5]:
+            print(
+                f"  - {ex.get('pitcher')} {ex.get('date')}: {ex.get('reason')}"
+            )
 
     _print_decision_section("Best available FA/waiver streamers today", summary['fa_ranked'], limit=8)
     _print_decision_section("My rostered starters today", summary['roster_ranked'])
@@ -5848,7 +6485,9 @@ function renderStreaming() {
 
     // TBDs at the bottom
     tbds.forEach(function(s) {
-      html += '<div class="stream-tbd">' + s.team + ' vs ' + s.opponent + ' (' + s.home_away + ') \u2014 probable pitcher TBD</div>';
+      var note = s.probable_note ? ' — ' + s.probable_note : '';
+      var pitcher = s.probable_conflict_pitcher ? ' (' + s.probable_conflict_pitcher + ')' : '';
+      html += '<div class="stream-tbd">' + s.team + ' vs ' + s.opponent + ' (' + s.home_away + ') — probable pitcher TBD/problem' + pitcher + escHtml(note) + '</div>';
     });
 
     html += '</div>';
@@ -9933,6 +10572,7 @@ def main():
     parser.add_argument('--audit-features', action='store_true', help='Audit prediction feature registry/log consistency')
     parser.add_argument('--audit-warehouse', action='store_true', help='Audit DuckDB/Parquet warehouse foundation')
     parser.add_argument('--audit-outcome-duplicates', action='store_true', help='Dry-run audit for duplicate outcome rows')
+    parser.add_argument('--audit-probable-dates', action='store_true', help='Read-only audit for stale/conflicting probable pitcher dates')
     parser.add_argument('--dedupe-outcomes', action='store_true', help='Backup and rewrite predictions_outcomes.jsonl without stable duplicates')
     parser.add_argument('--backfill-warehouse-outcomes', action='store_true', help='Backfill outcome Parquet files from predictions_outcomes.jsonl')
     parser.add_argument('--backfill-warehouse-features', action='store_true', help='Backfill prediction and SP feature Parquet files from prediction JSONL')
@@ -9944,6 +10584,7 @@ def main():
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--matchup-snapshot', action='store_true', help='Read-only ESPN head-to-head matchup snapshot')
     parser.add_argument('--matchup-actions', action='store_true', help='Read-only matchup action recommendations from existing data')
+    parser.add_argument('--debug-matchup-payload', action='store_true', help='Read-only compact ESPN matchup payload diagnostic')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
     parser.add_argument('--fast-preview', action='store_true', help='Generate a local preview from cached artifacts without live refreshes')
     parser.add_argument('--timing', action='store_true', help='Print runtime timing summary (normal runs print it by default)')
@@ -9978,6 +10619,10 @@ def main():
 
     if args.audit_outcome_duplicates:
         audit_outcome_duplicates()
+        return
+
+    if args.audit_probable_dates:
+        audit_probable_dates()
         return
 
     if args.dedupe_outcomes:
@@ -10018,6 +10663,10 @@ def main():
 
     if args.matchup_snapshot:
         matchup_snapshot()
+        return
+
+    if args.debug_matchup_payload:
+        debug_matchup_payload()
         return
 
     if args.matchup_actions:
@@ -10279,6 +10928,7 @@ def main():
     global_emerging = set()
     espn_probables = {}
     today_lines = {}
+    yesterday_lines = {}
     try:
         print("\n" + "=" * 60)
         print("PHASE 5: STREAMING PITCHERS")
@@ -10294,6 +10944,13 @@ def main():
         timed("stream cache: save FG recent raw", save_recent_raw_snapshot, recent_form)
         prior_day_recent = timed("stream cache: load prior recent", load_prior_day_recent_snapshot)
         today_lines = timed("stream fetch: today's completed starts", fetch_todays_completed_starts)
+        yesterday_iso = (date.today() - timedelta(days=1)).isoformat()
+        yesterday_lines = timed(
+            "stream fetch: yesterday's completed starts",
+            fetch_completed_starts_for_date,
+            yesterday_iso,
+            False,
+        )
         timed("stream blend: today's starts", blend_today_into_recent, recent_form, today_lines, baseline_recent=prior_day_recent)
         schedule = timed("stream fetch: MLB schedule", fetch_weekly_schedule, week_start, week_end)
         espn_probables = timed("stream fetch: ESPN probables", fetch_espn_probables, week_start, week_end)
@@ -10351,6 +11008,13 @@ def main():
             fg_pitching_plus=fg_pitching_plus,
             team_bullpens=team_bullpens,
             pitcher_workload=pitcher_workload,
+            recent_completed_starts={
+                **_recent_prediction_start_evidence([date.today().isoformat(), yesterday_iso]),
+                **_recent_completed_starts_map(
+                (date.today().isoformat(), today_lines),
+                (yesterday_iso, yesterday_lines),
+                ),
+            },
         )
         fa_count = sum(1 for s in streaming_data if s.get('status') == 'FA' and not s.get('tbd'))
         mine_count = sum(1 for s in streaming_data if s.get('status') == 'MY ROSTER')
