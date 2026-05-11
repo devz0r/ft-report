@@ -4255,6 +4255,8 @@ def _decision_report_item(record):
         'risk_reason': risk_reason,
         'risks': risks[:3],
         'boosts': boosts[:3],
+        '_matchup_source': record.get('_matchup_source'),
+        '_matchup_snapshot_date': record.get('_matchup_snapshot_date') or _matchup_record_snapshot_date(record),
     }
 
 
@@ -4602,18 +4604,64 @@ def _matchup_decision_item_text(prefix, item, date_label='today'):
     return f"{prefix} {item.get('name')} {date_label} {matchup} ({pts:.1f} pts, {item.get('confidence') or item.get('tier')})."
 
 
-def _matchup_projection_records(base_date=None, days=3):
-    """Read existing prediction logs for today through the next N days."""
+def _matchup_window_dates(base_date=None, days=3):
     try:
         start = date.fromisoformat(base_date or date.today().isoformat())
     except Exception:
         start = date.today()
+    return [(start + timedelta(days=offset)).isoformat() for offset in range(days + 1)]
+
+
+def _matchup_action_source_kind(source):
+    source = str(source or '').lower()
+    if 'current' in source:
+        return 'current_run'
+    if 'fast' in source or 'cached' in source or 'prediction log' in source:
+        return 'prediction_log_cache'
+    return 'prediction_log_cache'
+
+
+def _matchup_record_date(record):
+    return record.get('date') or record.get('game_date')
+
+
+def _matchup_record_snapshot_date(record):
+    value = record.get('logged_at') or record.get('snapshot_time')
+    if isinstance(value, str) and len(value) >= 10:
+        return value[:10]
+    return None
+
+
+def _matchup_projection_records(base_date=None, days=3):
+    """Read existing prediction logs for today through the next N days."""
     records = []
-    for offset in range(days + 1):
-        target = (start + timedelta(days=offset)).isoformat()
+    for target in _matchup_window_dates(base_date, days):
         rows, _ = _latest_prediction_records_by_date(target)
-        records.extend(rows)
+        for rec in rows:
+            rec = dict(rec)
+            rec['_matchup_source'] = 'prediction_log_cache'
+            rec['_matchup_snapshot_date'] = _matchup_record_snapshot_date(rec)
+            records.append(rec)
     return records
+
+
+def _matchup_prediction_records_for_actions(base_date=None, days=3, records=None, source=None):
+    """Choose the freshest prediction records available for matchup actions."""
+    if records:
+        allowed_dates = set(_matchup_window_dates(base_date, days))
+        source_kind = _matchup_action_source_kind(source or 'current run prediction records')
+        out = []
+        for rec in records:
+            rec = dict(rec)
+            game_date = _matchup_record_date(rec)
+            if game_date not in allowed_dates:
+                continue
+            rec['_matchup_source'] = source_kind
+            rec['_matchup_snapshot_date'] = _matchup_record_snapshot_date(rec) or base_date
+            out.append(rec)
+        if out:
+            return out, source_kind, source or 'current_run'
+    return _matchup_projection_records(base_date, days), 'prediction_log_cache', 'prediction_log_cache'
 
 
 def _matchup_projection_lookup(records):
@@ -4624,24 +4672,50 @@ def _matchup_projection_lookup(records):
             continue
         lookup.setdefault(name, []).append(rec)
     for rows in lookup.values():
-        rows.sort(key=lambda r: (r.get('date') or r.get('game_date') or '', -(float(_decision_points(r) or 0))))
+        rows.sort(key=lambda r: (_matchup_record_date(r) or '', -(float(_decision_points(r) or 0))))
     return lookup
 
 
+def _matchup_projection_conflict(projections):
+    assignments = {
+        (
+            _matchup_record_date(rec),
+            rec.get('opponent'),
+            rec.get('home_away'),
+        )
+        for rec in projections or []
+    }
+    assignments.discard((None, None, None))
+    return len(assignments) > 1, sorted(assignments)
+
+
 def _matchup_projection_context(record):
-    game_date = record.get('date') or record.get('game_date') or 'unknown date'
+    game_date = _matchup_record_date(record) or 'unknown date'
     opponent = record.get('opponent') or '?'
     home_away = record.get('home_away') or '?'
     matchup = f"vs {opponent}" if home_away == 'H' else f"at {opponent}" if home_away == 'A' else f"{home_away} {opponent}"
     return f"{game_date} {matchup}, {_decision_points(record):.1f} pts, {record.get('tier') or 'unknown'}"
 
 
-def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10):
+def _matchup_action_meta(source_kind, game_date=None, opponent=None, snapshot_date=None, note=None):
+    return {
+        'source': source_kind or 'prediction_log_cache',
+        'game_date': game_date,
+        'opponent': opponent,
+        'snapshot_date': snapshot_date,
+        'note': note,
+    }
+
+
+def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10,
+                                         prediction_records=None, prediction_source=None):
     """Read-only weekly matchup actions from ESPN snapshot + existing predictions."""
     base_date = base_date or date.today().isoformat()
     snapshot = snapshot or build_matchup_snapshot()
     actions = []
     seen = set()
+    notes = []
+    seen_pitcher_action_dates = {}
 
     def add(kind, text, priority=None, source='matchup', meta=None):
         key = (kind, _compact_decision_text(text, 120))
@@ -4656,18 +4730,61 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
             meta=meta,
         ))
 
+    def add_prediction_action(kind, text, item, game_date, priority, source_kind, source='prediction_log'):
+        name_key = normalize_name(item.get('name') or item.get('pitcher_name') or '')
+        prior_date = seen_pitcher_action_dates.get(name_key)
+        if name_key and prior_date and game_date and prior_date != game_date:
+            notes.append(
+                f"{item.get('name') or item.get('pitcher_name')} has probable-date conflict "
+                f"({prior_date} and {game_date}); using {prior_date}, verify manually."
+            )
+            return
+        if name_key and game_date:
+            seen_pitcher_action_dates[name_key] = game_date
+        add(
+            kind,
+            text,
+            priority,
+            source,
+            _matchup_action_meta(
+                source_kind,
+                game_date=game_date,
+                opponent=item.get('opponent'),
+                snapshot_date=item.get('_matchup_snapshot_date'),
+            ),
+        )
+
     if not snapshot or snapshot.get('error'):
         add('WATCH', f"Matchup snapshot unavailable: {(snapshot or {}).get('error') or 'unknown ESPN error'}.", 90)
         return {'date': base_date, 'items': actions, 'count': len(actions), 'notes': ['ESPN snapshot unavailable']}
 
-    daily_raw = build_daily_decision_summary(base_date)
+    prediction_records, prediction_source_kind, prediction_source_label = _matchup_prediction_records_for_actions(
+        base_date,
+        days=3,
+        records=prediction_records,
+        source=prediction_source,
+    )
+    daily_raw = build_daily_decision_summary(
+        base_date,
+        records=prediction_records,
+        source=prediction_source_label,
+    )
     daily = decision_summary_for_report(daily_raw)
-    watchlist = build_next_watchlist_summary(base_date)
-    prediction_records = _matchup_projection_records(base_date, days=3)
+    watchlist = build_next_watchlist_summary(
+        base_date,
+        records=prediction_records,
+        source=prediction_source_label,
+    )
     projection_lookup = _matchup_projection_lookup(prediction_records)
 
     for slot in (snapshot.get('empty_slots') or {}).get('mine') or []:
-        add('LOCK IN', f"Fill empty active lineup slot {slot} if ESPN still shows it open.", 1, 'espn_matchup')
+        add(
+            'LOCK IN',
+            f"Fill empty active lineup slot {slot} if ESPN still shows it open.",
+            1,
+            'espn_matchup',
+            _matchup_action_meta('current_run', game_date=base_date),
+        )
 
     active_injured = [
         row for row in snapshot.get('my_active') or []
@@ -4679,15 +4796,36 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
         projections = projection_lookup.get(name_key) or []
         if projections:
             context = _matchup_projection_context(projections[0])
+            projection_source = projections[0].get('_matchup_source') or prediction_source_kind
+            conflict, assignments = _matchup_projection_conflict(projections)
+            conflict_note = ''
+            if conflict:
+                compact = ', '.join(
+                    f"{d} {ha or ''}{opp or ''}".strip()
+                    for d, opp, ha in assignments[:3]
+                )
+                conflict_note = f" Probable-date conflict ({compact}); verify manually."
+                notes.append(f"{row.get('name')} has multiple projected dates in {projection_source}; verify manually.")
+            if projection_source == 'current_run':
+                conflict_text = 'conflicts with current projection/start data'
+            else:
+                conflict_text = 'has cached projection data'
             add(
                 'WATCH',
                 (
                     f"{row.get('name')} in active slot {row.get('slot')}: ESPN injury status "
-                    f"{row.get('injury')} conflicts with current projection/start data ({context}). "
-                    "Verify manually before locking lineup."
+                    f"{row.get('injury')} {conflict_text} ({context}). "
+                    f"Verify manually before locking lineup.{conflict_note}"
                 ),
                 4,
-                'espn_roster+prediction_log',
+                'espn_roster+projection',
+                _matchup_action_meta(
+                    projection_source,
+                    game_date=_matchup_record_date(projections[0]),
+                    opponent=projections[0].get('opponent'),
+                    snapshot_date=projections[0].get('_matchup_snapshot_date'),
+                    note='probable-date conflict' if conflict else None,
+                ),
             )
         else:
             add(
@@ -4698,6 +4836,7 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
                 ),
                 5 if str(row.get('injury')).upper() in ('OUT', 'FIFTEEN_DAY_DL', 'TEN_DAY_DL') else 35,
                 'espn_roster',
+                _matchup_action_meta('current_run', game_date=base_date),
             )
 
     today_teams = _matchup_today_team_set(prediction_records, base_date)
@@ -4719,6 +4858,7 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
                 f"Check hitter volume: {active.get('name')} appears active with no game today; {bench.get('name')} has a game if eligible.",
                 28,
                 'espn_roster',
+                _matchup_action_meta(prediction_source_kind, game_date=base_date),
             )
 
     sections = (daily or {}).get('sections') or {}
@@ -4726,27 +4866,34 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
         if normalize_name(item.get('name') or '') in injured_active_names:
             continue
         if item.get('tier') in ('must_start', 'start') and not item.get('risks'):
-            add('LOCK IN', _matchup_decision_item_text('Lock in', item), 12, 'prediction_log')
+            add_prediction_action(
+                'LOCK IN',
+                _matchup_decision_item_text('Lock in', item),
+                item,
+                base_date,
+                12,
+                prediction_source_kind,
+            )
 
     for item in sections.get('risky_roster', [])[:4]:
         if normalize_name(item.get('name') or '') in injured_active_names:
             continue
         if item.get('tier') == 'avoid':
-            add('BENCH', _matchup_decision_item_text('Bench unless desperate:', item), 18, 'prediction_log')
+            add_prediction_action('BENCH', _matchup_decision_item_text('Bench unless desperate:', item), item, base_date, 18, prediction_source_kind)
         elif item.get('tier') == 'borderline':
-            add('CONSIDER', _matchup_decision_item_text('Use only if you need volume:', item), 38, 'prediction_log')
+            add_prediction_action('CONSIDER', _matchup_decision_item_text('Use only if you need volume:', item), item, base_date, 38, prediction_source_kind)
         else:
             risk = (item.get('risks') or ['risk flags'])[0]
-            add('CONSIDER', f"Check {item.get('name')} before lock: {risk}.", 42, 'prediction_log')
+            add_prediction_action('CONSIDER', f"Check {item.get('name')} before lock: {risk}.", item, base_date, 42, prediction_source_kind)
 
     for item in sections.get('best_available', [])[:4]:
         if item.get('tier') in ('must_start', 'start'):
-            add('ADD', _matchup_decision_item_text('Add/start', item), 20, 'prediction_log')
+            add_prediction_action('ADD', _matchup_decision_item_text('Add/start', item), item, base_date, 20, prediction_source_kind)
         elif item.get('tier') == 'borderline':
-            add('CONSIDER', _matchup_decision_item_text('Consider only for volume:', item), 45, 'prediction_log')
+            add_prediction_action('CONSIDER', _matchup_decision_item_text('Consider only for volume:', item), item, base_date, 45, prediction_source_kind)
 
     for item in sections.get('avoid_traps', [])[:3]:
-        add('AVOID', _matchup_decision_item_text('Avoid streaming', item), 70, 'prediction_log')
+        add_prediction_action('AVOID', _matchup_decision_item_text('Avoid streaming', item), item, base_date, 70, prediction_source_kind)
 
     for day in (watchlist or {}).get('days', []):
         date_label = _action_date_text(day.get('date'), base_date)
@@ -4754,17 +4901,17 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
             if item.get('status') not in ('FA', 'WAIVER'):
                 continue
             if item.get('tier') in ('must_start', 'start'):
-                add('WATCH', _matchup_decision_item_text('Queue streamer', item, date_label), 55, 'prediction_log')
+                add_prediction_action('WATCH', _matchup_decision_item_text('Queue streamer', item, date_label), item, day.get('date'), 55, prediction_source_kind)
             elif item.get('tier') == 'borderline':
-                add('WATCH', _matchup_decision_item_text('Watch as volume fallback', item, date_label), 62, 'prediction_log')
+                add_prediction_action('WATCH', _matchup_decision_item_text('Watch as volume fallback', item, date_label), item, day.get('date'), 62, prediction_source_kind)
             if len(actions) >= limit + 4:
                 break
 
-    notes = []
+    notes.insert(0, f"Pitcher start dates source: {prediction_source_kind}.")
     if (daily or {}).get('status_unreliable'):
         notes.append('Roster/FA filtering may be stale; refresh with --preview-local if recommendations look sparse.')
     if not today_teams:
-        notes.append('Could not infer MLB teams playing today from prediction logs; hitter no-game checks were skipped.')
+        notes.append('Could not infer MLB teams playing today from prediction records; hitter no-game checks were skipped.')
     if not actions:
         add('WATCH', 'No clear matchup action found from current snapshot and prediction logs.', 95)
 
@@ -4780,7 +4927,20 @@ def print_matchup_actions(action_summary):
     if not items:
         print("  None")
     for idx, action in enumerate(items[:10], 1):
-        print(f"{idx:>2}. {action.get('kind')}: {action.get('text')}")
+        meta = action.get('meta') or {}
+        context = []
+        if meta.get('source'):
+            context.append(f"source={meta.get('source')}")
+        if meta.get('game_date'):
+            context.append(f"game_date={meta.get('game_date')}")
+        if meta.get('opponent'):
+            context.append(f"opp={meta.get('opponent')}")
+        if meta.get('snapshot_date'):
+            context.append(f"snapshot={meta.get('snapshot_date')}")
+        if meta.get('note'):
+            context.append(str(meta.get('note')))
+        suffix = f" [{' | '.join(context)}]" if context else ""
+        print(f"{idx:>2}. {action.get('kind')}: {action.get('text')}{suffix}")
     notes = (action_summary or {}).get('notes') or []
     if notes:
         print("\nNotes")
@@ -4932,7 +5092,10 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                 matchup_snapshot_summary = matchup_snapshot_for_report(matchup_snapshot_data)
             if matchup_action_summary is None:
                 matchup_action_summary = build_matchup_action_recommendations(
-                    matchup_snapshot_data, base_date=snapshot_date
+                    matchup_snapshot_data,
+                    base_date=snapshot_date,
+                    prediction_records=report_decision_records,
+                    prediction_source=report_decision_source,
                 )
         except Exception as e:
             matchup_snapshot_summary = {
@@ -5505,12 +5668,20 @@ function renderActionRows(items, limit) {
   var h = '<div class="action-list">';
   items.slice(0, limit || 10).forEach(function(item) {
     var kind = item.kind || 'WATCH';
-    var meta = item.date_label || item.source || '';
-    if (item.meta && item.meta.date) meta = item.meta.date;
+    var metaParts = [];
+    if (item.meta) {
+      if (item.meta.source) metaParts.push(item.meta.source);
+      if (item.meta.game_date) metaParts.push(item.meta.game_date);
+      if (item.meta.opponent) metaParts.push('vs ' + item.meta.opponent);
+      if (item.meta.snapshot_date) metaParts.push('snapshot ' + item.meta.snapshot_date);
+      if (item.meta.note) metaParts.push(item.meta.note);
+    }
+    if (!metaParts.length && item.date_label) metaParts.push(item.date_label);
+    if (!metaParts.length && item.source) metaParts.push(item.source);
     h += '<div class="action-row">';
     h += '<span class="action-kind ' + actionKindClass(kind) + '">' + escHtml(kind) + '</span>';
     h += '<div class="action-text">' + escHtml(item.text || '') + '</div>';
-    h += '<div class="action-meta">' + escHtml(meta || '') + '</div>';
+    h += '<div class="action-meta">' + metaParts.map(escHtml).join(' &bull; ') + '</div>';
     h += '</div>';
   });
   h += '</div>';
