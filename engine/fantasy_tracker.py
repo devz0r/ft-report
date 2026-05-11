@@ -4795,6 +4795,33 @@ def matchup_actions():
     return actions
 
 
+def matchup_snapshot_for_report(snapshot):
+    """Compact, JSON-safe matchup snapshot for the HTML report."""
+    if not snapshot:
+        return {'available': False, 'error': 'Matchup snapshot unavailable.'}
+    if snapshot.get('error'):
+        return {
+            'available': False,
+            'error': snapshot.get('error'),
+            'available_teams': snapshot.get('available_teams') or {},
+        }
+    score = snapshot.get('score') or {}
+    return {
+        'available': True,
+        'scoring_period': snapshot.get('scoring_period'),
+        'my_team': (snapshot.get('my_team') or {}).get('name'),
+        'opponent': (snapshot.get('opponent') or {}).get('name'),
+        'my_score': score.get('mine'),
+        'opponent_score': score.get('opponent'),
+        'margin': score.get('margin'),
+        'my_active_count': len(snapshot.get('my_active') or []),
+        'opponent_active_count': len(snapshot.get('opponent_active') or []),
+        'injury_note_count': len(snapshot.get('injury_notes') or []),
+        'empty_slots': snapshot.get('empty_slots') or {'mine': [], 'opponent': []},
+        'score_fields_available': (snapshot.get('available_fields') or {}).get('score_fields', False),
+    }
+
+
 def daily_decision_audit(target_date=None):
     """Read-only daily pitching decision summary from existing prediction logs."""
     target_date = target_date or date.today().isoformat()
@@ -4866,6 +4893,8 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           daily_decision_summary=None,
                           next_watchlist_summary=None,
                           add_drop_priority_summary=None,
+                          matchup_snapshot_summary=None,
+                          matchup_action_summary=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
     from string import Template
@@ -4896,6 +4925,26 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
         add_drop_priority_summary = build_add_drop_priority_summary(
             snapshot_date, daily_decision_summary, next_watchlist_summary
         )
+    if matchup_snapshot_summary is None or matchup_action_summary is None:
+        try:
+            matchup_snapshot_data = build_matchup_snapshot()
+            if matchup_snapshot_summary is None:
+                matchup_snapshot_summary = matchup_snapshot_for_report(matchup_snapshot_data)
+            if matchup_action_summary is None:
+                matchup_action_summary = build_matchup_action_recommendations(
+                    matchup_snapshot_data, base_date=snapshot_date
+                )
+        except Exception as e:
+            matchup_snapshot_summary = {
+                'available': False,
+                'error': f'Matchup data unavailable: {type(e).__name__}',
+            }
+            matchup_action_summary = {
+                'date': snapshot_date,
+                'items': [],
+                'count': 0,
+                'notes': [f'Matchup actions unavailable: {type(e).__name__}: {e}'],
+            }
 
     # Build a lookup of emerging (HOLD) pitchers.
     # Prefer the global emerging map (assesses ALL FA + MY ROSTER SPs by recent form,
@@ -5084,12 +5133,20 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .action-list { padding: 10px 16px 14px; display: grid; gap: 7px; }
 .action-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 8px 9px; border: 1px solid #20202a; border-radius: 6px; background: #0d0d14; }
 .action-kind { padding: 2px 6px; border-radius: 3px; background: #1a1a24; color: #ddd; border: 1px solid #2a2a35; font-size: 9px; font-weight: 800; letter-spacing: 0.4px; }
+.action-kind.lock-in { color: #34d399; border-color: rgba(52,211,153,0.45); background: rgba(52,211,153,0.1); }
 .action-kind.add { color: #34d399; border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.08); }
 .action-kind.consider, .action-kind.watch { color: #fbbf24; border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.08); }
 .action-kind.bench, .action-kind.avoid, .action-kind.desperation { color: #f87171; border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.08); }
 .action-text { color: #e5e7eb; font-size: 12px; line-height: 1.35; min-width: 0; }
 .action-meta { color: #888; font-size: 11px; white-space: nowrap; }
+.matchup-grid { padding: 10px 16px 14px; display: grid; grid-template-columns: minmax(230px, 0.8fr) minmax(280px, 1.2fr); gap: 10px; }
+.matchup-score { font-size: 20px; color: #fff; font-weight: 800; margin-top: 4px; }
+.matchup-margin { font-size: 13px; font-weight: 700; }
+.matchup-margin.good { color: #34d399; }
+.matchup-margin.bad { color: #f87171; }
+.matchup-small { color: #888; font-size: 12px; line-height: 1.45; margin-top: 6px; }
 @media (max-width: 720px) { .action-row { grid-template-columns: 1fr; gap: 4px; } .action-meta { white-space: normal; } }
+@media (max-width: 820px) { .matchup-grid { grid-template-columns: 1fr; } }
 .tier-header { padding: 6px 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; border-top: 1px solid #222; }
 .tier-header:first-child { border-top: none; }
 .tier-must_start { color: #34d399; background: rgba(52,211,153,0.05); }
@@ -5197,6 +5254,7 @@ $TOP_BANNER_HTML
 <!-- ===== STREAMING TAB ===== -->
 <div class="tab-view" id="tab-streaming">
 <div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold</div>
+<div id="matchupContent"></div>
 <div id="decisionContent"></div>
 <div id="addDropContent"></div>
 <div id="watchlistContent"></div>
@@ -5220,6 +5278,8 @@ var LEARNING_SAMPLE_SUMMARY = $LEARNING_SAMPLE_SUMMARY_JSON;
 var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
 var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
 var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
+var MATCHUP_SNAPSHOT = $MATCHUP_SNAPSHOT_JSON;
+var MATCHUP_ACTIONS = $MATCHUP_ACTIONS_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -5436,6 +5496,58 @@ function renderProblemSection(problems) {
   return h + '</div>';
 }
 
+function actionKindClass(kind) {
+  return String(kind || 'WATCH').toLowerCase().replace(/\s+/g, '-');
+}
+
+function renderActionRows(items, limit) {
+  if (!items || !items.length) return '<div class="decision-empty">No matchup actions available.</div>';
+  var h = '<div class="action-list">';
+  items.slice(0, limit || 10).forEach(function(item) {
+    var kind = item.kind || 'WATCH';
+    var meta = item.date_label || item.source || '';
+    if (item.meta && item.meta.date) meta = item.meta.date;
+    h += '<div class="action-row">';
+    h += '<span class="action-kind ' + actionKindClass(kind) + '">' + escHtml(kind) + '</span>';
+    h += '<div class="action-text">' + escHtml(item.text || '') + '</div>';
+    h += '<div class="action-meta">' + escHtml(meta || '') + '</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function renderMatchupReport() {
+  var container = document.getElementById('matchupContent');
+  if (!container) return;
+  var s = MATCHUP_SNAPSHOT || {};
+  var a = MATCHUP_ACTIONS || {};
+  var h = '<div class="day-card decision-card">';
+  h += '<div class="day-header"><span class="day-date">Matchup Snapshot</span><span class="day-count">' + escHtml(s.available ? ('Period ' + (s.scoring_period || '?')) : 'Unavailable') + '</span></div>';
+  if (!s.available) {
+    h += '<div class="decision-warning">' + escHtml(s.error || 'ESPN matchup data unavailable. The rest of the report is still usable.') + '</div>';
+  } else {
+    var mine = Number(s.my_score);
+    var opp = Number(s.opponent_score);
+    var margin = Number(s.margin);
+    var hasScore = isFinite(mine) && isFinite(opp);
+    var marginCls = margin >= 0 ? 'good' : 'bad';
+    h += '<div class="matchup-grid">';
+    h += '<div class="decision-section"><div class="decision-section-title">Current Matchup</div><div class="decision-row">';
+    h += '<div class="decision-line1"><span class="decision-name">' + escHtml(s.my_team || 'My team') + '</span><span class="decision-meta">vs ' + escHtml(s.opponent || 'Opponent') + '</span></div>';
+    h += '<div class="matchup-score">' + (hasScore ? (mine.toFixed(1) + ' - ' + opp.toFixed(1)) : 'Score unavailable') + '</div>';
+    if (hasScore) h += '<div class="matchup-margin ' + marginCls + '">Margin ' + (margin >= 0 ? '+' : '') + margin.toFixed(1) + '</div>';
+    h += '<div class="matchup-small">Active: ' + (s.my_active_count || 0) + ' mine, ' + (s.opponent_active_count || 0) + ' opponent &bull; Injury notes: ' + (s.injury_note_count || 0) + '</div>';
+    h += '</div></div>';
+    h += '<div class="decision-section"><div class="decision-section-title">Matchup Actions</div>';
+    h += renderActionRows((a.items || []), 10);
+    if (a.notes && a.notes.length) h += '<div class="decision-warning">' + a.notes.map(escHtml).join(' ') + '</div>';
+    h += '</div></div>';
+  }
+  h += '</div>';
+  container.innerHTML = h;
+}
+
 function renderDailyDecisions() {
   var container = document.getElementById('decisionContent');
   if (!container || !DAILY_DECISIONS) return;
@@ -5474,7 +5586,7 @@ function renderAddDropPriority() {
   } else {
     h += '<div class="action-list">';
     items.forEach(function(item) {
-      var kind = (item.kind || 'WATCH').toLowerCase();
+      var kind = actionKindClass(item.kind || 'WATCH');
       var meta = (item.date_label || '') + ' &bull; ' + (item.status || '') + ' &bull; ' + (Number(item.points || 0)).toFixed(1) + ' pts';
       h += '<div class="action-row">';
       h += '<span class="action-kind ' + kind + '">' + escHtml(item.kind || 'WATCH') + '</span>';
@@ -5696,6 +5808,7 @@ function ordinal(n) {
   return n + (s[(v-20)%10] || s[v] || s[0]);
 }
 
+renderMatchupReport();
 renderDailyDecisions();
 renderAddDropPriority();
 renderWatchlist();
@@ -5851,6 +5964,8 @@ renderAccuracy();
         DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
         NEXT_WATCHLIST_JSON=json.dumps(next_watchlist_summary) if next_watchlist_summary else 'null',
         ADD_DROP_PRIORITY_JSON=json.dumps(add_drop_priority_summary) if add_drop_priority_summary else 'null',
+        MATCHUP_SNAPSHOT_JSON=json.dumps(matchup_snapshot_summary) if matchup_snapshot_summary else 'null',
+        MATCHUP_ACTIONS_JSON=json.dumps(matchup_action_summary) if matchup_action_summary else 'null',
         FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
         TOP_BANNER_HTML=top_banner_html or '',
     )
@@ -9806,6 +9921,16 @@ def main():
             learned_candidates=[],
             learned_biases_override=fast_learned_biases,
             feature_log_status_override='Fast preview: feature-log status not refreshed.',
+            matchup_snapshot_summary={
+                'available': False,
+                'error': 'Fast preview uses cached report artifacts and does not refresh ESPN matchup data.',
+            },
+            matchup_action_summary={
+                'date': snapshot_date,
+                'items': [],
+                'count': 0,
+                'notes': ['Run --preview-local or a normal report for fresh matchup actions.'],
+            },
             skip_unchanged_write=True,
             top_banner_html=fast_preview_banner,
         )
