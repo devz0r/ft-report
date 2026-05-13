@@ -9562,5 +9562,15 @@
       "ip": "85.7"
     },
     "splits_window_years": 3
+  },
+  "666129": {
+    "mlb_id": 666129,
+    "career_vs_r": {
+      "ops": "0.692",
+      "whip": "1.10",
+      "k9": "8.07",
+      "ip": "29.0"
+    },
+    "splits_window_years": 1
   }
 }
