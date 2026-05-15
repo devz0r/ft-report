@@ -3180,6 +3180,73 @@ def compute_pts_per_start(proj):
     )
 
 
+PROJECTION_MIN_GS = 5
+PROJECTION_IP_PER_GS_SOFT_LIMIT = 7.5
+PROJECTION_IP_PER_GS_HARD_LIMIT = 9.0
+
+
+def _append_note(existing, note):
+    if not note:
+        return existing
+    if not existing:
+        return note
+    if note in existing:
+        return existing
+    return f"{existing}; {note}"
+
+
+def projection_sanity_status(proj, probable_source=None, roster_status=None):
+    """Decide whether a probable starter's projection row is safe enough to score."""
+    proj_gs = _safe_float((proj or {}).get('GS')) or 0.0
+    proj_ip = _safe_float((proj or {}).get('IP')) or 0.0
+    out = {
+        'status': 'kept',
+        'note': '',
+        'original_ip_per_gs': None,
+        'adjusted_ip_per_gs': None,
+        'projected_gs': proj_gs,
+        'projected_ip': proj_ip,
+        'soft_limit': PROJECTION_IP_PER_GS_SOFT_LIMIT,
+        'hard_limit': PROJECTION_IP_PER_GS_HARD_LIMIT,
+    }
+    if proj_gs < PROJECTION_MIN_GS:
+        out.update({
+            'status': 'dropped',
+            'note': f"projected GS {proj_gs:g} is below starter threshold {PROJECTION_MIN_GS}",
+        })
+        return out
+    if proj_ip <= 0:
+        return out
+
+    ip_per_gs = proj_ip / max(proj_gs, 1.0)
+    out['original_ip_per_gs'] = round(ip_per_gs, 3)
+    out['adjusted_ip_per_gs'] = round(ip_per_gs, 3)
+    if ip_per_gs <= PROJECTION_IP_PER_GS_SOFT_LIMIT:
+        return out
+    if ip_per_gs > PROJECTION_IP_PER_GS_HARD_LIMIT:
+        out.update({
+            'status': 'dropped',
+            'note': (
+                f"projected IP/GS {ip_per_gs:.2f} exceeds hard sanity limit "
+                f"{PROJECTION_IP_PER_GS_HARD_LIMIT:.1f}"
+            ),
+        })
+        return out
+
+    adjusted_gs = max(proj_gs, proj_ip / 6.0)
+    adjusted_ip_per_gs = proj_ip / max(adjusted_gs, 1.0)
+    out['status'] = 'clamped'
+    out['adjusted_ip_per_gs'] = round(adjusted_ip_per_gs, 3)
+    source_text = probable_source or 'unknown source'
+    roster_text = roster_status or 'unknown status'
+    out['note'] = (
+        f"projection sanity clamp: IP/GS {ip_per_gs:.2f} exceeds "
+        f"{PROJECTION_IP_PER_GS_SOFT_LIMIT:.1f}; kept because source={source_text}, "
+        f"status={roster_text}; scoring uses adjusted IP/GS {adjusted_ip_per_gs:.2f}"
+    )
+    return out
+
+
 def adjust_for_matchup(base_pts, proj, opp_factor):
     """Adjust per-start points based on opponent offense quality."""
     gs = max(proj.get('GS', 1), 1)
@@ -4089,12 +4156,6 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         if not proj:
             continue  # Can't score without projections
 
-        # Skip openers/bulk relievers: real starters project for 8+ GS RoS
-        proj_gs = proj.get('GS', 0)
-        proj_ip = proj.get('IP', 0)
-        if proj_gs < 5 or (proj_ip > 0 and proj_ip / max(proj_gs, 1) > 7.5):
-            continue
-
         # Determine fantasy status using normalized name matching
         fg_name = proj['name']
         fg_name_norm = normalize_name(fg_name)
@@ -4125,6 +4186,19 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                 status = 'FA'
         else:
             status = 'FA'
+
+        # Skip only truly bad/opening projection rows. Small IP/GS violations
+        # on real probable starters are kept with the same per-start adjustment
+        # compute_pts_per_start() has always used, so official/rostered starts
+        # do not silently disappear from the report.
+        projection_sanity = projection_sanity_status(
+            proj,
+            probable_source=game.get('probable_source'),
+            roster_status=status,
+        )
+        if projection_sanity.get('status') == 'dropped':
+            continue
+        probable_warning = _append_note(game.get('probable_warning'), projection_sanity.get('note'))
 
         # NOTE: We compute features + prediction for EVERY scheduled SP (not
         # just FA/MY ROSTER) so the learning engine has ~30 starts/day of
@@ -4249,7 +4323,11 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'tier': tier,
             'tier_label': TIER_LABELS.get(tier, ''),
             'probable_source': game.get('probable_source'),
-            'probable_warning': game.get('probable_warning'),
+            'probable_warning': probable_warning,
+            'projection_sanity_status': projection_sanity.get('status'),
+            'projection_ip_per_gs': projection_sanity.get('original_ip_per_gs'),
+            'projection_adjusted_ip_per_gs': projection_sanity.get('adjusted_ip_per_gs'),
+            'projection_sanity_note': projection_sanity.get('note'),
             'pitch_analysis': pitch_analysis,
             'emerging': emerging,
             'opp_il': opp_il,
@@ -5295,6 +5373,103 @@ def _status_for_probable_pitcher(name, team, fg_proj=None, espn_matches=None, ro
     return 'FA'
 
 
+def _projection_for_probable_game(game, fg_proj):
+    pitcher_name = game.get('pitcher_name')
+    pitcher_team = game.get('pitcher_team')
+    if not pitcher_name:
+        return None, None, 'no pitcher after probable validation'
+    fg_by_name = {}
+    for key, proj in (fg_proj or {}).items():
+        fg_by_name[key] = proj
+        name_only = key.split('|')[0]
+        if name_only not in fg_by_name:
+            fg_by_name[name_only] = proj
+    norm_name = normalize_name(pitcher_name)
+    norm_key = f"{norm_name}|{pitcher_team}"
+    proj = fg_by_name.get(norm_key)
+    if proj:
+        return proj, norm_key, 'matched by normalized name + team'
+    proj = fg_by_name.get(norm_name)
+    if proj:
+        return proj, norm_name, 'matched by normalized name fallback'
+    return None, norm_key, 'no FanGraphs pitcher projection matched'
+
+
+def _pipeline_status_for_probable_game(game, fg_proj=None, espn_matches=None, roster_map=None):
+    out = {
+        'projection_matched': False,
+        'projection_key': None,
+        'projection_reason': None,
+        'scoring_row_built': False,
+        'included_streaming': False,
+        'included_today_decisions': False,
+        'status': '',
+        'tier': None,
+        'projected_points': None,
+        'reason': None,
+    }
+    if not game.get('pitcher_name'):
+        out['reason'] = game.get('probable_note') or 'TBD/problem after probable-date validation'
+        out['status'] = ''
+        return out
+
+    proj, proj_key, proj_reason = _projection_for_probable_game(game, fg_proj or {})
+    out['projection_key'] = proj_key
+    out['projection_reason'] = proj_reason
+    if not proj:
+        out['reason'] = 'dropped before scoring: no FanGraphs projection match'
+        return out
+
+    out['projection_matched'] = True
+    out['projection_name'] = proj.get('name')
+    out['projection_team'] = proj.get('team')
+    out['proj_gs'] = proj.get('GS')
+    out['proj_ip'] = proj.get('IP')
+    status = _status_for_probable_pitcher(
+        proj.get('name') or game.get('pitcher_name'),
+        game.get('pitcher_team'),
+        fg_proj,
+        espn_matches,
+        roster_map,
+    )
+    out['status'] = status
+    sanity = projection_sanity_status(
+        proj,
+        probable_source=game.get('probable_source'),
+        roster_status=status,
+    )
+    out['projection_sanity_status'] = sanity.get('status')
+    out['projection_sanity_note'] = sanity.get('note')
+    out['proj_ip_per_gs'] = sanity.get('original_ip_per_gs')
+    out['proj_adjusted_ip_per_gs'] = sanity.get('adjusted_ip_per_gs')
+    if sanity.get('status') == 'dropped':
+        out['reason'] = f"dropped before scoring: {sanity.get('note')}"
+        return out
+
+    out['scoring_row_built'] = True
+
+    try:
+        # Approximate enough for diagnostics; the full tracker computes matchup
+        # and learned adjustments separately. This command must not alter model
+        # behavior or force a row into the report.
+        out['projected_points'] = round(compute_pts_per_start(proj), 1)
+        out['tier'] = classify_tier(out['projected_points'])
+    except Exception:
+        out['projected_points'] = None
+        out['tier'] = None
+
+    if status in ('FA', 'MY ROSTER', 'WAIVER'):
+        out['included_streaming'] = True
+        if (game.get('date') or '') == date.today().isoformat():
+            out['included_today_decisions'] = True
+        out['reason'] = 'included in report action pool'
+    elif status:
+        out['reason'] = f"hidden from report action pool: roster status is {status}"
+    else:
+        out['reason'] = 'hidden from report action pool: roster status is blank/unknown'
+    return out
+
+
 def explain_pitcher_schedule(pitcher_name):
     """Read-only diagnostic for current streaming-window probable-date handling."""
     global PREVIEW_LOCAL
@@ -5383,17 +5558,31 @@ def explain_pitcher_schedule(pitcher_name):
         print("\nSchedule/probable candidates")
         if not candidates:
             print("  None found in current fetched schedule/probable data.")
+        pipeline_by_key = {}
         for game in candidates:
             key = _probable_assignment_id(game)
+            pipeline = _pipeline_status_for_probable_game(game, fg_proj, espn_matches, roster_map)
+            pipeline_by_key[key] = pipeline
             decision = 'kept'
             if key in report.get('suppressed', {}):
                 decision = 'TBD/problem'
             elif key in report.get('warnings', {}):
                 decision = 'kept with warning'
-            status = _status_for_probable_pitcher(
+            status = pipeline.get('status') or _status_for_probable_pitcher(
                 game.get('pitcher_name'), game.get('pitcher_team'), fg_proj, espn_matches, roster_map
             )
-            visibility = 'actionable' if status in ('MY ROSTER', 'FA', 'WAIVER') and decision == 'kept' else decision
+            validation_allows_display = decision in ('kept', 'kept with warning')
+            included_streaming = bool(pipeline.get('included_streaming') and validation_allows_display)
+            included_today = bool(pipeline.get('included_today_decisions') and validation_allows_display)
+            if validation_allows_display:
+                if included_streaming and decision == 'kept with warning':
+                    visibility = 'included in Streaming with warning'
+                elif included_streaming:
+                    visibility = 'included in Streaming'
+                else:
+                    visibility = 'excluded after validation'
+            else:
+                visibility = decision
             hard = _recent_start_before_date(target_norm, game.get('date'), hard_recent)
             soft = _recent_start_before_date(target_norm, game.get('date'), soft_recent)
             print(
@@ -5415,11 +5604,53 @@ def explain_pitcher_schedule(pitcher_name):
                 print(f"      soft evidence: {soft.get('date')} from {soft.get('source')}")
             else:
                 print("      soft evidence: none before this date")
+            print(
+                "      projection matched: "
+                f"{'yes' if pipeline.get('projection_matched') else 'no'}"
+                f" ({pipeline.get('projection_reason')})"
+            )
+            if pipeline.get('projection_matched'):
+                print(
+                    "      projection row: "
+                    f"{pipeline.get('projection_name')} {pipeline.get('projection_team')} "
+                    f"GS={pipeline.get('proj_gs')} IP={pipeline.get('proj_ip')} "
+                    f"IP/GS={pipeline.get('proj_ip_per_gs')}"
+                )
+                sanity_text = pipeline.get('projection_sanity_status') or 'unknown'
+                adjusted = pipeline.get('proj_adjusted_ip_per_gs')
+                if adjusted is not None and adjusted != pipeline.get('proj_ip_per_gs'):
+                    sanity_text += f" (adjusted IP/GS={adjusted})"
+                if pipeline.get('projection_sanity_note'):
+                    sanity_text += f" — {pipeline.get('projection_sanity_note')}"
+                print(f"      projection sanity: {sanity_text}")
+            print(f"      scoring row built: {'yes' if pipeline.get('scoring_row_built') else 'no'}")
+            if pipeline.get('scoring_row_built'):
+                pts_text = (
+                    f"{pipeline.get('projected_points')} pts"
+                    if pipeline.get('projected_points') is not None else 'points unavailable'
+                )
+                print(f"      final status/tier: {pipeline.get('status') or '?'} / {pipeline.get('tier') or '?'} / {pts_text}")
+            print(f"      included in full Streaming list: {'yes' if included_streaming else 'no'}")
+            print(f"      included in Today's Pitching Decisions: {'yes' if included_today else 'no'}")
+            if not validation_allows_display:
+                final_reason = report.get('suppressed', {}).get(key) or pipeline.get('reason')
+            elif included_streaming and key in report.get('warnings', {}):
+                final_reason = f"included with warning: {report['warnings'][key]}"
+            else:
+                final_reason = pipeline.get('reason')
+            print(f"      final report reason: {final_reason}")
 
         print("\nFinal displayed date(s)")
-        if not final_rows:
-            print("  None.")
+        display_rows = []
         for game in final_rows:
+            key = _probable_assignment_id(game)
+            pipeline = pipeline_by_key.get(key)
+            if game.get('pitcher_name') and pipeline and not pipeline.get('included_streaming'):
+                continue
+            display_rows.append(game)
+        if not display_rows:
+            print("  None.")
+        for game in display_rows:
             if game.get('pitcher_name'):
                 print(
                     f"  - {game.get('date')} {game.get('pitcher_team')} "
@@ -7109,6 +7340,9 @@ function renderPitcherEntry(s, allReal) {
   if (s.opp_il_returns && s.opp_il_returns.length > 0) {
     var retNames = s.opp_il_returns.map(function(r) { return r.name; }).join(', ');
     h += '<span>\u2022 <span class="opp-il-warn">\u26A0 ' + s.opponent + ' just activated: ' + retNames + '</span></span>';
+  }
+  if (s.probable_warning) {
+    h += '<span>\u2022 <span class="opp-il-warn">\u26A0 ' + escHtml(s.probable_warning) + '</span></span>';
   }
   h += '</div>';
 
