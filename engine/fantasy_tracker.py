@@ -6352,6 +6352,304 @@ def matchup_actions():
     return actions
 
 
+def _hitter_player_rows(players_list):
+    out = []
+    for player in players_list or []:
+        ptype = player.get('type')
+        positions = set(player.get('positions') or [])
+        display = player.get('displayPos') or player.get('best_pos') or ''
+        if ptype == 'pitcher' or display in ('SP', 'RP', 'P') or positions == {'P'}:
+            continue
+        row = dict(player)
+        row['_norm'] = normalize_name(row.get('name') or '')
+        out.append(row)
+    return out
+
+
+def _hitter_lookup(players_list):
+    lookup = {}
+    for row in _hitter_player_rows(players_list):
+        if row.get('_norm') and row['_norm'] not in lookup:
+            lookup[row['_norm']] = row
+    return lookup
+
+
+def _hitter_value(row, lookup):
+    player = lookup.get(normalize_name((row or {}).get('name') or '')) or {}
+    return {
+        'dollars': _safe_float(player.get('dollars')) or 0.0,
+        'rpts': _safe_float(player.get('rpts')) or 0.0,
+        'positions': player.get('positions') or [],
+        'display_pos': player.get('displayPos') or player.get('best_pos') or row.get('pos') or '',
+        'status': player.get('status') or '',
+    }
+
+
+def _hitter_team_has_game(row, today_teams):
+    team = (row or {}).get('team')
+    if not team or not today_teams:
+        return None
+    return team in today_teams
+
+
+def _hitter_action(kind, text, priority, row=None, value=None, source='espn_roster'):
+    row = row or {}
+    value = value or {}
+    return {
+        'kind': kind,
+        'text': _compact_decision_text(text, 180),
+        'priority': priority,
+        'name': row.get('name') or '',
+        'team': row.get('team') or '',
+        'slot': row.get('slot') or '',
+        'status': row.get('status') or value.get('status') or '',
+        'dollars': round(_safe_float(value.get('dollars')) or 0.0, 1),
+        'rpts': round(_safe_float(value.get('rpts')) or 0.0, 1),
+        'source': source,
+    }
+
+
+def build_hitter_decision_summary(base_date=None, players_list=None, matchup_snapshot_data=None,
+                                  prediction_records=None, limit=10, allow_live_snapshot=True):
+    """Read-only hitter lineup/FA suggestions from ESPN roster rows + RoS values."""
+    base_date = base_date or date.today().isoformat()
+    players_list = [dict(p) for p in (players_list or [])]
+    roster_status_cache, roster_status_sources = _load_local_roster_status_cache()
+    for player in players_list:
+        if player.get('status'):
+            continue
+        status = roster_status_cache.get((normalize_name(player.get('name') or ''), player.get('team') or ''))
+        if status:
+            player['status'] = status
+    notes = []
+    data_available = {
+        'ros_values': bool(players_list),
+        'espn_roster': False,
+        'team_game_schedule': False,
+        'roster_status_cache': bool(roster_status_cache),
+    }
+    if prediction_records is None:
+        prediction_records, _source_kind, _source_label = _matchup_prediction_records_for_actions(
+            base_date,
+            days=0,
+            records=None,
+            source=None,
+        )
+    today_teams = _matchup_today_team_set(prediction_records or [], base_date)
+    data_available['team_game_schedule'] = bool(today_teams)
+    if not today_teams:
+        notes.append('Team game schedule was not available from current prediction records; no-game checks were skipped.')
+    if roster_status_sources:
+        notes.append(f"Roster status cache used for FA/roster labels: {os.path.basename(roster_status_sources[0])}.")
+
+    snapshot = matchup_snapshot_data
+    if snapshot is None and allow_live_snapshot:
+        try:
+            snapshot = build_matchup_snapshot()
+        except Exception as e:
+            snapshot = {'error': f'{type(e).__name__}: {e}'}
+    if snapshot and not snapshot.get('error') and not snapshot.get('low_confidence'):
+        data_available['espn_roster'] = True
+    elif snapshot and snapshot.get('error'):
+        notes.append(f"ESPN roster data unavailable: {snapshot.get('error')}")
+    else:
+        notes.append('ESPN roster data unavailable; showing FA/waiver hitter value only.')
+
+    lookup = _hitter_lookup(players_list)
+    actions = []
+    seen = set()
+
+    def add(action):
+        key = (action.get('kind'), normalize_name(action.get('name') or ''), action.get('text'))
+        if key in seen:
+            return
+        seen.add(key)
+        actions.append(action)
+
+    active = [row for row in (snapshot or {}).get('my_active') or [] if _matchup_player_is_hitter(row)]
+    bench = [row for row in (snapshot or {}).get('my_bench') or [] if _matchup_player_is_hitter(row)]
+    active_hurt = [row for row in active if row.get('injury')]
+    bench_usable = [
+        row for row in bench
+        if not row.get('injury') and _hitter_team_has_game(row, today_teams) is not False
+    ]
+    bench_usable.sort(key=lambda r: _hitter_value(r, lookup)['dollars'], reverse=True)
+
+    for row in active_hurt:
+        value = _hitter_value(row, lookup)
+        replacement = bench_usable[0] if bench_usable else None
+        repl_text = ''
+        if replacement:
+            repl_value = _hitter_value(replacement, lookup)
+            repl_text = f" Top bench replacement: {replacement.get('name')} (${repl_value['dollars']:.1f} RoS)."
+        add(_hitter_action(
+            'INJURY CHECK',
+            f"Check {row.get('name')} in active {row.get('slot')}: ESPN status {row.get('injury')}.{repl_text}",
+            5,
+            row,
+            value,
+        ))
+
+    if today_teams:
+        active_no_game = [
+            row for row in active
+            if not row.get('injury') and _hitter_team_has_game(row, today_teams) is False
+        ]
+        for row in sorted(active_no_game, key=lambda r: _hitter_value(r, lookup)['dollars'])[:3]:
+            value = _hitter_value(row, lookup)
+            replacement = bench_usable[0] if bench_usable else None
+            repl_text = ''
+            if replacement:
+                repl_value = _hitter_value(replacement, lookup)
+                repl_text = f" {replacement.get('name')} has a game today (${repl_value['dollars']:.1f} RoS) if eligible."
+            add(_hitter_action(
+                'NO GAME',
+                f"{row.get('name')} appears active at {row.get('slot')} with no game today.{repl_text}",
+                20,
+                row,
+                value,
+            ))
+
+    for row in bench_usable[:3]:
+        value = _hitter_value(row, lookup)
+        if value['dollars'] <= 0 and not active_hurt:
+            continue
+        label = 'START' if active_hurt or value['dollars'] >= 5 else 'WATCH'
+        add(_hitter_action(
+            label,
+            f"{row.get('name')} is on bench with a game today; ${value['dollars']:.1f} RoS value.",
+            28 if label == 'START' else 55,
+            row,
+            value,
+        ))
+
+    fa_hitters = [
+        row for row in _hitter_player_rows(players_list)
+        if row.get('status') in ('FA', 'WAIVER') and (_safe_float(row.get('dollars')) or 0.0) > 0
+    ]
+    fa_hitters.sort(key=lambda p: (_safe_float(p.get('dollars')) or 0.0, _safe_float(p.get('rpts')) or 0.0), reverse=True)
+    for player in fa_hitters[:4]:
+        add(_hitter_action(
+            'ADD',
+            f"Watch/add {player.get('name')} if you need hitter depth; ${_safe_float(player.get('dollars')) or 0.0:.1f} RoS value.",
+            65,
+            {'name': player.get('name'), 'team': player.get('team'), 'slot': player.get('displayPos') or player.get('best_pos')},
+            player,
+            source='ros_values',
+        ))
+
+    actions = sorted(actions, key=lambda a: (a.get('priority', 99), -(_safe_float(a.get('dollars')) or 0.0), a.get('text')))[:limit]
+    return {
+        'date': base_date,
+        'items': actions,
+        'count': len(actions),
+        'notes': notes,
+        'data_available': data_available,
+        'today_team_count': len(today_teams),
+        'active_hitter_count': len(active),
+        'bench_hitter_count': len(bench),
+        'fa_hitter_candidates': len(fa_hitters),
+    }
+
+
+def print_hitter_decisions(summary):
+    print("\nHITTER DECISIONS")
+    print("=" * 60)
+    print("Read-only: uses ESPN roster rows, current RoS hitter values, and team game availability when detectable.")
+    data = (summary or {}).get('data_available') or {}
+    print(
+        "Data: "
+        f"RoS values={'yes' if data.get('ros_values') else 'no'}, "
+        f"ESPN roster={'yes' if data.get('espn_roster') else 'no'}, "
+        f"team games={'yes' if data.get('team_game_schedule') else 'no'}"
+    )
+    items = (summary or {}).get('items') or []
+    if not items:
+        print("  None")
+    for idx, action in enumerate(items[:10], 1):
+        meta = []
+        if action.get('team'):
+            meta.append(action.get('team'))
+        if action.get('slot'):
+            meta.append(action.get('slot'))
+        meta.append(f"${(_safe_float(action.get('dollars')) or 0.0):.1f} RoS")
+        suffix = f" [{' | '.join(meta)}]" if meta else ""
+        print(f"{idx:>2}. {action.get('kind')}: {action.get('text')}{suffix}")
+    notes = (summary or {}).get('notes') or []
+    if notes:
+        print("\nNotes")
+        for note in notes:
+            print(f"  - {note}")
+
+
+def _current_players_for_hitter_decisions():
+    """Fetch current RoS player values/status in memory for read-only CLI output."""
+    global PREVIEW_LOCAL
+    old_preview = PREVIEW_LOCAL
+    PREVIEW_LOCAL = True
+    try:
+        batters_raw = fetch_fg_ros_data('bat', 'rthebatx')
+        pitchers_raw = fetch_fg_ros_data('pit', 'ratcdc')
+        batters = process_fg_batters(batters_raw)
+        pitchers = process_fg_pitchers(pitchers_raw)
+        rankings = create_rankings(batters, pitchers)
+        espn_players = fetch_espn_players()
+        fg_players = rankings.to_dict('records')
+        espn_matches, _ = match_fg_to_espn(fg_players, espn_players)
+        roster_map = fetch_espn_rosters(load_config())
+        if roster_map:
+            espn_matches = reconcile_with_roster(espn_matches, roster_map, espn_players)
+        players = []
+        for _, row in rankings.iterrows():
+            display_pos = row.get('pitcher_role', row['best_pos']) if row['type'] in ('pitcher', 'two-way') else row['best_pos']
+            entry = {
+                'rank': int(row['rank']),
+                'name': row['name'],
+                'positions': row['positions'],
+                'displayPos': display_pos,
+                'team': row['team'] or '',
+                'dollars': round(float(row['dollars']), 1),
+                'rpts': round(float(row['rpts']), 1),
+                'type': row['type'],
+                'fg_id': row.get('fg_id', ''),
+            }
+            match = espn_matches.get(row['name'])
+            if match:
+                entry['espn_id'] = match.get('espn_id')
+            espn_id = entry.get('espn_id')
+            if roster_map is None:
+                entry['status'] = '?'
+            elif espn_id and espn_id in roster_map:
+                info = roster_map[espn_id]
+                entry['status'] = 'MY ROSTER' if info.get('team_id') == ESPN_TEAM_ID else info.get('team_name', 'OTHER')
+            else:
+                entry['status'] = 'FA'
+            players.append(entry)
+        return players
+    finally:
+        PREVIEW_LOCAL = old_preview
+
+
+def hitter_decisions():
+    try:
+        players_list = _current_players_for_hitter_decisions()
+    except Exception as e:
+        print(f"Current RoS hitter load failed: {type(e).__name__}: {e}")
+        snapshot = load_latest_snapshot() or {}
+        players_list = snapshot.get('players') or []
+    if not players_list:
+        print("No local tracker snapshot found; run --preview-local or a normal report first.")
+    summary = build_hitter_decision_summary(
+        date.today().isoformat(),
+        players_list=players_list,
+        matchup_snapshot_data=None,
+        prediction_records=None,
+        allow_live_snapshot=True,
+    )
+    print_hitter_decisions(summary)
+    return summary
+
+
 def matchup_snapshot_for_report(snapshot):
     """Compact, JSON-safe matchup snapshot for the HTML report."""
     if not snapshot:
@@ -6460,6 +6758,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           add_drop_priority_summary=None,
                           matchup_snapshot_summary=None,
                           matchup_action_summary=None,
+                          hitter_decision_summary=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
     from string import Template
@@ -6490,6 +6789,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
         add_drop_priority_summary = build_add_drop_priority_summary(
             snapshot_date, daily_decision_summary, next_watchlist_summary
         )
+    matchup_snapshot_data = None
     if matchup_snapshot_summary is None or matchup_action_summary is None:
         try:
             matchup_snapshot_data = build_matchup_snapshot()
@@ -6558,6 +6858,23 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
     risers = sum(1 for p in players_list if (p.get('dollarChange') or 0) > 0.5)
     fallers = sum(1 for p in players_list if (p.get('dollarChange') or 0) < -0.5)
     trending_up = sum(1 for p in players_list if (p.get('totalChange') or 0) > 1.0 and p.get('dollars', 0) >= -5)
+    if hitter_decision_summary is None:
+        try:
+            hitter_decision_summary = build_hitter_decision_summary(
+                snapshot_date,
+                players_list=players_list,
+                matchup_snapshot_data=matchup_snapshot_data,
+                prediction_records=report_decision_records,
+                allow_live_snapshot=matchup_snapshot_data is None and matchup_snapshot_summary is None,
+            )
+        except Exception as e:
+            hitter_decision_summary = {
+                'date': snapshot_date,
+                'items': [],
+                'count': 0,
+                'notes': [f'Hitter decisions unavailable: {type(e).__name__}: {e}'],
+                'data_available': {'ros_values': bool(players_list), 'espn_roster': False, 'team_game_schedule': False},
+            }
     prev_label = f"vs {prev_date}" if prev_date else "first snapshot"
     oldest_label = oldest_date or prev_date or "N/A"
 
@@ -6702,9 +7019,9 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .action-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 8px 9px; border: 1px solid #20202a; border-radius: 6px; background: #0d0d14; }
 .action-kind { padding: 2px 6px; border-radius: 3px; background: #1a1a24; color: #ddd; border: 1px solid #2a2a35; font-size: 9px; font-weight: 800; letter-spacing: 0.4px; }
 .action-kind.lock-in { color: #34d399; border-color: rgba(52,211,153,0.45); background: rgba(52,211,153,0.1); }
-.action-kind.add { color: #34d399; border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.08); }
+.action-kind.add, .action-kind.start { color: #34d399; border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.08); }
 .action-kind.consider, .action-kind.watch { color: #fbbf24; border-color: rgba(251,191,36,0.35); background: rgba(251,191,36,0.08); }
-.action-kind.bench, .action-kind.avoid, .action-kind.desperation { color: #f87171; border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.08); }
+.action-kind.bench, .action-kind.avoid, .action-kind.desperation, .action-kind.injury-check, .action-kind.no-game { color: #f87171; border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.08); }
 .action-text { color: #e5e7eb; font-size: 12px; line-height: 1.35; min-width: 0; }
 .action-meta { color: #888; font-size: 11px; white-space: nowrap; }
 .matchup-grid { padding: 10px 16px 14px; display: grid; grid-template-columns: minmax(230px, 0.8fr) minmax(280px, 1.2fr); gap: 10px; }
@@ -6823,6 +7140,7 @@ $TOP_BANNER_HTML
 <div class="tab-view" id="tab-streaming">
 <div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold</div>
 <div id="matchupContent"></div>
+<div id="hitterDecisionContent"></div>
 <div id="decisionContent"></div>
 <div id="addDropContent"></div>
 <div id="watchlistContent"></div>
@@ -6848,6 +7166,7 @@ var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
 var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
 var MATCHUP_SNAPSHOT = $MATCHUP_SNAPSHOT_JSON;
 var MATCHUP_ACTIONS = $MATCHUP_ACTIONS_JSON;
+var HITTER_DECISIONS = $HITTER_DECISIONS_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -7124,6 +7443,27 @@ function renderMatchupReport() {
   container.innerHTML = h;
 }
 
+function renderHitterDecisions() {
+  var container = document.getElementById('hitterDecisionContent');
+  if (!container || !HITTER_DECISIONS) return;
+  var h = '<div class="day-card decision-card">';
+  var items = HITTER_DECISIONS.items || [];
+  var data = HITTER_DECISIONS.data_available || {};
+  h += '<div class="day-header"><span class="day-date">Hitter Decisions</span><span class="day-count">' + items.length + ' action' + (items.length === 1 ? '' : 's') + '</span></div>';
+  h += '<div class="decision-summary">';
+  h += '<span class="decision-pill">Active hitters <b>' + (HITTER_DECISIONS.active_hitter_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">Bench hitters <b>' + (HITTER_DECISIONS.bench_hitter_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">FA candidates <b>' + (HITTER_DECISIONS.fa_hitter_candidates || 0) + '</b></span>';
+  h += '<span class="decision-pill">Team games <b>' + (data.team_game_schedule ? 'yes' : 'no') + '</b></span>';
+  h += '</div>';
+  h += renderActionRows(items, 10);
+  if (HITTER_DECISIONS.notes && HITTER_DECISIONS.notes.length) {
+    h += '<div class="decision-warning">' + HITTER_DECISIONS.notes.map(escHtml).join(' ') + '</div>';
+  }
+  h += '</div>';
+  container.innerHTML = h;
+}
+
 function renderDailyDecisions() {
   var container = document.getElementById('decisionContent');
   if (!container || !DAILY_DECISIONS) return;
@@ -7390,6 +7730,7 @@ function ordinal(n) {
 }
 
 renderMatchupReport();
+renderHitterDecisions();
 renderDailyDecisions();
 renderAddDropPriority();
 renderWatchlist();
@@ -7547,6 +7888,7 @@ renderAccuracy();
         ADD_DROP_PRIORITY_JSON=json.dumps(add_drop_priority_summary) if add_drop_priority_summary else 'null',
         MATCHUP_SNAPSHOT_JSON=json.dumps(matchup_snapshot_summary) if matchup_snapshot_summary else 'null',
         MATCHUP_ACTIONS_JSON=json.dumps(matchup_action_summary) if matchup_action_summary else 'null',
+        HITTER_DECISIONS_JSON=json.dumps(hitter_decision_summary) if hitter_decision_summary else 'null',
         FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
         TOP_BANNER_HTML=top_banner_html or '',
     )
@@ -11355,6 +11697,7 @@ def main():
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--matchup-snapshot', action='store_true', help='Read-only ESPN head-to-head matchup snapshot')
     parser.add_argument('--matchup-actions', action='store_true', help='Read-only matchup action recommendations from existing data')
+    parser.add_argument('--hitter-decisions', action='store_true', help='Read-only hitter lineup/FA decisions from existing roster and RoS data')
     parser.add_argument('--debug-matchup-payload', action='store_true', help='Read-only compact ESPN matchup payload diagnostic')
     parser.add_argument('--explain-pitcher-schedule', metavar='PITCHER', help='Read-only probable-date diagnostic for one pitcher')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
@@ -11449,6 +11792,10 @@ def main():
         matchup_actions()
         return
 
+    if args.hitter_decisions:
+        hitter_decisions()
+        return
+
     if args.setup:
         run_setup()
         return
@@ -11500,6 +11847,13 @@ def main():
         banner_meta = [f"Snapshot: {snapshot_date}"]
         if prediction_log_range:
             banner_meta.append(f"Prediction logs: {prediction_log_range}")
+        fast_hitter_decisions = build_hitter_decision_summary(
+            snapshot_date,
+            players_list=players_list,
+            matchup_snapshot_data=None,
+            prediction_records=streaming_data,
+            allow_live_snapshot=False,
+        )
         fast_preview_banner = (
             '<div class="preview-banner"><b>FAST PREVIEW:</b> using cached prediction logs and snapshots. '
             'This is not a fresh data refresh. Use <code>--preview-local</code> for a fresh local refresh, '
@@ -11527,6 +11881,7 @@ def main():
                 'count': 0,
                 'notes': ['Run --preview-local or a normal report for fresh matchup actions.'],
             },
+            hitter_decision_summary=fast_hitter_decisions,
             skip_unchanged_write=True,
             top_banner_html=fast_preview_banner,
         )
