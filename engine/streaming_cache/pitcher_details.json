@@ -9704,5 +9704,59 @@
       "ip": "55.7"
     },
     "splits_window_years": 1
+  },
+  "689254": {
+    "mlb_id": 689254,
+    "pitches": [
+      {
+        "code": "ST",
+        "desc": "Sweeper",
+        "velo": 82.59324895726493,
+        "pct": 0.41935483
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 86.96681968750002,
+        "pct": 0.05734767
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 91.09499606849316,
+        "pct": 0.5232975
+      }
+    ],
+    "fb_velo": null,
+    "pitch_count": 3,
+    "career_vs_l": {
+      "ops": "0.526",
+      "whip": "0.99",
+      "k9": "12.32",
+      "ip": "34.3"
+    },
+    "career_vs_r": {
+      "ops": "0.706",
+      "whip": "1.41",
+      "k9": "7.56",
+      "ip": "33.3"
+    },
+    "splits_window_years": 2
+  },
+  "608337": {
+    "mlb_id": 608337,
+    "career_vs_l": {
+      "ops": "0.677",
+      "whip": "1.19",
+      "k9": "8.25",
+      "ip": "72.0"
+    },
+    "career_vs_r": {
+      "ops": "0.694",
+      "whip": "1.40",
+      "k9": "6.88",
+      "ip": "72.0"
+    },
+    "splits_window_years": 1
   }
 }
