@@ -6650,6 +6650,278 @@ def hitter_decisions():
     return summary
 
 
+def _player_value_lookup(players_list):
+    lookup = {}
+    for player in players_list or []:
+        name = normalize_name(player.get('name') or '')
+        if name and name not in lookup:
+            lookup[name] = player
+    return lookup
+
+
+def _ros_daily_points(player):
+    """Tiny, explicit approximation for matchup edge only; not a model input."""
+    if not player:
+        return None
+    rpts = _safe_float(player.get('rpts'))
+    if rpts is None:
+        return None
+    # rPTS is a rest-of-season pool, not a daily hitter projection. Divide by
+    # a conservative remaining-season constant so the matchup edge has a rough
+    # scale without introducing a new hitter model.
+    return max(rpts, 0.0) / 140.0
+
+
+def _team_games_by_date(records, base_date=None, days=6):
+    allowed = set(_matchup_window_dates(base_date, days))
+    out = defaultdict(set)
+    for rec in records or []:
+        game_date = _matchup_record_date(rec)
+        if game_date not in allowed:
+            continue
+        if rec.get('team'):
+            out[rec.get('team')].add(game_date)
+        if rec.get('opponent'):
+            out[rec.get('opponent')].add(game_date)
+    return out
+
+
+def _prediction_points_by_pitcher(records):
+    lookup = defaultdict(list)
+    for rec in records or []:
+        name = normalize_name(rec.get('name') or rec.get('pitcher_name') or '')
+        if not name:
+            continue
+        pts = _decision_points(rec)
+        lookup[name].append({
+            'date': _matchup_record_date(rec),
+            'points': pts,
+            'opponent': rec.get('opponent'),
+            'status': rec.get('status'),
+        })
+    return lookup
+
+
+def _matchup_edge_side(rows, players_lookup, pitcher_lookup, games_by_team, base_date=None):
+    projected = 0.0
+    hitter_projected = 0.0
+    pitcher_projected = 0.0
+    projected_players = set()
+    missing_players = []
+    hitter_rows = [row for row in rows or [] if _matchup_player_is_hitter(row)]
+    pitcher_rows = [row for row in rows or [] if _matchup_player_is_pitcher(row)]
+
+    for row in hitter_rows:
+        player = players_lookup.get(normalize_name(row.get('name') or ''))
+        daily = _ros_daily_points(player)
+        game_dates = games_by_team.get(row.get('team')) or set()
+        if daily is not None and game_dates:
+            pts = daily * len(game_dates)
+            projected += pts
+            hitter_projected += pts
+            projected_players.add(normalize_name(row.get('name') or ''))
+        else:
+            missing_players.append(row.get('name') or 'Unknown hitter')
+
+    for row in pitcher_rows:
+        starts = pitcher_lookup.get(normalize_name(row.get('name') or '')) or []
+        if starts:
+            pts = sum(_safe_float(start.get('points')) or 0.0 for start in starts)
+            projected += pts
+            pitcher_projected += pts
+            projected_players.add(normalize_name(row.get('name') or ''))
+        else:
+            missing_players.append(row.get('name') or 'Unknown pitcher')
+
+    total_players = len(hitter_rows) + len(pitcher_rows)
+    projected_count = len(projected_players)
+    return {
+        'remaining_points': round(projected, 1),
+        'hitter_points': round(hitter_projected, 1),
+        'pitcher_points': round(pitcher_projected, 1),
+        'players_projected': projected_count,
+        'players_missing': max(total_players - projected_count, 0),
+        'players_total': total_players,
+        'missing_examples': [m for m in missing_players if m][:6],
+    }
+
+
+def _matchup_edge_label(edge, current_margin, coverage_ratio, score_available):
+    if not score_available or coverage_ratio < 0.45:
+        return 'High uncertainty'
+    if edge <= -10:
+        return 'Chasing'
+    if current_margin is not None and current_margin >= 15 and edge >= 0:
+        return 'Protecting lead'
+    if edge >= 10:
+        return 'Slight edge'
+    return 'Neutral'
+
+
+def _matchup_edge_recommendations(label, edge, coverage_ratio):
+    recs = []
+    if label == 'Chasing':
+        recs.extend([
+            'Prioritize volume and upside adds where the projection is clearly positive.',
+            'Borderline streamers are more defensible if they add real innings volume.',
+            'Avoid low-ceiling bench bats unless they are covering a dead lineup spot.',
+        ])
+    elif label == 'Protecting lead':
+        recs.extend([
+            'Protect floor: avoid low-projection risky pitcher starts.',
+            'Use obvious positive starts, but skip desperation volume.',
+            'Prioritize filling active hitter slots over speculative adds.',
+        ])
+    elif label == 'Slight edge':
+        recs.extend([
+            'Take clear positive starts/adds, but avoid unnecessary volatility.',
+            'Use rostered studs normally and be selective with borderline streams.',
+            'Watch opponent pitcher volume before taking extra risk.',
+        ])
+    elif label == 'High uncertainty':
+        recs.extend([
+            'Confidence is low because projection coverage is incomplete.',
+            'Verify active lineup slots and opponent probable starters manually.',
+            'Use the detailed pitcher and hitter decision sections before making moves.',
+        ])
+    else:
+        recs.extend([
+            'Neutral posture: take clear positive starts/adds.',
+            'Avoid desperation plays unless your live score falls behind.',
+            'Keep active hitter slots full before chasing speculative upside.',
+        ])
+    if coverage_ratio < 0.7 and label != 'High uncertainty':
+        recs.append('Projection coverage is incomplete, so treat the edge as a rough guide.')
+    return recs[:6]
+
+
+def build_matchup_edge_summary(snapshot=None, base_date=None, players_list=None,
+                               prediction_records=None, limit=6, allow_live_snapshot=True):
+    """Read-only rough matchup edge from ESPN score/rosters + existing projections."""
+    base_date = base_date or date.today().isoformat()
+    players_list = players_list or []
+    if snapshot is None and allow_live_snapshot:
+        snapshot = build_matchup_snapshot()
+    if not snapshot or snapshot.get('error') or snapshot.get('low_confidence'):
+        return {
+            'available': False,
+            'date': base_date,
+            'label': 'High uncertainty',
+            'confidence': 'low',
+            'error': (snapshot or {}).get('error') or 'ESPN matchup snapshot unavailable.',
+            'recommendations': _matchup_edge_recommendations('High uncertainty', 0, 0),
+        }
+    if prediction_records is None:
+        prediction_records, _source_kind, _source_label = _matchup_prediction_records_for_actions(base_date, days=6)
+
+    score = snapshot.get('score') or {}
+    my_score = _safe_float(score.get('mine'))
+    opp_score = _safe_float(score.get('opponent'))
+    current_margin = _safe_float(score.get('margin'))
+    score_available = my_score is not None and opp_score is not None
+    players_lookup = _player_value_lookup(players_list)
+    pitcher_lookup = _prediction_points_by_pitcher(prediction_records)
+    games_by_team = _team_games_by_date(prediction_records, base_date, days=6)
+    my_rows = (snapshot.get('my_active') or []) + (snapshot.get('my_bench') or [])
+    opp_rows = (snapshot.get('opponent_active') or []) + (snapshot.get('opponent_bench') or [])
+    mine = _matchup_edge_side(my_rows, players_lookup, pitcher_lookup, games_by_team, base_date)
+    opponent = _matchup_edge_side(opp_rows, players_lookup, pitcher_lookup, games_by_team, base_date)
+    my_remaining = mine.get('remaining_points') or 0.0
+    opp_remaining = opponent.get('remaining_points') or 0.0
+    my_final = (my_score or 0.0) + my_remaining if score_available else None
+    opp_final = (opp_score or 0.0) + opp_remaining if score_available else None
+    projected_edge = round(my_final - opp_final, 1) if my_final is not None and opp_final is not None else None
+    total_players = mine.get('players_total', 0) + opponent.get('players_total', 0)
+    projected_players = mine.get('players_projected', 0) + opponent.get('players_projected', 0)
+    coverage_ratio = projected_players / total_players if total_players else 0.0
+    label = _matchup_edge_label(projected_edge or 0.0, current_margin, coverage_ratio, score_available)
+    confidence = 'medium' if coverage_ratio >= 0.7 and score_available else 'low'
+    notes = [
+        'Rough projection only; this is not a win probability.',
+        'Hitter remaining points use current RoS rPTS as a simple daily approximation.',
+    ]
+    if not games_by_team:
+        notes.append('Team game coverage unavailable from prediction records.')
+    return {
+        'available': True,
+        'date': base_date,
+        'my_team': (snapshot.get('my_team') or {}).get('name'),
+        'opponent': (snapshot.get('opponent') or {}).get('name'),
+        'scoring_period': snapshot.get('scoring_period'),
+        'matchup_period': snapshot.get('matchup_period'),
+        'current_score': {'mine': my_score, 'opponent': opp_score, 'margin': current_margin},
+        'remaining': {'mine': my_remaining, 'opponent': opp_remaining},
+        'projected_final': {
+            'mine': round(my_final, 1) if my_final is not None else None,
+            'opponent': round(opp_final, 1) if opp_final is not None else None,
+            'edge': projected_edge,
+        },
+        'label': label,
+        'confidence': confidence,
+        'coverage': {
+            'projected_players': projected_players,
+            'total_players': total_players,
+            'coverage_pct': round(coverage_ratio * 100, 0),
+            'mine': mine,
+            'opponent': opponent,
+        },
+        'recommendations': _matchup_edge_recommendations(label, projected_edge or 0.0, coverage_ratio)[:limit],
+        'notes': notes,
+    }
+
+
+def print_matchup_edge(summary):
+    print("\nMATCHUP EDGE")
+    print("=" * 60)
+    print("Read-only rough projection. This is not a win probability.")
+    if not summary or not summary.get('available'):
+        print(f"Unavailable: {(summary or {}).get('error') or 'unknown error'}")
+        for rec in (summary or {}).get('recommendations') or []:
+            print(f"  - {rec}")
+        return
+    score = summary.get('current_score') or {}
+    remaining = summary.get('remaining') or {}
+    final = summary.get('projected_final') or {}
+    coverage = summary.get('coverage') or {}
+    print(f"{summary.get('my_team') or 'My team'} vs {summary.get('opponent') or 'Opponent'}")
+    print(f"Current score: {score.get('mine')} - {score.get('opponent')} (margin {score.get('margin')})")
+    print(f"Projected remaining: mine {remaining.get('mine'):.1f}, opponent {remaining.get('opponent'):.1f}")
+    print(f"Projected final: {final.get('mine')} - {final.get('opponent')} (edge {final.get('edge')})")
+    print(f"Posture: {summary.get('label')} | Confidence: {summary.get('confidence')}")
+    print(
+        "Coverage: "
+        f"{coverage.get('projected_players', 0)}/{coverage.get('total_players', 0)} players projected "
+        f"({coverage.get('coverage_pct', 0):.0f}%)"
+    )
+    print("\nRecommendations")
+    for rec in summary.get('recommendations') or []:
+        print(f"  - {rec}")
+    if summary.get('notes'):
+        print("\nNotes")
+        for note in summary.get('notes') or []:
+            print(f"  - {note}")
+
+
+def matchup_edge():
+    players_list = []
+    try:
+        players_list = _current_players_for_hitter_decisions()
+    except Exception as e:
+        print(f"Current RoS value load failed: {type(e).__name__}: {e}")
+        players_list = (load_latest_snapshot() or {}).get('players') or []
+    snapshot = build_matchup_snapshot()
+    records, _source_kind, _source_label = _matchup_prediction_records_for_actions(date.today().isoformat(), days=6)
+    summary = build_matchup_edge_summary(
+        snapshot,
+        base_date=date.today().isoformat(),
+        players_list=players_list,
+        prediction_records=records,
+        allow_live_snapshot=False,
+    )
+    print_matchup_edge(summary)
+    return summary
+
+
 def matchup_snapshot_for_report(snapshot):
     """Compact, JSON-safe matchup snapshot for the HTML report."""
     if not snapshot:
@@ -6759,6 +7031,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           matchup_snapshot_summary=None,
                           matchup_action_summary=None,
                           hitter_decision_summary=None,
+                          matchup_edge_summary=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
     from string import Template
@@ -6874,6 +7147,24 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                 'count': 0,
                 'notes': [f'Hitter decisions unavailable: {type(e).__name__}: {e}'],
                 'data_available': {'ros_values': bool(players_list), 'espn_roster': False, 'team_game_schedule': False},
+            }
+    if matchup_edge_summary is None:
+        try:
+            matchup_edge_summary = build_matchup_edge_summary(
+                matchup_snapshot_data,
+                base_date=snapshot_date,
+                players_list=players_list,
+                prediction_records=report_decision_records,
+                allow_live_snapshot=matchup_snapshot_data is None and matchup_snapshot_summary is None,
+            )
+        except Exception as e:
+            matchup_edge_summary = {
+                'available': False,
+                'date': snapshot_date,
+                'label': 'High uncertainty',
+                'confidence': 'low',
+                'error': f'Matchup edge unavailable: {type(e).__name__}: {e}',
+                'recommendations': _matchup_edge_recommendations('High uncertainty', 0, 0),
             }
     prev_label = f"vs {prev_date}" if prev_date else "first snapshot"
     oldest_label = oldest_date or prev_date or "N/A"
@@ -7140,6 +7431,7 @@ $TOP_BANNER_HTML
 <div class="tab-view" id="tab-streaming">
 <div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold</div>
 <div id="matchupContent"></div>
+<div id="matchupEdgeContent"></div>
 <div id="hitterDecisionContent"></div>
 <div id="decisionContent"></div>
 <div id="addDropContent"></div>
@@ -7167,6 +7459,7 @@ var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
 var MATCHUP_SNAPSHOT = $MATCHUP_SNAPSHOT_JSON;
 var MATCHUP_ACTIONS = $MATCHUP_ACTIONS_JSON;
 var HITTER_DECISIONS = $HITTER_DECISIONS_JSON;
+var MATCHUP_EDGE = $MATCHUP_EDGE_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -7439,6 +7732,42 @@ function renderMatchupReport() {
     if (a.notes && a.notes.length) h += '<div class="decision-warning">' + a.notes.map(escHtml).join(' ') + '</div>';
     h += '</div></div>';
   }
+  h += '</div>';
+  container.innerHTML = h;
+}
+
+function renderMatchupEdge() {
+  var container = document.getElementById('matchupEdgeContent');
+  if (!container || !MATCHUP_EDGE) return;
+  var e = MATCHUP_EDGE || {};
+  var h = '<div class="day-card decision-card">';
+  h += '<div class="day-header"><span class="day-date">Matchup Edge</span><span class="day-count">' + escHtml(e.label || 'High uncertainty') + '</span></div>';
+  if (!e.available) {
+    h += '<div class="decision-warning">' + escHtml(e.error || 'Matchup edge unavailable.') + '</div>';
+  } else {
+    var score = e.current_score || {};
+    var rem = e.remaining || {};
+    var fin = e.projected_final || {};
+    var cov = e.coverage || {};
+    h += '<div class="decision-summary">';
+    h += '<span class="decision-pill">Current <b>' + escHtml(score.mine) + ' - ' + escHtml(score.opponent) + '</b></span>';
+    h += '<span class="decision-pill">Margin <b>' + escHtml(score.margin) + '</b></span>';
+    h += '<span class="decision-pill">Remaining <b>' + Number(rem.mine || 0).toFixed(1) + ' - ' + Number(rem.opponent || 0).toFixed(1) + '</b></span>';
+    h += '<span class="decision-pill">Projected final <b>' + escHtml(fin.mine) + ' - ' + escHtml(fin.opponent) + '</b></span>';
+    h += '<span class="decision-pill">Edge <b>' + escHtml(fin.edge) + '</b></span>';
+    h += '<span class="decision-pill">Confidence <b>' + escHtml(e.confidence || 'low') + '</b></span>';
+    h += '</div>';
+    h += '<div class="matchup-small">Coverage: ' + (cov.projected_players || 0) + '/' + (cov.total_players || 0) + ' players projected (' + (cov.coverage_pct || 0) + '%). Rough projection only, not a win probability.</div>';
+  }
+  if (e.recommendations && e.recommendations.length) {
+    h += '<div class="decision-section"><div class="decision-section-title">Posture Recommendations</div>';
+    h += '<div class="action-list">';
+    e.recommendations.forEach(function(rec) {
+      h += '<div class="action-row"><span class="action-kind watch">WATCH</span><div class="action-text">' + escHtml(rec) + '</div></div>';
+    });
+    h += '</div></div>';
+  }
+  if (e.notes && e.notes.length) h += '<div class="decision-warning">' + e.notes.map(escHtml).join(' ') + '</div>';
   h += '</div>';
   container.innerHTML = h;
 }
@@ -7730,6 +8059,7 @@ function ordinal(n) {
 }
 
 renderMatchupReport();
+renderMatchupEdge();
 renderHitterDecisions();
 renderDailyDecisions();
 renderAddDropPriority();
@@ -7889,6 +8219,7 @@ renderAccuracy();
         MATCHUP_SNAPSHOT_JSON=json.dumps(matchup_snapshot_summary) if matchup_snapshot_summary else 'null',
         MATCHUP_ACTIONS_JSON=json.dumps(matchup_action_summary) if matchup_action_summary else 'null',
         HITTER_DECISIONS_JSON=json.dumps(hitter_decision_summary) if hitter_decision_summary else 'null',
+        MATCHUP_EDGE_JSON=json.dumps(matchup_edge_summary) if matchup_edge_summary else 'null',
         FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
         TOP_BANNER_HTML=top_banner_html or '',
     )
@@ -11697,6 +12028,7 @@ def main():
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--matchup-snapshot', action='store_true', help='Read-only ESPN head-to-head matchup snapshot')
     parser.add_argument('--matchup-actions', action='store_true', help='Read-only matchup action recommendations from existing data')
+    parser.add_argument('--matchup-edge', action='store_true', help='Read-only rough current H2H matchup edge summary')
     parser.add_argument('--hitter-decisions', action='store_true', help='Read-only hitter lineup/FA decisions from existing roster and RoS data')
     parser.add_argument('--debug-matchup-payload', action='store_true', help='Read-only compact ESPN matchup payload diagnostic')
     parser.add_argument('--explain-pitcher-schedule', metavar='PITCHER', help='Read-only probable-date diagnostic for one pitcher')
@@ -11792,6 +12124,10 @@ def main():
         matchup_actions()
         return
 
+    if args.matchup_edge:
+        matchup_edge()
+        return
+
     if args.hitter_decisions:
         hitter_decisions()
         return
@@ -11882,6 +12218,14 @@ def main():
                 'notes': ['Run --preview-local or a normal report for fresh matchup actions.'],
             },
             hitter_decision_summary=fast_hitter_decisions,
+            matchup_edge_summary={
+                'available': False,
+                'date': snapshot_date,
+                'label': 'High uncertainty',
+                'confidence': 'low',
+                'error': 'Fast preview uses cached artifacts and does not refresh ESPN matchup edge data.',
+                'recommendations': ['Run --preview-local or a normal report for fresh matchup edge.'],
+            },
             skip_unchanged_write=True,
             top_banner_html=fast_preview_banner,
         )
