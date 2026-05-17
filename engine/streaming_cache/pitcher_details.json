@@ -9768,5 +9768,36 @@
       "ip": "26.3"
     },
     "splits_window_years": 2
+  },
+  "696070": {
+    "mlb_id": 696070,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 95.9187905,
+        "pct": 0.42647058
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 87.94836963636364,
+        "pct": 0.16176471
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 94.18663685714286,
+        "pct": 0.10294118
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 88.20344626190474,
+        "pct": 0.30882353
+      }
+    ],
+    "fb_velo": 95.9,
+    "pitch_count": 4
   }
 }
