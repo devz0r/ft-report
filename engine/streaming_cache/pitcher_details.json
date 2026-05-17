@@ -9758,5 +9758,15 @@
       "ip": "72.0"
     },
     "splits_window_years": 1
+  },
+  "688107": {
+    "mlb_id": 688107,
+    "career_vs_r": {
+      "ops": "0.625",
+      "whip": "1.17",
+      "k9": "5.12",
+      "ip": "26.3"
+    },
+    "splits_window_years": 2
   }
 }

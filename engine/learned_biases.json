@@ -1,5 +1,30 @@
 {
-  "biases": {},
-  "count": 0,
-  "updated_at": "2026-05-17T02:25:40"
+  "biases": {
+    "auto_recent_era_5.11_inf": {
+      "applied_delta": -3.56,
+      "basis": "auto:recent_era",
+      "eligible": true,
+      "key": "auto_recent_era_5.11_inf",
+      "label": "when recent_era \u2265 5.11: -6.1 pts (n=85)",
+      "mean": -6.07,
+      "n": 85,
+      "se": 1.3228,
+      "std": 12.2,
+      "z": -4.59
+    },
+    "trend_cold": {
+      "applied_delta": -3.66,
+      "basis": "trend",
+      "eligible": true,
+      "key": "trend_cold",
+      "label": "on cold streak: -7.2 pts (n=62)",
+      "mean": -7.21,
+      "n": 62,
+      "se": 1.6394,
+      "std": 12.91,
+      "z": -4.4
+    }
+  },
+  "count": 2,
+  "updated_at": "2026-05-17T05:59:34"
 }
