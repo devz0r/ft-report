@@ -9849,5 +9849,15 @@
       "ip": "209.0"
     },
     "splits_window_years": 3
+  },
+  "671111": {
+    "mlb_id": 671111,
+    "career_vs_r": {
+      "ops": "0.786",
+      "whip": "1.81",
+      "k9": "4.50",
+      "ip": "16.0"
+    },
+    "splits_window_years": 2
   }
 }

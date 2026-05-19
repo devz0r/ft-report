@@ -1,6 +1,6 @@
 {
   "date": "2026-05-19",
-  "timestamp": "2026-05-19T03:35:34.005786",
+  "timestamp": "2026-05-19T07:38:08.172927",
   "players": [
     {
       "rank": 1,
@@ -869,6 +869,7 @@
       "rank": 60,
       "name": "Kevin McGonigle",
       "positions": [
+        "3B",
         "SS"
       ],
       "displayPos": "SS",
@@ -7564,6 +7565,7 @@
       "name": "Jesus Rodriguez",
       "positions": [
         "C",
+        "2B",
         "OF"
       ],
       "displayPos": "C",
@@ -12622,8 +12624,7 @@
       "rank": 855,
       "name": "Yohendrick Pinango",
       "positions": [
-        "OF",
-        "DH"
+        "OF"
       ],
       "displayPos": "OF",
       "team": "TOR",
@@ -15616,7 +15617,8 @@
       "positions": [
         "2B",
         "3B",
-        "SS"
+        "SS",
+        "OF"
       ],
       "displayPos": "SS",
       "team": "NYY",
