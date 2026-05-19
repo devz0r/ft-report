@@ -9799,5 +9799,55 @@
     ],
     "fb_velo": 95.9,
     "pitch_count": 4
+  },
+  "663559": {
+    "mlb_id": 663559,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 92.75583494736841,
+        "pct": 0.59375
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 77.348681,
+        "pct": 0.03125
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 92.963427,
+        "pct": 0.010416667
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 84.42046104761906,
+        "pct": 0.21875
+      },
+      {
+        "code": "FS",
+        "desc": "Splitter",
+        "velo": 85.50553699999999,
+        "pct": 0.14583333
+      }
+    ],
+    "fb_velo": 92.8,
+    "pitch_count": 5,
+    "career_vs_l": {
+      "ops": "0.753",
+      "whip": "1.37",
+      "k9": "6.01",
+      "ip": "61.3"
+    },
+    "career_vs_r": {
+      "ops": "0.747",
+      "whip": "1.31",
+      "k9": "6.08",
+      "ip": "209.0"
+    },
+    "splits_window_years": 3
   }
 }
