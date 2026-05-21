@@ -6377,6 +6377,8 @@ def _hitter_lookup(players_list):
 def _hitter_value(row, lookup):
     player = lookup.get(normalize_name((row or {}).get('name') or '')) or {}
     return {
+        'espn_id': player.get('espn_id'),
+        'fg_id': player.get('fg_id'),
         'dollars': _safe_float(player.get('dollars')) or 0.0,
         'rpts': _safe_float(player.get('rpts')) or 0.0,
         'positions': player.get('positions') or [],
@@ -6390,6 +6392,271 @@ def _hitter_team_has_game(row, today_teams):
     if not team or not today_teams:
         return None
     return team in today_teams
+
+
+def _hitter_field(row, value, *keys):
+    for source in (row or {}, value or {}):
+        for key in keys:
+            val = source.get(key)
+            if val not in (None, ''):
+                return val
+    return None
+
+
+def _hitter_prediction_features(record):
+    features = dict((record or {}).get('features') or {})
+    for key in (
+        'proj_era', 'proj_whip', 'proj_k9', 'xera', 'fip', 'xfip', 'siera',
+        'hard_hit_pct', 'barrel_pct', 'whiff_pct', 'bb_pct_savant',
+        'k_pct_savant', 'park_factor', 'park', 'venue_name', 'roof_type',
+        'is_indoor_or_dome', 'weather_temp_f', 'weather_wind_speed_mph',
+        'weather_source', 'weather_note',
+    ):
+        if features.get(key) in (None, '') and (record or {}).get(key) not in (None, ''):
+            features[key] = record.get(key)
+    return features
+
+
+def _hitter_probable_context(record):
+    features = _hitter_prediction_features(record)
+    return {
+        'game_pk': (record or {}).get('game_pk'),
+        'game_datetime': (record or {}).get('game_datetime') or features.get('game_datetime'),
+        'venue_name': (record or {}).get('venue_name') or features.get('venue_name'),
+        'park': features.get('park'),
+        'park_factor': _safe_float(features.get('park_factor')),
+        'roof_type': features.get('roof_type'),
+        'is_indoor_or_dome': features.get('is_indoor_or_dome'),
+        'weather_source': features.get('weather_source'),
+        'weather_temp_f': _safe_float(features.get('weather_temp_f')),
+        'weather_wind_speed_mph': _safe_float(features.get('weather_wind_speed_mph')),
+        'weather_note': features.get('weather_note'),
+        'opposing_probable_pitcher_id': (record or {}).get('pitcher_id'),
+        'opposing_pitcher_projected_pts': _safe_float(
+            (record or {}).get('predicted_pts')
+            if (record or {}).get('predicted_pts') is not None
+            else (record or {}).get('pts')
+        ),
+        'opposing_pitcher_tier': (record or {}).get('tier'),
+        'opposing_pitcher_hand': (
+            (record or {}).get('pitcher_hand')
+            or features.get('pitcher_hand')
+            or features.get('throws')
+        ),
+        'opposing_pitcher_proj_era': _safe_float(features.get('proj_era')),
+        'opposing_pitcher_proj_whip': _safe_float(features.get('proj_whip')),
+        'opposing_pitcher_proj_k9': _safe_float(features.get('proj_k9')),
+        'opposing_pitcher_xera': _safe_float(features.get('xera')),
+        'opposing_pitcher_fip': _safe_float(features.get('fip')),
+        'opposing_pitcher_xfip': _safe_float(features.get('xfip')),
+        'opposing_pitcher_siera': _safe_float(features.get('siera')),
+        'opposing_pitcher_hard_hit_pct': _safe_float(features.get('hard_hit_pct')),
+        'opposing_pitcher_barrel_pct': _safe_float(features.get('barrel_pct')),
+        'opposing_pitcher_whiff_pct': _safe_float(features.get('whiff_pct')),
+        'opposing_pitcher_k_pct': _safe_float(features.get('k_pct_savant')),
+        'opposing_pitcher_bb_pct': _safe_float(features.get('bb_pct_savant')),
+    }
+
+
+def _hitter_game_context_by_team(records, base_date=None, days=6):
+    base_date = base_date or date.today().isoformat()
+    allowed = set(_matchup_window_dates(base_date, days))
+    by_team = defaultdict(list)
+    for rec in records or []:
+        game_date = _matchup_record_date(rec)
+        if game_date not in allowed:
+            continue
+        pitcher_team = rec.get('team')
+        opponent = rec.get('opponent')
+        home_away = rec.get('home_away')
+        pitcher_name = rec.get('name') or rec.get('pitcher_name')
+        probable_context = _hitter_probable_context(rec)
+        if pitcher_team:
+            by_team[pitcher_team].append({
+                'date': game_date,
+                'opponent': opponent,
+                'home_away': home_away,
+                'probable_pitcher': pitcher_name,
+                'probable_pitcher_id': rec.get('pitcher_id'),
+                'probable_pitcher_team': pitcher_team,
+                'probable_source': rec.get('probable_source'),
+                'is_opposing_pitcher': False,
+                **probable_context,
+            })
+        if opponent:
+            hitter_home_away = 'A' if home_away == 'H' else 'H' if home_away == 'A' else ''
+            by_team[opponent].append({
+                'date': game_date,
+                'opponent': pitcher_team,
+                'home_away': hitter_home_away,
+                'opposing_probable_pitcher': pitcher_name,
+                'probable_pitcher_team': pitcher_team,
+                'probable_source': rec.get('probable_source'),
+                'is_opposing_pitcher': True,
+                **probable_context,
+            })
+    for games in by_team.values():
+        games.sort(key=lambda g: (g.get('date') or '', g.get('opponent') or '', g.get('probable_pitcher') or g.get('opposing_probable_pitcher') or ''))
+    return by_team
+
+
+def _hitter_context_row(row, lookup, game_context, base_date, roster_state, team_handedness=None):
+    value = _hitter_value(row, lookup)
+    team = row.get('team') or ''
+    games = game_context.get(team) or []
+    today_games = [g for g in games if g.get('date') == base_date]
+    today_game = next((g for g in today_games if g.get('is_opposing_pitcher')), today_games[0] if today_games else {})
+    status = row.get('status') or value.get('status') or ''
+    hitter_bats = _hitter_field(row, value, 'bats', 'bat_side', 'batSide', 'bat_hand')
+    hitter_throws = _hitter_field(row, value, 'throws', 'throw_side', 'throwHand')
+    team_hand = (team_handedness or {}).get(team) or {}
+    opp_hand = today_game.get('opposing_pitcher_hand')
+    notes = []
+    if not today_game and team:
+        notes.append('no game found in current prediction window')
+    if hitter_bats is None:
+        notes.append('hitter handedness unavailable from current cached inputs')
+    if opp_hand is None and today_game:
+        notes.append('opposing pitcher handedness unavailable from current cached inputs')
+    notes.append('lineup spot/status unknown until confirmed lineup source is added')
+    return {
+        'date': base_date,
+        'name': row.get('name') or '',
+        'normalized_name': normalize_name(row.get('name') or ''),
+        'team': team,
+        'espn_id': row.get('espn_id') or value.get('espn_id'),
+        'fg_id': row.get('fg_id') or value.get('fg_id'),
+        'slot': row.get('slot') or '',
+        'slot_id': row.get('slot_id'),
+        'roster_state': roster_state,
+        'roster_status': status,
+        'injury_status': row.get('injury') or '',
+        'positions': value.get('positions') or [],
+        'display_pos': value.get('display_pos') or row.get('pos') or '',
+        'hitter_bats': hitter_bats,
+        'hitter_throws': hitter_throws,
+        'lineup_status': 'unknown',
+        'batting_order_status': 'unknown',
+        'batting_order_spot': None,
+        'ros_dollars': round(_safe_float(value.get('dollars')) or 0.0, 1),
+        'ros_rpts': round(_safe_float(value.get('rpts')) or 0.0, 1),
+        'team_has_game_today': bool(today_games) if team else None,
+        'team_game_count_next_7': len({g.get('date') for g in games if g.get('date')}),
+        'team_left_pct': team_hand.get('left_pct'),
+        'team_right_pct': team_hand.get('right_pct'),
+        'opponent_today': today_game.get('opponent'),
+        'home_away_today': today_game.get('home_away'),
+        'game_pk_today': today_game.get('game_pk'),
+        'game_datetime_today': today_game.get('game_datetime'),
+        'venue_name_today': today_game.get('venue_name'),
+        'park_today': today_game.get('park'),
+        'park_factor_today': today_game.get('park_factor'),
+        'roof_type_today': today_game.get('roof_type'),
+        'is_indoor_or_dome_today': today_game.get('is_indoor_or_dome'),
+        'weather_source_today': today_game.get('weather_source'),
+        'weather_temp_f_today': today_game.get('weather_temp_f'),
+        'weather_wind_speed_mph_today': today_game.get('weather_wind_speed_mph'),
+        'weather_note_today': today_game.get('weather_note'),
+        'opposing_probable_pitcher': today_game.get('opposing_probable_pitcher'),
+        'opposing_probable_pitcher_id': today_game.get('opposing_probable_pitcher_id'),
+        'opposing_pitcher_team': today_game.get('probable_pitcher_team'),
+        'opposing_probable_source': today_game.get('probable_source'),
+        'opposing_pitcher_hand': opp_hand,
+        'opposing_pitcher_projected_pts': today_game.get('opposing_pitcher_projected_pts'),
+        'opposing_pitcher_tier': today_game.get('opposing_pitcher_tier'),
+        'opposing_pitcher_proj_era': today_game.get('opposing_pitcher_proj_era'),
+        'opposing_pitcher_proj_whip': today_game.get('opposing_pitcher_proj_whip'),
+        'opposing_pitcher_proj_k9': today_game.get('opposing_pitcher_proj_k9'),
+        'opposing_pitcher_xera': today_game.get('opposing_pitcher_xera'),
+        'opposing_pitcher_fip': today_game.get('opposing_pitcher_fip'),
+        'opposing_pitcher_xfip': today_game.get('opposing_pitcher_xfip'),
+        'opposing_pitcher_siera': today_game.get('opposing_pitcher_siera'),
+        'opposing_pitcher_hard_hit_pct': today_game.get('opposing_pitcher_hard_hit_pct'),
+        'opposing_pitcher_barrel_pct': today_game.get('opposing_pitcher_barrel_pct'),
+        'opposing_pitcher_whiff_pct': today_game.get('opposing_pitcher_whiff_pct'),
+        'opposing_pitcher_k_pct': today_game.get('opposing_pitcher_k_pct'),
+        'opposing_pitcher_bb_pct': today_game.get('opposing_pitcher_bb_pct'),
+        'context_note': '; '.join(dict.fromkeys(notes)),
+    }
+
+
+def build_hitter_daily_context(base_date=None, players_list=None, matchup_snapshot_data=None,
+                               prediction_records=None, allow_live_snapshot=True):
+    """Build logged-only hitter daily context for future modeling; no scoring changes."""
+    base_date = base_date or date.today().isoformat()
+    players_list = [dict(p) for p in (players_list or [])]
+    if prediction_records is None:
+        prediction_records, _source_kind, _source_label = _matchup_prediction_records_for_actions(
+            base_date,
+            days=6,
+            records=None,
+            source=None,
+        )
+    snapshot = matchup_snapshot_data
+    if snapshot is None and allow_live_snapshot:
+        try:
+            snapshot = build_matchup_snapshot()
+        except Exception as e:
+            snapshot = {'error': f'{type(e).__name__}: {e}'}
+    lookup = _hitter_lookup(players_list)
+    game_context = _hitter_game_context_by_team(prediction_records or [], base_date, days=6)
+    team_handedness, _team_hand_age = _load_streaming_cache('team_handedness.json', max_age_hours=168)
+    team_handedness = team_handedness if isinstance(team_handedness, dict) else {}
+    rows = []
+    if snapshot and not snapshot.get('error') and not snapshot.get('low_confidence'):
+        active = [row for row in snapshot.get('my_active') or [] if _matchup_player_is_hitter(row)]
+        bench = [row for row in snapshot.get('my_bench') or [] if _matchup_player_is_hitter(row)]
+        for row in active:
+            rows.append(_hitter_context_row(row, lookup, game_context, base_date, 'active', team_handedness))
+        for row in bench:
+            rows.append(_hitter_context_row(row, lookup, game_context, base_date, 'bench', team_handedness))
+    fa_rows = [
+        row for row in _hitter_player_rows(players_list)
+        if row.get('status') in ('FA', 'WAIVER') and (_safe_float(row.get('dollars')) or 0.0) > 0
+    ]
+    fa_rows.sort(key=lambda p: (_safe_float(p.get('dollars')) or 0.0, _safe_float(p.get('rpts')) or 0.0), reverse=True)
+    for row in fa_rows[:20]:
+        pseudo = {
+            'name': row.get('name'),
+            'team': row.get('team'),
+            'espn_id': row.get('espn_id'),
+            'fg_id': row.get('fg_id'),
+            'slot': row.get('displayPos') or row.get('best_pos'),
+            'status': row.get('status'),
+        }
+        rows.append(_hitter_context_row(pseudo, lookup, game_context, base_date, 'available', team_handedness))
+    total = len(rows)
+    with_game = sum(1 for row in rows if row.get('team_has_game_today') is True)
+    with_opp = sum(1 for row in rows if row.get('opponent_today'))
+    injured = sum(1 for row in rows if row.get('injury_status'))
+    with_pitcher_quality = sum(1 for row in rows if row.get('opposing_pitcher_projected_pts') is not None)
+    with_park = sum(1 for row in rows if row.get('park_factor_today') is not None or row.get('venue_name_today'))
+    with_team_hand = sum(1 for row in rows if row.get('team_left_pct') is not None)
+    return {
+        'date': base_date,
+        'rows': rows,
+        'coverage': {
+            'total_rows': total,
+            'with_game_today': with_game,
+            'with_opponent_today': with_opp,
+            'with_ros_value': sum(1 for row in rows if row.get('ros_rpts') is not None),
+            'with_opposing_pitcher': sum(1 for row in rows if row.get('opposing_probable_pitcher')),
+            'with_opposing_pitcher_id': sum(1 for row in rows if row.get('opposing_probable_pitcher_id')),
+            'with_opposing_pitcher_hand': sum(1 for row in rows if row.get('opposing_pitcher_hand')),
+            'with_opposing_pitcher_quality': with_pitcher_quality,
+            'with_park_or_venue': with_park,
+            'with_team_handedness_context': with_team_hand,
+            'with_hitter_bats': sum(1 for row in rows if row.get('hitter_bats')),
+            'with_lineup_spot': sum(1 for row in rows if row.get('batting_order_spot') is not None),
+            'injury_status_rows': injured,
+            'team_game_context_teams': len(game_context),
+        },
+        'notes': [
+            'Logged-only context for future hitter modeling; not used in scoring or recommendations.',
+            'Opposing pitcher quality, park, venue, roof, and weather context come from existing prediction records when available.',
+            'Hitter handedness, opposing pitcher handedness, and lineup spots remain TODO until reliable current sources are wired in.',
+        ],
+    }
 
 
 def _hitter_action(kind, text, priority, row=None, value=None, source='espn_roster'):
@@ -6468,6 +6735,13 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
 
     active = [row for row in (snapshot or {}).get('my_active') or [] if _matchup_player_is_hitter(row)]
     bench = [row for row in (snapshot or {}).get('my_bench') or [] if _matchup_player_is_hitter(row)]
+    daily_context = build_hitter_daily_context(
+        base_date,
+        players_list=players_list,
+        matchup_snapshot_data=snapshot,
+        prediction_records=prediction_records,
+        allow_live_snapshot=False,
+    )
     active_hurt = [row for row in active if row.get('injury')]
     bench_usable = [
         row for row in bench
@@ -6549,6 +6823,7 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
         'active_hitter_count': len(active),
         'bench_hitter_count': len(bench),
         'fa_hitter_candidates': len(fa_hitters),
+        'daily_context': daily_context,
     }
 
 
@@ -6557,12 +6832,24 @@ def print_hitter_decisions(summary):
     print("=" * 60)
     print("Read-only: uses ESPN roster rows, current RoS hitter values, and team game availability when detectable.")
     data = (summary or {}).get('data_available') or {}
+    context = (summary or {}).get('daily_context') or {}
+    coverage = context.get('coverage') or {}
     print(
         "Data: "
         f"RoS values={'yes' if data.get('ros_values') else 'no'}, "
         f"ESPN roster={'yes' if data.get('espn_roster') else 'no'}, "
         f"team games={'yes' if data.get('team_game_schedule') else 'no'}"
     )
+    if coverage:
+        print(
+            "Logged hitter context: "
+            f"{coverage.get('total_rows', 0)} rows, "
+            f"{coverage.get('with_game_today', 0)} with game today, "
+            f"{coverage.get('with_opponent_today', 0)} with opponent, "
+            f"{coverage.get('with_opposing_pitcher_quality', 0)} with pitcher quality, "
+            f"{coverage.get('with_park_or_venue', 0)} with park/venue, "
+            f"{coverage.get('with_hitter_bats', 0)} with hitter bats"
+        )
     items = (summary or {}).get('items') or []
     if not items:
         print("  None")
@@ -6576,6 +6863,42 @@ def print_hitter_decisions(summary):
         suffix = f" [{' | '.join(meta)}]" if meta else ""
         print(f"{idx:>2}. {action.get('kind')}: {action.get('text')}{suffix}")
     notes = (summary or {}).get('notes') or []
+    if notes:
+        print("\nNotes")
+        for note in notes:
+            print(f"  - {note}")
+
+
+def print_hitter_context(context, limit=12):
+    print("\nHITTER DAILY CONTEXT")
+    print("=" * 60)
+    print("Logged-only: collected for future hitter modeling; not used in scoring or recommendations.")
+    coverage = (context or {}).get('coverage') or {}
+    print(
+        f"Rows: {coverage.get('total_rows', 0)} | "
+        f"game today: {coverage.get('with_game_today', 0)} | "
+        f"opponent: {coverage.get('with_opponent_today', 0)} | "
+        f"pitcher quality: {coverage.get('with_opposing_pitcher_quality', 0)} | "
+        f"park/venue: {coverage.get('with_park_or_venue', 0)} | "
+        f"pitcher hand: {coverage.get('with_opposing_pitcher_hand', 0)} | "
+        f"hitter bats: {coverage.get('with_hitter_bats', 0)} | "
+        f"lineup spot: {coverage.get('with_lineup_spot', 0)}"
+    )
+    rows = (context or {}).get('rows') or []
+    for row in rows[:limit]:
+        game = 'game' if row.get('team_has_game_today') else 'no game'
+        opp = row.get('opponent_today') or '?'
+        pitcher = row.get('opposing_probable_pitcher') or 'probable TBD'
+        pitcher_pts = row.get('opposing_pitcher_projected_pts')
+        pitcher_quality = f"{pitcher}, {pitcher_pts:.1f} pitcher pts" if pitcher_pts is not None else pitcher
+        hand = row.get('opposing_pitcher_hand') or 'pitcher hand TODO'
+        print(
+            f"  - {row.get('name')} ({row.get('roster_state')}, {row.get('team')}, "
+            f"{row.get('slot') or row.get('display_pos')}): {game} vs {opp}; "
+            f"${row.get('ros_dollars')} RoS; opp SP {pitcher_quality}; "
+            f"{row.get('park_today') or row.get('venue_name_today') or 'park TODO'}; {hand}"
+        )
+    notes = (context or {}).get('notes') or []
     if notes:
         print("\nNotes")
         for note in notes:
@@ -6648,6 +6971,29 @@ def hitter_decisions():
     )
     print_hitter_decisions(summary)
     return summary
+
+
+def hitter_context():
+    try:
+        players_list = _current_players_for_hitter_decisions()
+    except Exception as e:
+        print(f"Current RoS hitter load failed: {type(e).__name__}: {e}")
+        players_list = (load_latest_snapshot() or {}).get('players') or []
+    snapshot = None
+    try:
+        snapshot = build_matchup_snapshot()
+    except Exception as e:
+        snapshot = {'error': f'{type(e).__name__}: {e}'}
+    records, _source_kind, _source_label = _matchup_prediction_records_for_actions(date.today().isoformat(), days=6)
+    context = build_hitter_daily_context(
+        date.today().isoformat(),
+        players_list=players_list,
+        matchup_snapshot_data=snapshot,
+        prediction_records=records,
+        allow_live_snapshot=False,
+    )
+    print_hitter_context(context)
+    return context
 
 
 def _player_value_lookup(players_list):
@@ -7361,6 +7707,7 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="tracker">RoS Tracker</button>
     <button class="tab-btn" data-tab="streaming">Streaming</button>
+    <button class="tab-btn" data-tab="decisions">Decisions</button>
     <button class="tab-btn" data-tab="accuracy">Accuracy</button>
   </div>
 </div>
@@ -7430,14 +7777,19 @@ $TOP_BANNER_HTML
 <!-- ===== STREAMING TAB ===== -->
 <div class="tab-view" id="tab-streaming">
 <div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold</div>
+<div id="streamContent"></div>
+</div><!-- end tab-streaming -->
+
+<!-- ===== DECISIONS TAB ===== -->
+<div class="tab-view" id="tab-decisions">
+<div class="stream-note">Quick decision tools for matchup context, roster checks, add/drop planning, and watchlist review. The main Streaming tab stays focused on the regular projection list.</div>
 <div id="matchupContent"></div>
 <div id="matchupEdgeContent"></div>
 <div id="hitterDecisionContent"></div>
 <div id="decisionContent"></div>
 <div id="addDropContent"></div>
 <div id="watchlistContent"></div>
-<div id="streamContent"></div>
-</div><!-- end tab-streaming -->
+</div><!-- end tab-decisions -->
 
 <!-- ===== ACCURACY TAB ===== -->
 <div class="tab-view" id="tab-accuracy">
@@ -7778,13 +8130,26 @@ function renderHitterDecisions() {
   var h = '<div class="day-card decision-card">';
   var items = HITTER_DECISIONS.items || [];
   var data = HITTER_DECISIONS.data_available || {};
+  var context = HITTER_DECISIONS.daily_context || {};
+  var coverage = context.coverage || {};
   h += '<div class="day-header"><span class="day-date">Hitter Decisions</span><span class="day-count">' + items.length + ' action' + (items.length === 1 ? '' : 's') + '</span></div>';
   h += '<div class="decision-summary">';
   h += '<span class="decision-pill">Active hitters <b>' + (HITTER_DECISIONS.active_hitter_count || 0) + '</b></span>';
   h += '<span class="decision-pill">Bench hitters <b>' + (HITTER_DECISIONS.bench_hitter_count || 0) + '</b></span>';
   h += '<span class="decision-pill">FA candidates <b>' + (HITTER_DECISIONS.fa_hitter_candidates || 0) + '</b></span>';
   h += '<span class="decision-pill">Team games <b>' + (data.team_game_schedule ? 'yes' : 'no') + '</b></span>';
+  if (coverage.total_rows !== undefined) {
+    h += '<span class="decision-pill">Context rows <b>' + (coverage.total_rows || 0) + '</b></span>';
+    h += '<span class="decision-pill">Opp SP quality <b>' + (coverage.with_opposing_pitcher_quality || 0) + '</b></span>';
+    h += '<span class="decision-pill">Park/venue <b>' + (coverage.with_park_or_venue || 0) + '</b></span>';
+    h += '<span class="decision-pill">Pitcher hand <b>' + (coverage.with_opposing_pitcher_hand || 0) + '</b></span>';
+    h += '<span class="decision-pill">Hitter bats <b>' + (coverage.with_hitter_bats || 0) + '</b></span>';
+    h += '<span class="decision-pill">Lineup spot <b>' + (coverage.with_lineup_spot || 0) + '</b></span>';
+  }
   h += '</div>';
+  if (context.notes && context.notes.length) {
+    h += '<div class="matchup-small">' + context.notes.map(escHtml).join(' ') + '</div>';
+  }
   h += renderActionRows(items, 10);
   if (HITTER_DECISIONS.notes && HITTER_DECISIONS.notes.length) {
     h += '<div class="decision-warning">' + HITTER_DECISIONS.notes.map(escHtml).join(' ') + '</div>';
@@ -12030,6 +12395,7 @@ def main():
     parser.add_argument('--matchup-actions', action='store_true', help='Read-only matchup action recommendations from existing data')
     parser.add_argument('--matchup-edge', action='store_true', help='Read-only rough current H2H matchup edge summary')
     parser.add_argument('--hitter-decisions', action='store_true', help='Read-only hitter lineup/FA decisions from existing roster and RoS data')
+    parser.add_argument('--hitter-context', action='store_true', help='Read-only logged hitter daily context coverage')
     parser.add_argument('--debug-matchup-payload', action='store_true', help='Read-only compact ESPN matchup payload diagnostic')
     parser.add_argument('--explain-pitcher-schedule', metavar='PITCHER', help='Read-only probable-date diagnostic for one pitcher')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
@@ -12130,6 +12496,10 @@ def main():
 
     if args.hitter_decisions:
         hitter_decisions()
+        return
+
+    if args.hitter_context:
+        hitter_context()
         return
 
     if args.setup:
