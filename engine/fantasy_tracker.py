@@ -7871,8 +7871,33 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .matchup-margin.good { color: #34d399; }
 .matchup-margin.bad { color: #f87171; }
 .matchup-small { color: #888; font-size: 12px; line-height: 1.45; margin-top: 6px; }
+.accuracy-card { margin: 8px 0; }
+.accuracy-stats { padding: 14px 16px; display: flex; gap: 32px; flex-wrap: wrap; font-size: 13px; }
+.accuracy-stat { min-width: 92px; }
+.accuracy-table-wrap { padding: 8px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.accuracy-table { width: 100%; min-width: 520px; font-size: 13px; border-collapse: collapse; }
+.accuracy-list { padding: 6px 16px; }
+.accuracy-row { padding: 7px 0; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.accuracy-row-main { min-width: 0; }
+.accuracy-row-detail { text-align: right; color: #aaa; white-space: nowrap; }
+.accuracy-detail { color: #777; font-size: 11px; margin-top: 2px; line-height: 1.35; overflow-wrap: anywhere; }
 @media (max-width: 720px) { .action-row { grid-template-columns: 1fr; gap: 4px; } .action-meta { white-space: normal; } }
 @media (max-width: 820px) { .matchup-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .header { padding: 16px 18px; }
+  .tab-bar { overflow-x: auto; }
+  .tab-btn { padding: 8px 14px; white-space: nowrap; }
+  .stream-note, .stream-legend { padding-left: 14px; padding-right: 14px; }
+  .day-card { margin-left: 10px; margin-right: 10px; }
+  .day-header { gap: 10px; align-items: flex-start; }
+  .day-header span:last-child { text-align: right; }
+  .accuracy-stats { gap: 14px; padding: 12px 14px; }
+  .accuracy-stat { flex: 1 1 120px; }
+  .accuracy-list { padding: 6px 12px; }
+  .accuracy-row { display: block; }
+  .accuracy-row-detail { margin-top: 3px; text-align: left; white-space: normal; }
+  .accuracy-detail { font-size: 10.5px; }
+}
 .tier-header { padding: 6px 16px; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; border-top: 1px solid #222; }
 .tier-header:first-child { border-top: none; }
 .tier-must_start { color: #34d399; background: rgba(52,211,153,0.05); }
@@ -8744,19 +8769,19 @@ function renderAccuracy() {
 
   var h = '';
   // Top stats row
-  h += '<div class="day-card" style="margin:8px 0">';
+  h += '<div class="day-card accuracy-card">';
   h += '<div class="day-header"><span>Last ' + cal.window_days + ' days &mdash; ' + cal.n + ' starts</span></div>';
-  h += '<div style="padding:14px 16px; display:flex; gap:32px; flex-wrap:wrap; font-size:13px">';
-  h += '<div><div style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">MAE</div><div style="font-size:20px;font-weight:700">' + cal.mae.toFixed(2) + ' <span style="font-size:12px;color:#777">pts/start</span></div></div>';
-  h += '<div><div style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">RMSE</div><div style="font-size:20px;font-weight:700">' + cal.rmse.toFixed(2) + '</div></div>';
-  h += '<div><div style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Bias</div><div style="font-size:20px;font-weight:700"><span class="' + biasCls + '">' + (cal.bias >= 0 ? '+' : '') + cal.bias.toFixed(2) + '</span> <span style="font-size:12px;color:#777">' + biasDir + '</span></div></div>';
+  h += '<div class="accuracy-stats">';
+  h += '<div class="accuracy-stat"><div style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">MAE</div><div style="font-size:20px;font-weight:700">' + cal.mae.toFixed(2) + ' <span style="font-size:12px;color:#777">pts/start</span></div></div>';
+  h += '<div class="accuracy-stat"><div style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">RMSE</div><div style="font-size:20px;font-weight:700">' + cal.rmse.toFixed(2) + '</div></div>';
+  h += '<div class="accuracy-stat"><div style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Bias</div><div style="font-size:20px;font-weight:700"><span class="' + biasCls + '">' + (cal.bias >= 0 ? '+' : '') + cal.bias.toFixed(2) + '</span> <span style="font-size:12px;color:#777">' + biasDir + '</span></div></div>';
   h += '</div></div>';
 
   // Per-tier table
-  h += '<div class="day-card" style="margin:8px 0">';
+  h += '<div class="day-card accuracy-card">';
   h += '<div class="day-header"><span>Per-tier accuracy</span><span style="color:#777;font-size:11px">predicted vs actual mean pts</span></div>';
-  h += '<div style="padding:8px 0">';
-  h += '<table style="width:100%;font-size:13px;border-collapse:collapse">';
+  h += '<div class="accuracy-table-wrap">';
+  h += '<table class="accuracy-table">';
   h += '<tr style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:4px 16px">Tier</td><td style="padding:4px 16px;text-align:right">N</td><td style="padding:4px 16px;text-align:right">Predicted</td><td style="padding:4px 16px;text-align:right">Actual</td><td style="padding:4px 16px;text-align:right">Residual</td></tr>';
   ['must_start','start','borderline','avoid'].forEach(function(tier) {
     var ts = cal.by_tier[tier];
@@ -8773,14 +8798,14 @@ function renderAccuracy() {
   // Top misses
   function renderMissList(title, items, kind) {
     if (!items || !items.length) return '';
-    var hh = '<div class="day-card" style="margin:8px 0">';
+    var hh = '<div class="day-card accuracy-card">';
     hh += '<div class="day-header"><span>' + title + '</span></div>';
-    hh += '<div style="padding:6px 16px">';
+    hh += '<div class="accuracy-list">';
     items.forEach(function(s) {
       var cls = kind === 'over' ? 'opp-hard' : 'opp-easy';
-      hh += '<div style="padding:6px 0;border-bottom:1px solid #1a1a1a;display:flex;justify-content:space-between;font-size:13px">';
-      hh += '<span><b>' + s.name + '</b> ' + (s.opponent || '') + ' &middot; <span style="color:#777">' + s.date + '</span></span>';
-      hh += '<span>' + (s.tier || '') + ' &middot; predicted ' + (s.predicted_pts || 0).toFixed(1) + ', actual ' + (s.actual_pts || 0).toFixed(1) + ' &middot; <span class="' + cls + '">' + (s.residual >= 0 ? '+' : '') + s.residual.toFixed(1) + '</span></span>';
+      hh += '<div class="accuracy-row">';
+      hh += '<div class="accuracy-row-main"><b>' + s.name + '</b> ' + (s.opponent || '') + ' &middot; <span style="color:#777">' + s.date + '</span></div>';
+      hh += '<div class="accuracy-row-detail">' + (s.tier || '') + ' &middot; predicted ' + (s.predicted_pts || 0).toFixed(1) + ', actual ' + (s.actual_pts || 0).toFixed(1) + ' &middot; <span class="' + cls + '">' + (s.residual >= 0 ? '+' : '') + s.residual.toFixed(1) + '</span></div>';
       hh += '</div>';
     });
     hh += '</div></div>';
@@ -8799,16 +8824,16 @@ function renderAccuracy() {
   // Emerging candidate signals — close to statistical significance but not
   // yet auto-applied. Lets the user see what's about to kick in.
   if (LEARNED_CANDIDATES && LEARNED_CANDIDATES.length) {
-    h += '<div class="day-card" style="margin:8px 0">';
+    h += '<div class="day-card accuracy-card">';
     h += '<div class="day-header"><span>Emerging signals (not yet applied)</span><span style="color:#777;font-size:11px">not active until sample, variance, and z-score checks pass</span></div>';
-    h += '<div style="padding:6px 16px">';
+    h += '<div class="accuracy-list">';
     LEARNED_CANDIDATES.forEach(function(b) {
       var dCls = b.mean > 0 ? 'opp-easy' : 'opp-hard';
       var zText = (b.z === null || b.z === undefined) ? 'invalid' : b.z.toFixed(2);
       var reason = b.ineligible_reason ? ' &middot; not eligible: ' + b.ineligible_reason : ' &middot; not eligible yet';
-      h += '<div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px">';
+      h += '<div class="accuracy-row" style="display:block">';
       h += '<div style="opacity:0.85">' + b.label + '</div>';
-      h += '<div style="color:#777;font-size:11px;margin-top:2px">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
+      h += '<div class="accuracy-detail">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
       h += 'mean residual <span class="' + dCls + '">' + (b.mean >= 0 ? '+' : '') + (b.mean || 0).toFixed(2) + '</span> &middot; ';
       h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + zText + reason;
       h += '</div></div>';
@@ -8819,9 +8844,9 @@ function renderAccuracy() {
   // Learned biases — auto-detected feature buckets where the model is off
   var biasKeys = LEARNED_BIASES ? Object.keys(LEARNED_BIASES) : [];
   if (biasKeys.length) {
-    h += '<div class="day-card" style="margin:8px 0">';
+    h += '<div class="day-card accuracy-card">';
     h += '<div class="day-header"><span>Active learned corrections</span><span style="color:#777;font-size:11px">' + biasKeys.length + ' bucket(s) auto-applied to predictions</span></div>';
-    h += '<div style="padding:6px 16px">';
+    h += '<div class="accuracy-list">';
     var sortedBiases = biasKeys.map(function(k) { return LEARNED_BIASES[k]; })
       .sort(function(a, b) { return Math.abs(b.applied_delta || 0) - Math.abs(a.applied_delta || 0); });
     sortedBiases.forEach(function(b) {
@@ -8829,9 +8854,9 @@ function renderAccuracy() {
       var applied = b.applied_delta !== undefined ? b.applied_delta : b.mean;
       var aCls = applied > 0 ? 'opp-easy' : 'opp-hard';
       var zText = (b.z === null || b.z === undefined) ? 'invalid' : b.z.toFixed(2);
-      h += '<div style="padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px">';
+      h += '<div class="accuracy-row" style="display:block">';
       h += '<div>' + b.label + '</div>';
-      h += '<div style="color:#777;font-size:11px;margin-top:2px">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
+      h += '<div class="accuracy-detail">basis: ' + b.basis + ' &middot; n=' + b.n + ' &middot; ';
       h += 'mean residual <span class="' + dCls + '">' + (b.mean >= 0 ? '+' : '') + b.mean.toFixed(2) + '</span> &middot; ';
       h += 'std ' + (b.std || 0).toFixed(2) + ' &middot; z ' + zText + ' &middot; applied <span class="' + aCls + '">' + (applied >= 0 ? '+' : '') + applied.toFixed(2) + '</span>';
       h += '</div></div>';
