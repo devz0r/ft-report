@@ -1540,6 +1540,7 @@ def fetch_weekly_schedule(start_date, end_date):
                     **base,
                     'pitcher_name': home_pp.get('fullName', ''),
                     'pitcher_mlb_id': home_pp['id'],
+                    'pitcher_hand': (home_pp.get('pitchHand') or {}).get('code'),
                     'pitcher_team': home_team,
                     'opponent': away_team,
                     'home_away': 'H',
@@ -1553,6 +1554,7 @@ def fetch_weekly_schedule(start_date, end_date):
                     **base,
                     'pitcher_name': away_pp.get('fullName', ''),
                     'pitcher_mlb_id': away_pp['id'],
+                    'pitcher_hand': (away_pp.get('pitchHand') or {}).get('code'),
                     'pitcher_team': away_team,
                     'opponent': home_team,
                     'home_away': 'A',
@@ -1915,11 +1917,24 @@ def _fetch_single_team_handedness(mlb_team_id):
         resp.raise_for_status()
         roster = resp.json().get('roster', [])
         left = right = switch = 0
+        players = {}
         for r in roster:
             pos = r.get('position', {}).get('abbreviation', '')
             if pos == 'P':
                 continue
-            side = r.get('person', {}).get('batSide', {}).get('code', 'R')
+            person = r.get('person', {}) or {}
+            name = person.get('fullName') or ''
+            side = (person.get('batSide') or {}).get('code') or ''
+            throw_side = (person.get('pitchHand') or {}).get('code') or ''
+            if name:
+                players[normalize_name(name)] = {
+                    'name': name,
+                    'mlb_id': person.get('id'),
+                    'bat_side': side or None,
+                    'throws': throw_side or None,
+                    'position': pos,
+                }
+            side = side or 'R'
             if side == 'L':
                 left += 1
             elif side == 'S':
@@ -1933,6 +1948,7 @@ def _fetch_single_team_handedness(mlb_team_id):
             'left': left, 'right': right, 'switch': switch, 'total': total,
             'left_pct': round(left / total * 100),
             'right_pct': round(right / total * 100),
+            'players': players,
         }
     except Exception:
         return None
@@ -2106,6 +2122,8 @@ def fetch_team_handedness():
             abbr = futures[future]
             data = future.result()
             if data:
+                for player in (data.get('players') or {}).values():
+                    player['team'] = abbr
                 results[abbr] = data
 
     _save_streaming_cache('team_handedness.json', results)
@@ -2251,6 +2269,19 @@ def _fetch_single_pitcher_details(mlb_id):
         return {'mlb_id': mlb_id}
 
 
+def _fetch_single_pitcher_hand(mlb_id):
+    try:
+        resp = requests.get(f"https://statsapi.mlb.com/api/v1/people/{mlb_id}", timeout=10)
+        resp.raise_for_status()
+        people = resp.json().get('people') or []
+        if not people:
+            return str(mlb_id), None
+        hand = (people[0].get('pitchHand') or {}).get('code')
+        return str(mlb_id), hand
+    except Exception:
+        return str(mlb_id), None
+
+
 def fetch_pitcher_details(mlb_ids):
     """Fetch career splits + arsenal for a list of MLB pitcher IDs (parallelized, cached)."""
     cached, age = _load_streaming_cache('pitcher_details.json')
@@ -2271,6 +2302,15 @@ def fetch_pitcher_details(mlb_ids):
         _save_streaming_cache('pitcher_details.json', cached)
     else:
         print(f"  Using cached pitcher details ({len(mlb_ids)} pitchers)")
+
+    hand_missing = [mid for mid in mlb_ids if str(mid) in cached and not cached.get(str(mid), {}).get('pitcher_hand')]
+    if hand_missing:
+        print(f"  Fetching pitcher handedness ({len(hand_missing)} missing)...")
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for mid, hand in executor.map(_fetch_single_pitcher_hand, hand_missing):
+                if hand:
+                    cached.setdefault(str(mid), {})['pitcher_hand'] = hand
+        _save_streaming_cache('pitcher_details.json', cached)
 
     return cached
 
@@ -3566,8 +3606,11 @@ def analyze_pitch_matchup(mlb_id, opp_team, savant_data):
     poor_pitches = [p for p in pitches if p['matchup'] == 'poor']
     strong_pitches = [p for p in pitches if p['matchup'] in ('strong', 'favorable')]
 
-    if best_pitch and best_matchup:
-        summary = f"Arsenal edge: {best_pitch['grade']} {best_pitch['name'].lower()} vs {opp_team}'s weakness"
+    if best_matchup:
+        matchup_pitch = best_matchup[0]
+        grade = matchup_pitch.get('grade')
+        grade_prefix = f"{grade} " if grade in ('elite', 'plus') else ""
+        summary = f"Arsenal edge: {grade_prefix}{matchup_pitch['name'].lower()} fits well vs {opp_team}"
     elif best_pitch:
         summary = f"Has {best_pitch['grade']} {best_pitch['name'].lower()} ({best_pitch['whiff']}% whiff)"
     elif poor_pitches and len(poor_pitches) >= 2:
@@ -4292,6 +4335,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'opponent': opp, 'home_away': game['home_away'],
             'game_pk': game.get('game_pk'),
             'pitcher_id': mlb_id,
+            'pitcher_hand': game.get('pitcher_hand') or details.get('pitcher_hand'),
             'pts': round(final_pts, 1),
             'pts_pre_adj': round(pts_pre_adj, 1),
             'adj_total': round(learned_adj_total, 2),
@@ -4816,6 +4860,7 @@ def _decision_record_from_streaming_entry(entry):
         'fb_velo': entry.get('fb_velo'),
         'pitch_count': entry.get('pitch_count'),
         'emerging': entry.get('emerging'),
+        'pitcher_hand': entry.get('pitcher_hand'),
         'opp_il_count': len(entry.get('opp_il', []) or []),
         'opp_il_returns_count': len(entry.get('opp_il_returns', []) or []),
     }
@@ -4842,6 +4887,9 @@ def _decision_record_from_streaming_entry(entry):
         'team': entry.get('team'),
         'opponent': entry.get('opponent'),
         'home_away': entry.get('home_away'),
+        'game_pk': entry.get('game_pk'),
+        'pitcher_id': entry.get('pitcher_id'),
+        'pitcher_hand': entry.get('pitcher_hand'),
         'predicted_pts': entry.get('predicted_pts', entry.get('pts')),
         'final_pts': entry.get('final_pts', entry.get('pts')),
         'predicted_pts_raw': entry.get('predicted_pts_raw', entry.get('pts_pre_adj')),
@@ -6403,6 +6451,109 @@ def _hitter_field(row, value, *keys):
     return None
 
 
+def _handedness_player_lookup(team_handedness):
+    lookup = {}
+    for team, data in (team_handedness or {}).items():
+        for norm, player in (data or {}).get('players', {}).items():
+            if not norm:
+                continue
+            out = dict(player or {})
+            out.setdefault('team', team)
+            lookup.setdefault(norm, out)
+    return lookup
+
+
+def _hitter_batting_order_spot(value):
+    if value in (None, ''):
+        return None
+    text = str(value).strip()
+    if not text.isdigit():
+        return None
+    try:
+        order = int(text)
+    except ValueError:
+        return None
+    if order <= 0:
+        return None
+    return max(1, order // 100)
+
+
+def _fetch_hitter_lineup_context(records, base_date=None):
+    """Read posted MLB boxscore lineups for today's games when available."""
+    base_date = base_date or date.today().isoformat()
+    cache_name = f"hitter_lineup_context_{base_date}.json"
+    cached, _age = _load_streaming_cache(cache_name, max_age_hours=1)
+    if isinstance(cached, dict):
+        return cached
+
+    game_pks = sorted({
+        rec.get('game_pk')
+        for rec in records or []
+        if _matchup_record_date(rec) == base_date and rec.get('game_pk')
+    })
+    if not game_pks:
+        return {'date': base_date, 'players': {}, 'teams_with_posted_lineups': [], 'game_pks': []}
+
+    def fetch_box(pk):
+        try:
+            r = requests.get(f"https://statsapi.mlb.com/api/v1/game/{pk}/boxscore", timeout=15)
+            r.raise_for_status()
+            return pk, r.json()
+        except Exception:
+            return pk, None
+
+    players = {}
+    teams_with_posted = set()
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        for pk, box in ex.map(fetch_box, game_pks):
+            if not box:
+                continue
+            for side in ('home', 'away'):
+                team_info = (box.get('teams') or {}).get(side, {}) or {}
+                team_id = (team_info.get('team') or {}).get('id')
+                team_abbr = MLB_TEAM_TO_ABBR.get(team_id, '')
+                raw_players = team_info.get('players') or {}
+                team_has_order = any(p.get('battingOrder') for p in raw_players.values())
+                if team_has_order and team_abbr:
+                    teams_with_posted.add(team_abbr)
+                for pinfo in raw_players.values():
+                    person = pinfo.get('person') or {}
+                    name = person.get('fullName') or ''
+                    if not name:
+                        continue
+                    pos = (pinfo.get('position') or {}).get('abbreviation') or ''
+                    if pos == 'P':
+                        continue
+                    batting_order = pinfo.get('battingOrder')
+                    spot = _hitter_batting_order_spot(batting_order)
+                    lineup_status = 'confirmed_starting' if spot is not None else (
+                        'not_in_confirmed_lineup' if team_has_order else 'unknown'
+                    )
+                    players[normalize_name(name)] = {
+                        'name': name,
+                        'mlb_id': person.get('id'),
+                        'team': team_abbr,
+                        'game_pk': pk,
+                        'lineup_status': lineup_status,
+                        'batting_order_status': 'confirmed' if spot is not None else (
+                            'posted_without_player' if team_has_order else 'unknown'
+                        ),
+                        'batting_order_spot': spot,
+                        'batting_order_raw': batting_order,
+                        'position': pos,
+                    }
+
+    payload = {
+        'date': base_date,
+        'source': 'MLB StatsAPI boxscore battingOrder',
+        'players': players,
+        'teams_with_posted_lineups': sorted(teams_with_posted),
+        'game_pks': game_pks,
+    }
+    _save_streaming_cache(cache_name, payload)
+    return payload
+
+
 def _hitter_prediction_features(record):
     features = dict((record or {}).get('features') or {})
     for key in (
@@ -6410,7 +6561,7 @@ def _hitter_prediction_features(record):
         'hard_hit_pct', 'barrel_pct', 'whiff_pct', 'bb_pct_savant',
         'k_pct_savant', 'park_factor', 'park', 'venue_name', 'roof_type',
         'is_indoor_or_dome', 'weather_temp_f', 'weather_wind_speed_mph',
-        'weather_source', 'weather_note',
+        'weather_source', 'weather_note', 'pitcher_hand',
     ):
         if features.get(key) in (None, '') and (record or {}).get(key) not in (None, ''):
             features[key] = record.get(key)
@@ -6500,17 +6651,29 @@ def _hitter_game_context_by_team(records, base_date=None, days=6):
     return by_team
 
 
-def _hitter_context_row(row, lookup, game_context, base_date, roster_state, team_handedness=None):
+def _hitter_context_row(row, lookup, game_context, base_date, roster_state,
+                        team_handedness=None, lineup_context=None):
     value = _hitter_value(row, lookup)
     team = row.get('team') or ''
     games = game_context.get(team) or []
     today_games = [g for g in games if g.get('date') == base_date]
     today_game = next((g for g in today_games if g.get('is_opposing_pitcher')), today_games[0] if today_games else {})
     status = row.get('status') or value.get('status') or ''
-    hitter_bats = _hitter_field(row, value, 'bats', 'bat_side', 'batSide', 'bat_hand')
-    hitter_throws = _hitter_field(row, value, 'throws', 'throw_side', 'throwHand')
     team_hand = (team_handedness or {}).get(team) or {}
+    hand_player = _handedness_player_lookup(team_handedness).get(normalize_name(row.get('name') or '')) or {}
+    lineup_player = ((lineup_context or {}).get('players') or {}).get(normalize_name(row.get('name') or '')) or {}
+    hitter_bats = (
+        _hitter_field(row, value, 'bats', 'bat_side', 'batSide', 'bat_hand')
+        or hand_player.get('bat_side')
+    )
+    hitter_throws = (
+        _hitter_field(row, value, 'throws', 'throw_side', 'throwHand')
+        or hand_player.get('throws')
+    )
     opp_hand = today_game.get('opposing_pitcher_hand')
+    lineup_status = lineup_player.get('lineup_status') or 'unknown'
+    batting_order_status = lineup_player.get('batting_order_status') or 'unknown'
+    batting_order_spot = lineup_player.get('batting_order_spot')
     notes = []
     if not today_game and team:
         notes.append('no game found in current prediction window')
@@ -6518,7 +6681,8 @@ def _hitter_context_row(row, lookup, game_context, base_date, roster_state, team
         notes.append('hitter handedness unavailable from current cached inputs')
     if opp_hand is None and today_game:
         notes.append('opposing pitcher handedness unavailable from current cached inputs')
-    notes.append('lineup spot/status unknown until confirmed lineup source is added')
+    if lineup_status == 'unknown':
+        notes.append('confirmed lineup not posted or unavailable from MLB boxscore yet')
     return {
         'date': base_date,
         'name': row.get('name') or '',
@@ -6535,9 +6699,11 @@ def _hitter_context_row(row, lookup, game_context, base_date, roster_state, team
         'display_pos': value.get('display_pos') or row.get('pos') or '',
         'hitter_bats': hitter_bats,
         'hitter_throws': hitter_throws,
-        'lineup_status': 'unknown',
-        'batting_order_status': 'unknown',
-        'batting_order_spot': None,
+        'lineup_status': lineup_status,
+        'batting_order_status': batting_order_status,
+        'batting_order_spot': batting_order_spot,
+        'batting_order_raw': lineup_player.get('batting_order_raw'),
+        'lineup_source': 'MLB StatsAPI boxscore battingOrder' if lineup_player else None,
         'ros_dollars': round(_safe_float(value.get('dollars')) or 0.0, 1),
         'ros_rpts': round(_safe_float(value.get('rpts')) or 0.0, 1),
         'team_has_game_today': bool(today_games) if team else None,
@@ -6581,7 +6747,8 @@ def _hitter_context_row(row, lookup, game_context, base_date, roster_state, team
 
 
 def build_hitter_daily_context(base_date=None, players_list=None, matchup_snapshot_data=None,
-                               prediction_records=None, allow_live_snapshot=True):
+                               prediction_records=None, allow_live_snapshot=True,
+                               team_handedness_context=None):
     """Build logged-only hitter daily context for future modeling; no scoring changes."""
     base_date = base_date or date.today().isoformat()
     players_list = [dict(p) for p in (players_list or [])]
@@ -6600,16 +6767,19 @@ def build_hitter_daily_context(base_date=None, players_list=None, matchup_snapsh
             snapshot = {'error': f'{type(e).__name__}: {e}'}
     lookup = _hitter_lookup(players_list)
     game_context = _hitter_game_context_by_team(prediction_records or [], base_date, days=6)
-    team_handedness, _team_hand_age = _load_streaming_cache('team_handedness.json', max_age_hours=168)
+    team_handedness = team_handedness_context
+    if team_handedness is None:
+        team_handedness, _team_hand_age = _load_streaming_cache('team_handedness.json', max_age_hours=168)
     team_handedness = team_handedness if isinstance(team_handedness, dict) else {}
+    lineup_context = _fetch_hitter_lineup_context(prediction_records or [], base_date)
     rows = []
     if snapshot and not snapshot.get('error') and not snapshot.get('low_confidence'):
         active = [row for row in snapshot.get('my_active') or [] if _matchup_player_is_hitter(row)]
         bench = [row for row in snapshot.get('my_bench') or [] if _matchup_player_is_hitter(row)]
         for row in active:
-            rows.append(_hitter_context_row(row, lookup, game_context, base_date, 'active', team_handedness))
+            rows.append(_hitter_context_row(row, lookup, game_context, base_date, 'active', team_handedness, lineup_context))
         for row in bench:
-            rows.append(_hitter_context_row(row, lookup, game_context, base_date, 'bench', team_handedness))
+            rows.append(_hitter_context_row(row, lookup, game_context, base_date, 'bench', team_handedness, lineup_context))
     fa_rows = [
         row for row in _hitter_player_rows(players_list)
         if row.get('status') in ('FA', 'WAIVER') and (_safe_float(row.get('dollars')) or 0.0) > 0
@@ -6624,7 +6794,7 @@ def build_hitter_daily_context(base_date=None, players_list=None, matchup_snapsh
             'slot': row.get('displayPos') or row.get('best_pos'),
             'status': row.get('status'),
         }
-        rows.append(_hitter_context_row(pseudo, lookup, game_context, base_date, 'available', team_handedness))
+        rows.append(_hitter_context_row(pseudo, lookup, game_context, base_date, 'available', team_handedness, lineup_context))
     total = len(rows)
     with_game = sum(1 for row in rows if row.get('team_has_game_today') is True)
     with_opp = sum(1 for row in rows if row.get('opponent_today'))
@@ -6647,14 +6817,18 @@ def build_hitter_daily_context(base_date=None, players_list=None, matchup_snapsh
             'with_park_or_venue': with_park,
             'with_team_handedness_context': with_team_hand,
             'with_hitter_bats': sum(1 for row in rows if row.get('hitter_bats')),
+            'with_hitter_throws': sum(1 for row in rows if row.get('hitter_throws')),
+            'with_confirmed_lineup_status': sum(1 for row in rows if row.get('lineup_status') != 'unknown'),
             'with_lineup_spot': sum(1 for row in rows if row.get('batting_order_spot') is not None),
             'injury_status_rows': injured,
             'team_game_context_teams': len(game_context),
+            'teams_with_posted_lineups': len((lineup_context or {}).get('teams_with_posted_lineups') or []),
         },
         'notes': [
             'Logged-only context for future hitter modeling; not used in scoring or recommendations.',
             'Opposing pitcher quality, park, venue, roof, and weather context come from existing prediction records when available.',
-            'Hitter handedness, opposing pitcher handedness, and lineup spots remain TODO until reliable current sources are wired in.',
+            'Hitter handedness comes from MLB active-roster metadata when available; lineup status comes from posted MLB boxscore batting orders.',
+            'Opposing pitcher handedness remains null when current probable data does not expose pitchHand.',
         ],
     }
 
@@ -6677,7 +6851,8 @@ def _hitter_action(kind, text, priority, row=None, value=None, source='espn_rost
 
 
 def build_hitter_decision_summary(base_date=None, players_list=None, matchup_snapshot_data=None,
-                                  prediction_records=None, limit=10, allow_live_snapshot=True):
+                                  prediction_records=None, limit=10, allow_live_snapshot=True,
+                                  team_handedness_context=None):
     """Read-only hitter lineup/FA suggestions from ESPN roster rows + RoS values."""
     base_date = base_date or date.today().isoformat()
     players_list = [dict(p) for p in (players_list or [])]
@@ -6741,6 +6916,7 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
         matchup_snapshot_data=snapshot,
         prediction_records=prediction_records,
         allow_live_snapshot=False,
+        team_handedness_context=team_handedness_context,
     )
     active_hurt = [row for row in active if row.get('injury')]
     bench_usable = [
@@ -6848,7 +7024,8 @@ def print_hitter_decisions(summary):
             f"{coverage.get('with_opponent_today', 0)} with opponent, "
             f"{coverage.get('with_opposing_pitcher_quality', 0)} with pitcher quality, "
             f"{coverage.get('with_park_or_venue', 0)} with park/venue, "
-            f"{coverage.get('with_hitter_bats', 0)} with hitter bats"
+            f"{coverage.get('with_hitter_bats', 0)} with hitter bats, "
+            f"{coverage.get('with_lineup_spot', 0)} with lineup spot"
         )
     items = (summary or {}).get('items') or []
     if not items:
@@ -6882,7 +7059,8 @@ def print_hitter_context(context, limit=12):
         f"park/venue: {coverage.get('with_park_or_venue', 0)} | "
         f"pitcher hand: {coverage.get('with_opposing_pitcher_hand', 0)} | "
         f"hitter bats: {coverage.get('with_hitter_bats', 0)} | "
-        f"lineup spot: {coverage.get('with_lineup_spot', 0)}"
+        f"lineup spot: {coverage.get('with_lineup_spot', 0)} | "
+        f"posted lineup teams: {coverage.get('teams_with_posted_lineups', 0)}"
     )
     rows = (context or {}).get('rows') or []
     for row in rows[:limit]:
@@ -6892,11 +7070,18 @@ def print_hitter_context(context, limit=12):
         pitcher_pts = row.get('opposing_pitcher_projected_pts')
         pitcher_quality = f"{pitcher}, {pitcher_pts:.1f} pitcher pts" if pitcher_pts is not None else pitcher
         hand = row.get('opposing_pitcher_hand') or 'pitcher hand TODO'
+        bats = row.get('hitter_bats') or 'bats TODO'
+        lineup = (
+            f"batting {row.get('batting_order_spot')}"
+            if row.get('batting_order_spot') is not None
+            else row.get('lineup_status') or 'lineup unknown'
+        )
         print(
             f"  - {row.get('name')} ({row.get('roster_state')}, {row.get('team')}, "
             f"{row.get('slot') or row.get('display_pos')}): {game} vs {opp}; "
             f"${row.get('ros_dollars')} RoS; opp SP {pitcher_quality}; "
-            f"{row.get('park_today') or row.get('venue_name_today') or 'park TODO'}; {hand}"
+            f"{row.get('park_today') or row.get('venue_name_today') or 'park TODO'}; "
+            f"bats {bats}; {hand}; {lineup}"
         )
     notes = (context or {}).get('notes') or []
     if notes:
@@ -6979,19 +7164,30 @@ def hitter_context():
     except Exception as e:
         print(f"Current RoS hitter load failed: {type(e).__name__}: {e}")
         players_list = (load_latest_snapshot() or {}).get('players') or []
+    global PREVIEW_LOCAL
+    old_preview = PREVIEW_LOCAL
+    PREVIEW_LOCAL = True
+    try:
+        team_handedness = fetch_team_handedness()
+    except Exception:
+        team_handedness, _age = _load_streaming_cache('team_handedness.json', max_age_hours=168)
     snapshot = None
     try:
         snapshot = build_matchup_snapshot()
     except Exception as e:
         snapshot = {'error': f'{type(e).__name__}: {e}'}
     records, _source_kind, _source_label = _matchup_prediction_records_for_actions(date.today().isoformat(), days=6)
-    context = build_hitter_daily_context(
-        date.today().isoformat(),
-        players_list=players_list,
-        matchup_snapshot_data=snapshot,
-        prediction_records=records,
-        allow_live_snapshot=False,
-    )
+    try:
+        context = build_hitter_daily_context(
+            date.today().isoformat(),
+            players_list=players_list,
+            matchup_snapshot_data=snapshot,
+            prediction_records=records,
+            allow_live_snapshot=False,
+            team_handedness_context=team_handedness,
+        )
+    finally:
+        PREVIEW_LOCAL = old_preview
     print_hitter_context(context)
     return context
 
@@ -7378,6 +7574,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           matchup_action_summary=None,
                           hitter_decision_summary=None,
                           matchup_edge_summary=None,
+                          team_handedness_context=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
     from string import Template
@@ -7485,6 +7682,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                 matchup_snapshot_data=matchup_snapshot_data,
                 prediction_records=report_decision_records,
                 allow_live_snapshot=matchup_snapshot_data is None and matchup_snapshot_summary is None,
+                team_handedness_context=team_handedness_context,
             )
         except Exception as e:
             hitter_decision_summary = {
@@ -7614,6 +7812,12 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .platoon-risk { color: #fb923c; }
 .stream-tbd { padding: 10px 16px; color: #555; font-style: italic; font-size: 13px; }
 .stream-note { padding: 10px 20px; color: #555; font-size: 12px; }
+.stream-legend { padding: 0 20px 10px; color: #777; font-size: 11px; line-height: 1.45; border-bottom: 1px solid #1a1a24; }
+.stream-explain { margin-top: 7px; padding: 7px 9px; border-radius: 6px; background: #0d0d14; border: 1px solid #20202a; color: #aaa; font-size: 12px; line-height: 1.4; }
+.stream-explain b { color: #ddd; font-weight: 700; }
+.stream-explain .why-start { color: #86efac; }
+.stream-explain .why-borderline { color: #fbbf24; }
+.stream-explain .why-sit { color: #fca5a5; }
 .decision-card { margin-top: 8px; }
 .decision-summary { padding: 10px 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid #1a1a24; }
 .decision-pill { display: inline-flex; gap: 4px; align-items: center; padding: 3px 8px; border-radius: 999px; background: #1a1a24; border: 1px solid #2a2a35; color: #aaa; font-size: 11px; }
@@ -7777,6 +7981,7 @@ $TOP_BANNER_HTML
 <!-- ===== STREAMING TAB ===== -->
 <div class="tab-view" id="tab-streaming">
 <div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold</div>
+<div class="stream-legend">Pitch pills: green/blue/red borders show pitch quality; arrows show matchup fit vs today&rsquo;s opponent (up = favorable, down = risk). HOT/COLD compares last-14-day ERA to projection; COLD means recent ERA is at least 1.5 runs worse.</div>
 <div id="streamContent"></div>
 </div><!-- end tab-streaming -->
 
@@ -8145,6 +8350,7 @@ function renderHitterDecisions() {
     h += '<span class="decision-pill">Pitcher hand <b>' + (coverage.with_opposing_pitcher_hand || 0) + '</b></span>';
     h += '<span class="decision-pill">Hitter bats <b>' + (coverage.with_hitter_bats || 0) + '</b></span>';
     h += '<span class="decision-pill">Lineup spot <b>' + (coverage.with_lineup_spot || 0) + '</b></span>';
+    h += '<span class="decision-pill">Posted lineups <b>' + (coverage.teams_with_posted_lineups || 0) + '</b></span>';
   }
   h += '</div>';
   if (context.notes && context.notes.length) {
@@ -8297,6 +8503,94 @@ function renderStreaming() {
   container.innerHTML = html;
 }
 
+function shortReason(text, maxLen) {
+  text = String(text || '');
+  maxLen = maxLen || 72;
+  return text.length > maxLen ? text.slice(0, maxLen - 1).trim() + '…' : text;
+}
+
+function pushUnique(list, text) {
+  if (text && list.indexOf(text) === -1) list.push(text);
+}
+
+function pitchFitPhrase(s, kind) {
+  var pa = s.pitch_analysis || {};
+  var pitches = pa.pitches || [];
+  var pitch = null;
+  for (var i = 0; i < pitches.length; i++) {
+    if (kind === 'good' && (pitches[i].matchup === 'strong' || pitches[i].matchup === 'favorable')) {
+      pitch = pitches[i]; break;
+    }
+    if (kind === 'bad' && (pitches[i].matchup === 'poor' || pitches[i].matchup === 'unfavorable')) {
+      pitch = pitches[i]; break;
+    }
+  }
+  if (!pitch) return '';
+  var name = String(pitch.name || 'pitch').toLowerCase();
+  var grade = pitch.grade ? String(pitch.grade) + ' ' : '';
+  if (kind === 'good') return grade + name + ' lines up well';
+  return name + ' is a matchup concern';
+}
+
+function streamingExplanation(s) {
+  var reasons = [];
+  var risks = [];
+  var pts = Number(s.pts || 0);
+  var oppRank = Number(s.opp_rank || 15);
+  var parkFactor = Number(s.park_factor || 0);
+
+  if (pts >= 12) pushUnique(reasons, 'strong point projection');
+  else if (pts >= 8) pushUnique(reasons, 'playable point projection');
+  else pushUnique(risks, 'light point projection');
+
+  if (oppRank >= 21) pushUnique(reasons, 'soft opponent offense');
+  else if (oppRank <= 10) pushUnique(risks, 'tough opponent offense');
+
+  if (parkFactor && parkFactor <= 0.96) pushUnique(reasons, 'pitcher-friendly park');
+  else if (parkFactor && parkFactor >= 1.05) pushUnique(risks, 'hitter-friendly park');
+
+  if (s.platoon === 'edge') pushUnique(reasons, 'platoon edge');
+  else if (s.platoon === 'risk') pushUnique(risks, 'platoon risk');
+
+  if (s.trend === 'hot') pushUnique(reasons, 'recent form is hot');
+  else if (s.trend === 'cold') pushUnique(risks, 'cold tag: L14D ERA is 1.5+ runs worse than projection');
+
+  var goodPitch = pitchFitPhrase(s, 'good');
+  var badPitch = pitchFitPhrase(s, 'bad');
+  if (goodPitch) pushUnique(reasons, goodPitch);
+  if (badPitch) pushUnique(risks, badPitch);
+
+  if (s.opp_il && s.opp_il.length) pushUnique(reasons, 'opponent missing bat(s)');
+  if (s.opp_il_returns && s.opp_il_returns.length) pushUnique(risks, 'opponent getting bat(s) back');
+  if (s.probable_warning) pushUnique(risks, shortReason(s.probable_warning, 68));
+
+  if (!reasons.length) pushUnique(reasons, 'projection is the main positive signal');
+  if (!risks.length) pushUnique(risks, 'normal streamer volatility');
+
+  var tier = s.tier || 'borderline';
+  var label = 'Why borderline';
+  var cls = 'why-borderline';
+  var lead = 'Playable, not safe';
+  if (tier === 'must_start' || tier === 'start') {
+    label = 'Why start';
+    cls = 'why-start';
+    lead = 'Start';
+  } else if (tier === 'avoid') {
+    label = 'Why sit';
+    cls = 'why-sit';
+    lead = 'Sit';
+  }
+
+  var mainBits = tier === 'avoid' ? risks.slice(0, 2) : reasons.slice(0, 2);
+  var riskBits = tier === 'avoid' ? reasons.slice(0, 1) : risks.slice(0, 2);
+  var counterLabel = tier === 'avoid' ? 'Counterpoint' : 'Risk';
+  return '<div class="stream-explain"><b class="' + cls + '">' + label + ':</b> ' +
+    escHtml(lead + ' because ' + mainBits.map(function(x) { return shortReason(x, 58); }).join('; ')) +
+    '. <b>' + counterLabel + ':</b> ' +
+    escHtml(riskBits.map(function(x) { return shortReason(x, 58); }).join('; ')) +
+    '.</div>';
+}
+
 function renderPitcherEntry(s, allReal) {
   var topPts = allReal.length > 0 ? Math.max.apply(null, allReal.filter(function(e){return e.status==='FA'}).map(function(e){return e.pts||0})) : 0;
   var isTop = s.pts === topPts && s.status === 'FA' && topPts > 0;
@@ -8413,6 +8707,8 @@ function renderPitcherEntry(s, allReal) {
     if (s.pitch_count) h += '<span style="color:#666;font-size:10px">' + s.pitch_count + ' pitch types</span>';
     h += '</div></div>';
   }
+
+  h += streamingExplanation(s);
 
   h += '</div>';
   return h;
@@ -10991,7 +11287,7 @@ _register_features([
 _register_features([
     'opp_ops', 'opp_ops_raw', 'opp_rank', 'opp_k_pct',
     'park_factor', 'park', 'platoon', 'opp_hand',
-    'vs_l_ops', 'vs_r_ops', 'vs_l_ops_num', 'vs_r_ops_num',
+    'pitcher_hand', 'vs_l_ops', 'vs_r_ops', 'vs_l_ops_num', 'vs_r_ops_num',
     'splits_window_years', 'splits_l_r_diff',
     'combined_factor', 'opp_factor', 'pitch_matchup_score',
 ], 'matchup', ['base_projection', 'learned_bias_scan', 'prediction_log'])
@@ -11186,6 +11482,7 @@ def log_prediction(entry):
             'home_away': entry.get('home_away'),
             'game_pk': entry.get('game_pk'),
             'pitcher_id': entry.get('pitcher_id'),
+            'pitcher_hand': entry.get('pitcher_hand'),
             # predicted_pts is the FINAL number we're committing to (post-learning)
             'predicted_pts': entry.get('pts'),
             # predicted_pts_raw is the rule-based prediction BEFORE learned
@@ -11211,6 +11508,7 @@ def log_prediction(entry):
                 'park': entry.get('park'),
                 'platoon': entry.get('platoon'),
                 'opp_hand': entry.get('opp_hand'),
+                'pitcher_hand': entry.get('pitcher_hand'),
                 'vs_l_ops': entry.get('vs_l_ops'),
                 'vs_r_ops': entry.get('vs_r_ops'),
                 # Numeric versions so the auto-bucketing engine can quartile
@@ -12928,6 +13226,7 @@ def main():
         calibration=cal,
         learned_candidates=learned_candidates,
         learning_sample_summary=learning_sample_summary,
+        team_handedness_context=team_hand,
     )
 
     print("\nDone!")
