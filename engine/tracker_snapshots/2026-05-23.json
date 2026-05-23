@@ -1,6 +1,6 @@
 {
   "date": "2026-05-23",
-  "timestamp": "2026-05-23T05:50:55.324847",
+  "timestamp": "2026-05-23T08:08:06.244440",
   "players": [
     {
       "rank": 1,
@@ -13765,7 +13765,8 @@
       "rank": 932,
       "name": "Sterlin Thompson",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "COL",
@@ -16153,7 +16154,6 @@
       "rank": 1096,
       "name": "Victor Bericoto",
       "positions": [
-        "1B",
         "OF"
       ],
       "displayPos": "OF",
@@ -16474,6 +16474,7 @@
       "rank": 1118,
       "name": "Patrick Wisdom",
       "positions": [
+        "1B",
         "3B",
         "DH"
       ],
