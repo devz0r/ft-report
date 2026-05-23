@@ -40,7 +40,8 @@
       }
     ],
     "fb_velo": 94.8,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "L"
   },
   "543243": {
     "mlb_id": 543243,
@@ -101,7 +102,8 @@
       }
     ],
     "fb_velo": 91.9,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "R"
   },
   "607625": {
     "mlb_id": 607625,
@@ -174,7 +176,8 @@
       }
     ],
     "fb_velo": 91.8,
-    "pitch_count": 9
+    "pitch_count": 9,
+    "pitcher_hand": "R"
   },
   "690953": {
     "mlb_id": 690953,
@@ -333,7 +336,8 @@
       }
     ],
     "fb_velo": 93.0,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "L"
   },
   "808967": {
     "mlb_id": 808967,
@@ -388,7 +392,8 @@
       }
     ],
     "fb_velo": 95.6,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "592662": {
     "mlb_id": 592662,
@@ -431,7 +436,8 @@
       }
     ],
     "fb_velo": 93.6,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "L"
   },
   "650633": {
     "mlb_id": 650633,
@@ -480,7 +486,8 @@
       }
     ],
     "fb_velo": 92.8,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "676106": {
     "mlb_id": 676106,
@@ -529,7 +536,8 @@
       }
     ],
     "fb_velo": 94.5,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "680732": {
     "mlb_id": 680732,
@@ -578,7 +586,8 @@
       }
     ],
     "fb_velo": 94.1,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "672282": {
     "mlb_id": 672282,
@@ -627,7 +636,8 @@
       }
     ],
     "fb_velo": 94.0,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "813349": {
     "mlb_id": 813349,
@@ -682,7 +692,8 @@
       }
     ],
     "fb_velo": 93.7,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "L"
   },
   "641816": {
     "mlb_id": 641816,
@@ -731,7 +742,8 @@
       }
     ],
     "fb_velo": 92.3,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "666142": {
     "mlb_id": 666142,
@@ -823,7 +835,8 @@
       }
     ],
     "fb_velo": 98.6,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   },
   "669467": {
     "mlb_id": 669467,
@@ -872,7 +885,8 @@
       }
     ],
     "fb_velo": 94.7,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "593958": {
     "mlb_id": 593958,
@@ -921,7 +935,8 @@
       }
     ],
     "fb_velo": 91.3,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "695076": {
     "mlb_id": 695076,
@@ -1068,7 +1083,8 @@
       }
     ],
     "fb_velo": 92.1,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "663978": {
     "mlb_id": 663978,
@@ -1129,7 +1145,8 @@
       }
     ],
     "fb_velo": 92.8,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "R"
   },
   "656427": {
     "mlb_id": 656427,
@@ -1178,7 +1195,8 @@
       }
     ],
     "fb_velo": 92.6,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "663460": {
     "mlb_id": 663460,
@@ -1282,7 +1300,8 @@
       }
     ],
     "fb_velo": 93.5,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "656302": {
     "mlb_id": 656302,
@@ -1337,7 +1356,8 @@
       }
     ],
     "fb_velo": 97.9,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "660271": {
     "mlb_id": 660271,
@@ -1398,7 +1418,8 @@
       }
     ],
     "fb_velo": 97.6,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "R"
   },
   "605488": {
     "mlb_id": 605488,
@@ -1447,7 +1468,8 @@
       }
     ],
     "fb_velo": 91.3,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "677944": {
     "mlb_id": 677944,
@@ -1496,7 +1518,8 @@
       }
     ],
     "fb_velo": 93.0,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "690997": {
     "mlb_id": 690997,
@@ -1551,7 +1574,8 @@
       }
     ],
     "fb_velo": 94.9,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "693433": {
     "mlb_id": 693433,
@@ -1600,7 +1624,8 @@
       }
     ],
     "fb_velo": 95.4,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "676282": {
     "mlb_id": 676282,
@@ -1643,7 +1668,8 @@
       }
     ],
     "fb_velo": 91.9,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "L"
   },
   "661563": {
     "mlb_id": 661563,
@@ -1741,7 +1767,8 @@
       }
     ],
     "fb_velo": 91.9,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "L"
   },
   "669372": {
     "mlb_id": 669372,
@@ -1790,7 +1817,8 @@
       }
     ],
     "fb_velo": 94.9,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "693821": {
     "mlb_id": 693821,
@@ -1888,10 +1916,12 @@
       }
     ],
     "fb_velo": 95.4,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "702273": {
-    "mlb_id": 702273
+    "mlb_id": 702273,
+    "pitcher_hand": "L"
   },
   "682052": {
     "mlb_id": 682052,
@@ -1940,7 +1970,8 @@
       }
     ],
     "fb_velo": 90.6,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "663623": {
     "mlb_id": 663623,
@@ -1995,7 +2026,8 @@
       }
     ],
     "fb_velo": 93.0,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "608331": {
     "mlb_id": 608331,
@@ -2105,7 +2137,8 @@
       }
     ],
     "fb_velo": 96.3,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "672456": {
     "mlb_id": 672456,
@@ -2154,7 +2187,8 @@
       }
     ],
     "fb_velo": 94.0,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "592332": {
     "mlb_id": 592332,
@@ -2191,7 +2225,8 @@
       }
     ],
     "fb_velo": 94.6,
-    "pitch_count": 3
+    "pitch_count": 3,
+    "pitcher_hand": "R"
   },
   "641743": {
     "mlb_id": 641743,
@@ -2240,7 +2275,8 @@
       }
     ],
     "fb_velo": 95.8,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "700241": {
     "mlb_id": 700241,
@@ -2301,7 +2337,8 @@
       }
     ],
     "fb_velo": 90.7,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "R"
   },
   "605400": {
     "mlb_id": 605400,
@@ -2350,7 +2387,8 @@
       }
     ],
     "fb_velo": 91.5,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "695505": {
     "mlb_id": 695505,
@@ -2387,7 +2425,8 @@
       }
     ],
     "fb_velo": 98.5,
-    "pitch_count": 3
+    "pitch_count": 3,
+    "pitcher_hand": "R"
   },
   "694738": {
     "mlb_id": 694738,
@@ -2436,7 +2475,8 @@
       }
     ],
     "fb_velo": 93.4,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "666200": {
     "mlb_id": 666200,
@@ -2479,7 +2519,8 @@
       }
     ],
     "fb_velo": 97.0,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "L"
   },
   "518876": {
     "mlb_id": 518876,
@@ -2494,7 +2535,8 @@
       "whip": "1.17",
       "k9": "8.99",
       "ip": "516.1"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "656605": {
     "mlb_id": 656605,
@@ -2549,7 +2591,8 @@
       }
     ],
     "fb_velo": 93.0,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "702303": {
     "mlb_id": 702303,
@@ -2629,7 +2672,8 @@
       }
     ],
     "fb_velo": 94.0,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "L"
   },
   "663903": {
     "mlb_id": 663903,
@@ -2678,7 +2722,8 @@
       }
     ],
     "fb_velo": 90.9,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "669022": {
     "mlb_id": 669022,
@@ -2788,7 +2833,8 @@
       }
     ],
     "fb_velo": 92.2,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "L"
   },
   "656492": {
     "mlb_id": 656492,
@@ -2849,7 +2895,8 @@
       }
     ],
     "fb_velo": 91.7,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "L"
   },
   "605280": {
     "mlb_id": 605280,
@@ -2968,7 +3015,8 @@
       }
     ],
     "fb_velo": 93.5,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "676974": {
     "mlb_id": 676974,
@@ -3017,7 +3065,8 @@
       }
     ],
     "fb_velo": 94.8,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "669432": {
     "mlb_id": 669432,
@@ -3066,7 +3115,8 @@
       }
     ],
     "fb_velo": 92.3,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "669947": {
     "mlb_id": 669947,
@@ -3170,7 +3220,8 @@
       }
     ],
     "fb_velo": 97.1,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "680573": {
     "mlb_id": 680573,
@@ -3311,7 +3362,8 @@
       }
     ],
     "fb_velo": 96.7,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "676083": {
     "mlb_id": 676083,
@@ -3360,7 +3412,8 @@
       }
     ],
     "fb_velo": 94.0,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "680694": {
     "mlb_id": 680694,
@@ -3403,7 +3456,8 @@
       }
     ],
     "fb_velo": 94.2,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   },
   "500779": {
     "mlb_id": 500779,
@@ -3452,7 +3506,8 @@
       }
     ],
     "fb_velo": 90.3,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "691725": {
     "mlb_id": 691725,
@@ -3507,7 +3562,8 @@
       }
     ],
     "fb_velo": 96.6,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "621111": {
     "mlb_id": 621111,
@@ -3568,7 +3624,8 @@
       }
     ],
     "fb_velo": 93.4,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "R"
   },
   "624133": {
     "mlb_id": 624133,
@@ -3623,7 +3680,8 @@
       }
     ],
     "fb_velo": 90.3,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "L"
   },
   "686799": {
     "mlb_id": 686799,
@@ -3666,7 +3724,8 @@
       }
     ],
     "fb_velo": 95.8,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   },
   "592836": {
     "mlb_id": 592836,
@@ -3785,7 +3844,8 @@
       "whip": "1.30",
       "k9": "8.97",
       "ip": "86.1"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "694477": {
     "mlb_id": 694477,
@@ -3871,7 +3931,8 @@
       }
     ],
     "fb_velo": 94.7,
-    "pitch_count": 3
+    "pitch_count": 3,
+    "pitcher_hand": "L"
   },
   "671096": {
     "mlb_id": 671096,
@@ -3920,7 +3981,8 @@
       }
     ],
     "fb_velo": 92.6,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "682227": {
     "mlb_id": 682227,
@@ -4030,7 +4092,8 @@
       }
     ],
     "fb_velo": 96.9,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "678394": {
     "mlb_id": 678394,
@@ -4146,7 +4209,8 @@
       }
     ],
     "fb_velo": 94.8,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "R"
   },
   "676979": {
     "mlb_id": 676979,
@@ -4299,7 +4363,8 @@
       }
     ],
     "fb_velo": 94.0,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "668678": {
     "mlb_id": 668678,
@@ -4348,7 +4413,8 @@
       }
     ],
     "fb_velo": 93.6,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "686218": {
     "mlb_id": 686218,
@@ -4391,7 +4457,8 @@
       }
     ],
     "fb_velo": 94.3,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   },
   "808963": {
     "mlb_id": 808963,
@@ -4428,7 +4495,8 @@
       }
     ],
     "fb_velo": 97.0,
-    "pitch_count": 3
+    "pitch_count": 3,
+    "pitcher_hand": "R"
   },
   "693645": {
     "mlb_id": 693645,
@@ -4477,7 +4545,8 @@
       }
     ],
     "fb_velo": 97.4,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "691587": {
     "mlb_id": 691587,
@@ -4532,7 +4601,8 @@
       }
     ],
     "fb_velo": 98.2,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "641927": {
     "mlb_id": 641927,
@@ -4587,7 +4657,8 @@
       }
     ],
     "fb_velo": 88.9,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "673929": {
     "mlb_id": 673929,
@@ -4685,7 +4756,8 @@
       }
     ],
     "fb_velo": 97.2,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "665871": {
     "mlb_id": 665871,
@@ -4795,7 +4867,8 @@
       }
     ],
     "fb_velo": 91.2,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "669194": {
     "mlb_id": 669194,
@@ -4838,7 +4911,8 @@
       }
     ],
     "fb_velo": 95.9,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   },
   "669461": {
     "mlb_id": 669461,
@@ -4899,7 +4973,8 @@
       }
     ],
     "fb_velo": 94.4,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "L"
   },
   "656550": {
     "mlb_id": 656550,
@@ -4954,7 +5029,8 @@
       }
     ],
     "fb_velo": 94.6,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "453286": {
     "mlb_id": 453286,
@@ -5058,7 +5134,8 @@
       }
     ],
     "fb_velo": 91.4,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "680736": {
     "mlb_id": 680736,
@@ -5162,7 +5239,8 @@
       }
     ],
     "fb_velo": 96.9,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "647336": {
     "mlb_id": 647336,
@@ -5211,7 +5289,8 @@
       }
     ],
     "fb_velo": 94.0,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "800048": {
     "mlb_id": 800048,
@@ -5266,7 +5345,8 @@
       }
     ],
     "fb_velo": 93.0,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "L"
   },
   "665152": {
     "mlb_id": 665152,
@@ -5370,7 +5450,8 @@
       }
     ],
     "fb_velo": 96.6,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "676440": {
     "mlb_id": 676440,
@@ -5425,7 +5506,8 @@
       }
     ],
     "fb_velo": 94.1,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "657746": {
     "mlb_id": 657746,
@@ -5480,7 +5562,8 @@
       }
     ],
     "fb_velo": 92.7,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "605135": {
     "mlb_id": 605135,
@@ -5535,7 +5618,8 @@
       }
     ],
     "fb_velo": 91.8,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "527048": {
     "mlb_id": 527048,
@@ -5584,7 +5668,8 @@
       }
     ],
     "fb_velo": 90.0,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "622663": {
     "mlb_id": 622663,
@@ -5639,7 +5724,8 @@
       }
     ],
     "fb_velo": 96.9,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "665795": {
     "mlb_id": 665795,
@@ -5688,7 +5774,8 @@
       }
     ],
     "fb_velo": 95.7,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "519242": {
     "mlb_id": 519242,
@@ -5731,7 +5818,8 @@
       }
     ],
     "fb_velo": 95.1,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "L"
   },
   "607192": {
     "mlb_id": 607192,
@@ -5921,7 +6009,8 @@
       }
     ],
     "fb_velo": 94.0,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "671737": {
     "mlb_id": 671737,
@@ -5964,7 +6053,8 @@
       }
     ],
     "fb_velo": 96.7,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   },
   "668909": {
     "mlb_id": 668909,
@@ -6013,7 +6103,8 @@
       }
     ],
     "fb_velo": 96.7,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "641778": {
     "mlb_id": 641778,
@@ -6062,7 +6153,8 @@
       }
     ],
     "fb_velo": 90.2,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "669302": {
     "mlb_id": 669302,
@@ -6117,7 +6209,8 @@
       }
     ],
     "fb_velo": 95.5,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "608379": {
     "mlb_id": 608379,
@@ -6172,7 +6265,8 @@
       }
     ],
     "fb_velo": 92.9,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "608372": {
     "mlb_id": 608372,
@@ -6233,7 +6327,8 @@
       }
     ],
     "fb_velo": 92.8,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "R"
   },
   "663554": {
     "mlb_id": 663554,
@@ -6282,7 +6377,8 @@
       }
     ],
     "fb_velo": 93.0,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "676917": {
     "mlb_id": 676917,
@@ -6337,7 +6433,8 @@
       }
     ],
     "fb_velo": 96.1,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "667755": {
     "mlb_id": 667755,
@@ -6386,7 +6483,8 @@
       }
     ],
     "fb_velo": 97.0,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "621121": {
     "mlb_id": 621121,
@@ -6490,7 +6588,8 @@
       }
     ],
     "fb_velo": 91.1,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "607259": {
     "mlb_id": 607259,
@@ -6545,7 +6644,8 @@
       }
     ],
     "fb_velo": 93.0,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "605288": {
     "mlb_id": 605288,
@@ -6594,7 +6694,8 @@
       }
     ],
     "fb_velo": 94.7,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "641793": {
     "mlb_id": 641793,
@@ -6643,7 +6744,8 @@
       }
     ],
     "fb_velo": 91.3,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "579328": {
     "mlb_id": 579328,
@@ -6808,7 +6910,8 @@
       }
     ],
     "fb_velo": 97.3,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "R"
   },
   "669923": {
     "mlb_id": 669923,
@@ -6863,7 +6966,8 @@
       }
     ],
     "fb_velo": 96.6,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "669373": {
     "mlb_id": 669373,
@@ -6912,7 +7016,8 @@
       }
     ],
     "fb_velo": 96.8,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "696149": {
     "mlb_id": 696149,
@@ -6961,7 +7066,8 @@
       }
     ],
     "fb_velo": 99.0,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "594798": {
     "mlb_id": 594798,
@@ -7010,7 +7116,8 @@
       }
     ],
     "fb_velo": 97.1,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "547179": {
     "mlb_id": 547179,
@@ -7071,7 +7178,8 @@
       }
     ],
     "fb_velo": 93.5,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "R"
   },
   "605540": {
     "mlb_id": 605540,
@@ -7181,7 +7289,8 @@
       }
     ],
     "fb_velo": 95.9,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "543135": {
     "mlb_id": 543135,
@@ -7236,7 +7345,8 @@
       }
     ],
     "fb_velo": 94.7,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "608718": {
     "mlb_id": 608718,
@@ -7377,7 +7487,8 @@
       }
     ],
     "fb_velo": 94.9,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "663362": {
     "mlb_id": 663362,
@@ -7456,7 +7567,8 @@
       "whip": "1.47",
       "k9": "6.67",
       "ip": "136.1"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "680755": {
     "mlb_id": 680755,
@@ -7545,7 +7657,8 @@
       }
     ],
     "fb_velo": 94.6,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "L"
   },
   "668964": {
     "mlb_id": 668964,
@@ -7717,7 +7830,8 @@
       }
     ],
     "fb_velo": 98.8,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   },
   "607067": {
     "mlb_id": 607067,
@@ -7778,7 +7892,8 @@
       }
     ],
     "fb_velo": 94.1,
-    "pitch_count": 7
+    "pitch_count": 7,
+    "pitcher_hand": "R"
   },
   "669387": {
     "mlb_id": 669387,
@@ -7833,7 +7948,8 @@
       }
     ],
     "fb_velo": 94.7,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "623474": {
     "mlb_id": 623474,
@@ -7897,7 +8013,8 @@
       "whip": "0.84",
       "k9": "7.52",
       "ip": "26.1"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "554430": {
     "mlb_id": 554430,
@@ -7912,7 +8029,8 @@
       "whip": "1.01",
       "k9": "9.37",
       "ip": "890.1"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "679775": {
     "mlb_id": 679775,
@@ -7952,7 +8070,8 @@
     "pitch_count": 3
   },
   "687570": {
-    "mlb_id": 687570
+    "mlb_id": 687570,
+    "pitcher_hand": "L"
   },
   "800311": {
     "mlb_id": 800311,
@@ -8111,7 +8230,8 @@
       }
     ],
     "fb_velo": 93.7,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "663542": {
     "mlb_id": 663542,
@@ -8154,7 +8274,8 @@
       }
     ],
     "fb_velo": 91.8,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "L"
   },
   "702056": {
     "mlb_id": 702056,
@@ -8169,7 +8290,8 @@
       "whip": "2.20",
       "k9": "9.00",
       "ip": "5.0"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "643377": {
     "mlb_id": 643377,
@@ -8218,7 +8340,8 @@
       }
     ],
     "fb_velo": 96.6,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "801403": {
     "mlb_id": 801403,
@@ -8386,7 +8509,8 @@
       }
     ],
     "fb_velo": 94.9,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "695684": {
     "mlb_id": 695684
@@ -8444,7 +8568,8 @@
       }
     ],
     "fb_velo": 92.4,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "L"
   },
   "675911": {
     "mlb_id": 675911,
@@ -8459,7 +8584,8 @@
       "whip": "1.06",
       "k9": "13.58",
       "ip": "217.1"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "641835": {
     "mlb_id": 641835,
@@ -8731,7 +8857,8 @@
       "whip": "1.32",
       "k9": "8.88",
       "ip": "294.0"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "701656": {
     "mlb_id": 701656,
@@ -8774,7 +8901,8 @@
       }
     ],
     "fb_velo": 93.0,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   },
   "695534": {
     "mlb_id": 695534,
@@ -8789,7 +8917,8 @@
       "whip": "6.00",
       "k9": "9.00",
       "ip": "3.0"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "595345": {
     "mlb_id": 595345,
@@ -8835,7 +8964,8 @@
       "whip": "0.50",
       "k9": "8.25",
       "ip": "12.0"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "623211": {
     "mlb_id": 623211,
@@ -8938,7 +9068,8 @@
       }
     ],
     "fb_velo": 91.9,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "L"
   },
   "691951": {
     "mlb_id": 691951,
@@ -8992,7 +9123,8 @@
       "k9": "6.09",
       "ip": "78.3"
     },
-    "splits_window_years": 2
+    "splits_window_years": 2,
+    "pitcher_hand": "R"
   },
   "699134": {
     "mlb_id": 699134,
@@ -9042,7 +9174,8 @@
       "k9": "9.54",
       "ip": "291.7"
     },
-    "splits_window_years": 2
+    "splits_window_years": 2,
+    "pitcher_hand": "L"
   },
   "621112": {
     "mlb_id": 621112,
@@ -9148,7 +9281,8 @@
       "k9": "8.82",
       "ip": "102.0"
     },
-    "splits_window_years": 3
+    "splits_window_years": 3,
+    "pitcher_hand": "R"
   },
   "680744": {
     "mlb_id": 680744,
@@ -9324,7 +9458,8 @@
       "k9": "8.62",
       "ip": "135.7"
     },
-    "splits_window_years": 2
+    "splits_window_years": 2,
+    "pitcher_hand": "R"
   },
   "669724": {
     "mlb_id": 669724,
@@ -9517,7 +9652,8 @@
       }
     ],
     "fb_velo": 94.7,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "596001": {
     "mlb_id": 596001,
@@ -9587,7 +9723,8 @@
       "k9": "9.72",
       "ip": "58.3"
     },
-    "splits_window_years": 2
+    "splits_window_years": 2,
+    "pitcher_hand": "R"
   },
   "693855": {
     "mlb_id": 693855,
@@ -9757,7 +9894,8 @@
       "k9": "6.88",
       "ip": "72.0"
     },
-    "splits_window_years": 1
+    "splits_window_years": 1,
+    "pitcher_hand": "R"
   },
   "688107": {
     "mlb_id": 688107,
@@ -9767,7 +9905,8 @@
       "k9": "5.12",
       "ip": "26.3"
     },
-    "splits_window_years": 2
+    "splits_window_years": 2,
+    "pitcher_hand": "L"
   },
   "696070": {
     "mlb_id": 696070,
@@ -9974,7 +10113,8 @@
       "k9": "7.94",
       "ip": "39.7"
     },
-    "splits_window_years": 1
+    "splits_window_years": 1,
+    "pitcher_hand": "R"
   },
   "804267": {
     "mlb_id": 804267
