@@ -10845,6 +10845,22 @@ def _start_sit_status_group(status):
 
 def _start_sit_prepare_dataframe(df):
     work = df.copy()
+    if 'features' in work.columns:
+        feature_cols = [
+            'opp_rank', 'opp_ops', 'opp_ops_raw', 'park_factor', 'park',
+            'platoon', 'trend', 'recent_era', 'proj_k9', 'k9',
+            'workload_risk_score', 'pitch_matchup_score',
+            'opp_il_count', 'opp_il_returns_count',
+        ]
+        for col in feature_cols:
+            if col not in work.columns:
+                work[col] = None
+            for idx, features in work['features'].items():
+                current = work.at[idx, col]
+                if current is not None and not pd.isna(current):
+                    continue
+                if isinstance(features, dict) and features.get(col) is not None:
+                    work.at[idx, col] = features.get(col)
     rename_map = {
         'date': 'game_date',
         'name': 'pitcher_name',
@@ -11246,6 +11262,367 @@ def analyze_start_sit_misses():
         print("  Borderline calls are evenly split between useful and bad outcomes so far.")
     print("  Treat these as diagnostic clues only; no recommendations are changed automatically.")
     return {'labeled_rows': len(work), 'groups': summaries}
+
+
+def _decision_policy_risk_score(row):
+    """Small read-only risk count used by policy backtests; not prediction scoring."""
+    score = 0
+    reasons = []
+    opp_rank = _safe_float(row.get('opp_rank'))
+    park_factor = _safe_float(row.get('park_factor'))
+    recent_era = _safe_float(row.get('recent_era'))
+    proj_k9 = _safe_float(row.get('proj_k9') or row.get('k9'))
+    workload = _safe_float(row.get('workload_risk_score'))
+    pitch_matchup = _safe_float(row.get('pitch_matchup_score'))
+    platoon = str(row.get('platoon') or '').lower()
+    trend = str(row.get('trend') or '').lower()
+    if trend == 'cold':
+        score += 2
+        reasons.append('cold')
+    if recent_era is not None and recent_era >= 5.14:
+        score += 1
+        reasons.append('recent_era>=5.14')
+    if opp_rank is not None and opp_rank <= 10:
+        score += 1
+        reasons.append('top-10 offense')
+    if park_factor is not None and park_factor >= 1.05:
+        score += 1
+        reasons.append('hitter park')
+    if platoon == 'risk':
+        score += 1
+        reasons.append('platoon risk')
+    if proj_k9 is not None and proj_k9 < 7.5:
+        score += 1
+        reasons.append('low K/9')
+    if workload is not None and workload >= 0.4:
+        score += 1
+        reasons.append('workload risk')
+    if pitch_matchup is not None and pitch_matchup <= -0.05:
+        score += 1
+        reasons.append('negative pitch matchup')
+    return score, reasons
+
+
+def _policy_from_points(row, start_threshold, borderline_threshold):
+    pts = _safe_float(row.get('predicted_pts'))
+    if pts is None:
+        return row.get('predicted_advice') or 'UNKNOWN'
+    if pts >= start_threshold:
+        return 'START'
+    if pts >= borderline_threshold:
+        return 'BORDERLINE'
+    return 'SIT'
+
+
+def _demote_advice(advice):
+    if advice == 'START':
+        return 'BORDERLINE'
+    if advice == 'BORDERLINE':
+        return 'SIT'
+    return advice
+
+
+def _start_sit_policy_advice(row, policy_key):
+    current = row.get('predicted_advice') or 'UNKNOWN'
+    pts = _safe_float(row.get('predicted_pts'))
+    risk_score, _reasons = _decision_policy_risk_score(row)
+    trend = str(row.get('trend') or '').lower()
+    recent_era = _safe_float(row.get('recent_era'))
+    status_group = row.get('status_group') or _start_sit_status_group(row.get('status'))
+
+    if policy_key == 'current':
+        return current
+    if policy_key == 'strict_start_11_9':
+        return _policy_from_points(row, 11.0, 9.0)
+    if policy_key == 'strict_start_12_9':
+        return _policy_from_points(row, 12.0, 9.0)
+    if policy_key == 'cold_overlay':
+        if current in ('START', 'BORDERLINE') and (trend == 'cold' or (recent_era is not None and recent_era >= 5.14)):
+            return _demote_advice(current)
+        return current
+    if policy_key == 'risk_guard':
+        if current in ('START', 'BORDERLINE') and risk_score >= 2:
+            return _demote_advice(current)
+        return current
+    if policy_key == 'streamer_conservative':
+        advice = current
+        if status_group == 'FA/WAIVER' and advice in ('START', 'BORDERLINE'):
+            if risk_score >= 1 or (pts is not None and pts < 10.0):
+                advice = _demote_advice(advice)
+        return advice
+    return current
+
+
+def _decision_policy_metrics(df, advice_col):
+    total = len(df)
+    start = df[df[advice_col] == 'START']
+    borderline = df[df[advice_col] == 'BORDERLINE']
+    sit = df[df[advice_col] == 'SIT']
+    start_bust = int((start['actual_pts'] < 5).sum())
+    start_hit = int((start['actual_pts'] >= 8).sum())
+    start_good = int((start['actual_pts'] >= 12).sum())
+    sit_correct = int((sit['actual_pts'] < 8).sum())
+    sit_missed = int((sit['actual_pts'] >= 12).sum())
+    borderline_usable = int((borderline['actual_pts'] >= 8).sum())
+    borderline_bust = int((borderline['actual_pts'] < 5).sum())
+    playable = df[df[advice_col].isin(['START', 'BORDERLINE'])]
+    negative_recommended = int((playable['actual_pts'] <= 0).sum())
+    good_missed = sit_missed
+    start_hit_rate = _start_sit_rate(start_hit, len(start))
+    start_bust_rate = _start_sit_rate(start_bust, len(start))
+    sit_missed_rate = _start_sit_rate(sit_missed, len(sit))
+    borderline_bust_rate = _start_sit_rate(borderline_bust, len(borderline))
+    # Conservative fantasy utility score: punish bad recommended starts more
+    # than missed upside, because negative SP days can swing a matchup.
+    utility = (
+        start_hit
+        + 0.5 * borderline_usable
+        + 0.5 * sit_correct
+        - 2.0 * start_bust
+        - 1.5 * borderline_bust
+        - 2.5 * negative_recommended
+        - 1.0 * good_missed
+    )
+    return {
+        'total': total,
+        'start_count': len(start),
+        'borderline_count': len(borderline),
+        'sit_count': len(sit),
+        'start_hit_rate': start_hit_rate,
+        'start_good_rate': _start_sit_rate(start_good, len(start)),
+        'start_bust_rate': start_bust_rate,
+        'sit_correct_avoid_rate': _start_sit_rate(sit_correct, len(sit)),
+        'sit_missed_opportunity_rate': sit_missed_rate,
+        'borderline_usable_rate': _start_sit_rate(borderline_usable, len(borderline)),
+        'borderline_bust_rate': borderline_bust_rate,
+        'negative_recommended': negative_recommended,
+        'good_starts_missed': good_missed,
+        'utility_score': utility,
+    }
+
+
+def _policy_diff_outcome(row, from_advice, to_advice):
+    actual = _safe_float(row.get('actual_pts'))
+    if actual is None:
+        return 'unknown'
+    if from_advice == 'START' and to_advice == 'BORDERLINE':
+        if actual < 5:
+            return 'helped'
+        if actual >= 12:
+            return 'hurt'
+        return 'neutral'
+    if from_advice in ('START', 'BORDERLINE') and to_advice == 'SIT':
+        if actual < 8:
+            return 'helped'
+        if actual >= 12:
+            return 'hurt'
+        return 'neutral'
+    if from_advice == 'SIT' and to_advice in ('BORDERLINE', 'START'):
+        if actual >= 12:
+            return 'helped'
+        if actual < 5:
+            return 'hurt'
+        return 'neutral'
+    return 'neutral'
+
+
+def _policy_diff_rows(work, policy_key):
+    current_col = '_policy_current'
+    policy_col = f'_policy_{policy_key}'
+    if current_col not in work.columns:
+        work[current_col] = [_start_sit_policy_advice(row, 'current') for _, row in work.iterrows()]
+    if policy_col not in work.columns:
+        work[policy_col] = [_start_sit_policy_advice(row, policy_key) for _, row in work.iterrows()]
+    diffs = work[work[current_col] != work[policy_col]].copy()
+    if diffs.empty:
+        return diffs
+    outcomes = []
+    reason_texts = []
+    risk_scores = []
+    for _, row in diffs.iterrows():
+        current = row[current_col]
+        policy = row[policy_col]
+        outcome = _policy_diff_outcome(row, current, policy)
+        risk_score, reasons = _decision_policy_risk_score(row)
+        outcomes.append(outcome)
+        reason_texts.append('; '.join(reasons) if reasons else 'no logged risk reason')
+        risk_scores.append(risk_score)
+    diffs['_policy_outcome'] = outcomes
+    diffs['_policy_reasons'] = reason_texts
+    diffs['_policy_risk_score'] = risk_scores
+    return diffs
+
+
+def _print_policy_diff_examples(title, rows, policy_key, limit=6):
+    print(f"\n{title}")
+    if rows.empty:
+        print("  None")
+        return
+    for _, row in rows.head(limit).iterrows():
+        current = row.get('_policy_current')
+        new_advice = row.get(f'_policy_{policy_key}') or '?'
+        pred = _safe_float(row.get('predicted_pts'))
+        pred_text = f"{pred:.1f}" if pred is not None else "--"
+        actual = _safe_float(row.get('actual_pts'))
+        actual_text = f"{actual:.1f}" if actual is not None else "--"
+        print(
+            f"  - {row.get('game_date') or '?'} | {row.get('pitcher_name') or '?'} "
+            f"({row.get('team') or '?'} vs {row.get('opponent') or '?'}) "
+            f"{current}->{new_advice} | pred {pred_text}, actual {actual_text} "
+            f"| {row.get('_policy_reasons')}"
+        )
+
+
+def _print_policy_diff_analysis(work, policy_key, policy_label):
+    diffs = _policy_diff_rows(work, policy_key)
+    print(f"\nPolicy diff: {policy_label}")
+    if diffs.empty:
+        print("  No starts would change under this policy.")
+        return {
+            'changed': 0,
+            'helped': 0,
+            'hurt': 0,
+            'neutral': 0,
+            'reason_summary': [],
+        }
+    helped = diffs[diffs['_policy_outcome'] == 'helped']
+    hurt = diffs[diffs['_policy_outcome'] == 'hurt']
+    neutral = diffs[diffs['_policy_outcome'] == 'neutral']
+    print(f"  starts changed: {len(diffs)}")
+    print(f"  helped / hurt / neutral: {len(helped)} / {len(hurt)} / {len(neutral)}")
+    transitions = diffs.groupby(['_policy_current', f'_policy_{policy_key}']).size().sort_values(ascending=False)
+    print("  transitions:")
+    for (from_advice, to_advice), count in transitions.items():
+        print(f"    - {from_advice} -> {to_advice}: {int(count)}")
+
+    from collections import Counter
+    reason_counter = Counter()
+    reason_help = Counter()
+    reason_hurt = Counter()
+    for _, row in diffs.iterrows():
+        reasons = [r.strip() for r in str(row.get('_policy_reasons') or '').split(';') if r.strip()]
+        for reason in reasons:
+            reason_counter[reason] += 1
+            if row.get('_policy_outcome') == 'helped':
+                reason_help[reason] += 1
+            elif row.get('_policy_outcome') == 'hurt':
+                reason_hurt[reason] += 1
+    print("  risk reason effectiveness:")
+    reason_summary = []
+    for reason, count in reason_counter.most_common(8):
+        helped_n = reason_help[reason]
+        hurt_n = reason_hurt[reason]
+        reason_summary.append((reason, count, helped_n, hurt_n))
+        print(f"    - {reason}: {count} demotions, helped {helped_n}, hurt {hurt_n}")
+
+    _print_policy_diff_examples(
+        "  Demotions that would have helped",
+        helped.sort_values('actual_pts', ascending=True),
+        policy_key,
+    )
+    _print_policy_diff_examples(
+        "  Demotions that would have hurt",
+        hurt.sort_values('actual_pts', ascending=False),
+        policy_key,
+    )
+    return {
+        'changed': int(len(diffs)),
+        'helped': int(len(helped)),
+        'hurt': int(len(hurt)),
+        'neutral': int(len(neutral)),
+        'reason_summary': reason_summary,
+    }
+
+
+def analyze_start_sit_policy_backtest():
+    """Read-only comparison of alternate start/sit decision policies."""
+    print("START/SIT DECISION-RULE BACKTEST")
+    print("=" * 60)
+    print("Analysis only: this does not change scoring, predictions, tiers, recommendations, or learned corrections.")
+
+    work, source, skipped_source = _load_start_sit_analysis_rows()
+    if skipped_source:
+        print(f"Warehouse source skipped: {skipped_source}")
+    print(f"Source: {source}")
+    if work.empty:
+        print("No labeled starts with actual fantasy points are available yet.")
+        return {'labeled_rows': 0, 'policies': []}
+
+    policies = [
+        ('current', 'Current logged tiers', 'Use the recommendation tier exactly as logged.'),
+        ('strict_start_11_9', 'Stricter thresholds 11/9', 'START at 11+ pts, BORDERLINE at 9-10.9, SIT below 9.'),
+        ('strict_start_12_9', 'Very strict START 12/9', 'START at 12+ pts, BORDERLINE at 9-11.9, SIT below 9.'),
+        ('cold_overlay', 'Cold/recent ERA overlay', 'Demote START/BORDERLINE one step when COLD or recent ERA >= 5.14.'),
+        ('risk_guard', 'Risk guard overlay', 'Demote one step when two or more logged risk flags are present.'),
+        ('streamer_conservative', 'FA/waiver conservative', 'Demote FA/WAIVER streams with any risk flag or projection below 10.'),
+    ]
+
+    print(f"\nLabeled starts analyzed: {len(work)}")
+    if len(work) < 100:
+        print("Small-sample warning: fewer than 100 labeled decisions are available.")
+    print("Fantasy utility score is directional only: it punishes recommended busts and negative starts more heavily than missed upside.")
+
+    rows = []
+    for key, label, description in policies:
+        col = f'_policy_{key}'
+        work[col] = [ _start_sit_policy_advice(row, key) for _, row in work.iterrows() ]
+        metrics = _decision_policy_metrics(work, col)
+        rows.append({'key': key, 'label': label, 'description': description, **metrics})
+
+    rows_sorted = sorted(rows, key=lambda r: (-r['utility_score'], r['start_bust_rate'], r['good_starts_missed']))
+    print("\nPolicy comparison")
+    print(
+        f"{'Policy':<26s} {'START/BORD/SIT':>16s} {'Start hit':>9s} "
+        f"{'Start bust':>10s} {'Sit miss':>9s} {'Bord bust':>10s} "
+        f"{'Neg rec':>7s} {'Good missed':>11s} {'Score':>8s}"
+    )
+    for r in rows_sorted:
+        counts = f"{r['start_count']}/{r['borderline_count']}/{r['sit_count']}"
+        print(
+            f"{r['label']:<26s} {counts:>16s} "
+            f"{r['start_hit_rate']:>8.1f}% {r['start_bust_rate']:>9.1f}% "
+            f"{r['sit_missed_opportunity_rate']:>8.1f}% {r['borderline_bust_rate']:>9.1f}% "
+            f"{r['negative_recommended']:>7d} {r['good_starts_missed']:>11d} "
+            f"{r['utility_score']:>8.1f}"
+        )
+
+    current = next((r for r in rows if r['key'] == 'current'), None)
+    best = rows_sorted[0] if rows_sorted else None
+    print("\nPolicy notes")
+    for r in rows:
+        print(f"  - {r['label']}: {r['description']}")
+
+    diff_summary = None
+    if best and best['key'] != 'current':
+        diff_summary = _print_policy_diff_analysis(work, best['key'], best['label'])
+
+    print("\nInterpretation")
+    if best:
+        print(f"  Best backtested policy by conservative utility score: {best['label']}.")
+    if current and best and best['key'] != 'current':
+        print(
+            "  Compared with current tiers, the best policy changed "
+            f"START bust rate by {best['start_bust_rate'] - current['start_bust_rate']:+.1f} pts, "
+            f"negative recommended starts by {best['negative_recommended'] - current['negative_recommended']:+d}, "
+            f"and good starts missed by {best['good_starts_missed'] - current['good_starts_missed']:+d}."
+        )
+    elif best:
+        print("  Current logged tiers are strongest among these simple policy tests by this conservative score.")
+
+    if current:
+        if current['start_bust_rate'] >= 30:
+            print("  Current START recommendations have a high bust rate; future changes should protect against confident bad starts.")
+        if current['borderline_bust_rate'] >= current['borderline_usable_rate']:
+            print("  Borderline remains risky; avoid presenting it as a safe start.")
+        if current['sit_missed_opportunity_rate'] >= 20:
+            print("  There are meaningful missed SIT opportunities, so an overly strict policy may leave points on the bench.")
+    if diff_summary:
+        if diff_summary['hurt'] > diff_summary['helped']:
+            print("  The best policy still has more costly demotions than saves by simple count; inspect the risk reasons before applying it.")
+        elif diff_summary['helped']:
+            print("  The best policy saved more bad decisions than it cost by simple count, but the missed upside still matters.")
+    print("  Recommendation: use this to choose a policy later; nothing is automatically applied here.")
+    return {'labeled_rows': len(work), 'policies': rows_sorted}
 
 
 FEATURE_REGISTRY = {}
@@ -12688,6 +13065,7 @@ def main():
     parser.add_argument('--analyze-model-baselines', action='store_true', help='Read-only warehouse comparison of current predictions against baseline layers')
     parser.add_argument('--analyze-start-sit-quality', action='store_true', help='Read-only start/sit decision-quality analysis from labeled starts')
     parser.add_argument('--analyze-start-sit-misses', action='store_true', help='Read-only explanation analysis for start/sit decision misses')
+    parser.add_argument('--analyze-start-sit-policy-backtest', action='store_true', help='Read-only comparison of alternate start/sit decision policies')
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--matchup-snapshot', action='store_true', help='Read-only ESPN head-to-head matchup snapshot')
     parser.add_argument('--matchup-actions', action='store_true', help='Read-only matchup action recommendations from existing data')
@@ -12770,6 +13148,10 @@ def main():
 
     if args.analyze_start_sit_misses:
         analyze_start_sit_misses()
+        return
+
+    if args.analyze_start_sit_policy_backtest:
+        analyze_start_sit_policy_backtest()
         return
 
     if args.daily_decision_audit:
