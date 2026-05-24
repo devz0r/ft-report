@@ -1,6 +1,6 @@
 {
   "date": "2026-05-24",
-  "timestamp": "2026-05-24T05:35:45.446225",
+  "timestamp": "2026-05-24T08:19:43.245485",
   "players": [
     {
       "rank": 1,
@@ -130,7 +130,7 @@
       ],
       "displayPos": "SP",
       "team": "PHI",
-      "dollars": 33.2,
+      "dollars": 33.1,
       "rpts": 316.0,
       "type": "pitcher",
       "fg_id": "20778",
@@ -159,7 +159,7 @@
       ],
       "displayPos": "SP",
       "team": "ATL",
-      "dollars": 31.9,
+      "dollars": 31.8,
       "rpts": 311.0,
       "type": "pitcher",
       "fg_id": "10603",
@@ -332,7 +332,7 @@
       ],
       "displayPos": "SP",
       "team": "SEA",
-      "dollars": 26.2,
+      "dollars": 26.1,
       "rpts": 289.0,
       "type": "pitcher",
       "fg_id": "30279",
@@ -787,7 +787,7 @@
       ],
       "displayPos": "SP",
       "team": "HOU",
-      "dollars": 17.9,
+      "dollars": 17.8,
       "rpts": 257.0,
       "type": "pitcher",
       "fg_id": "25880",
@@ -883,36 +883,6 @@
     },
     {
       "rank": 61,
-      "name": "Nolan McLean",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "NYM",
-      "dollars": 16.6,
-      "rpts": 252.0,
-      "type": "pitcher",
-      "fg_id": "33703",
-      "pitcherRole": "SP",
-      "espn_id": 4433874
-    },
-    {
-      "rank": 62,
-      "name": "Framber Valdez",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "DET",
-      "dollars": 16.6,
-      "rpts": 252.0,
-      "type": "pitcher",
-      "fg_id": "17295",
-      "pitcherRole": "SP",
-      "espn_id": 36581
-    },
-    {
-      "rank": 63,
       "name": "Bo Bichette",
       "positions": [
         "3B",
@@ -925,6 +895,36 @@
       "type": "hitter",
       "fg_id": "19612",
       "espn_id": 38904
+    },
+    {
+      "rank": 62,
+      "name": "Nolan McLean",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "NYM",
+      "dollars": 16.5,
+      "rpts": 252.0,
+      "type": "pitcher",
+      "fg_id": "33703",
+      "pitcherRole": "SP",
+      "espn_id": 4433874
+    },
+    {
+      "rank": 63,
+      "name": "Framber Valdez",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "DET",
+      "dollars": 16.5,
+      "rpts": 252.0,
+      "type": "pitcher",
+      "fg_id": "17295",
+      "pitcherRole": "SP",
+      "espn_id": 36581
     },
     {
       "rank": 64,
@@ -1463,21 +1463,6 @@
     },
     {
       "rank": 101,
-      "name": "Gavin Williams",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "CLE",
-      "dollars": 10.9,
-      "rpts": 230.0,
-      "type": "pitcher",
-      "fg_id": "30122",
-      "pitcherRole": "SP",
-      "espn_id": 4345076
-    },
-    {
-      "rank": 102,
       "name": "Austin Riley",
       "positions": [
         "3B"
@@ -1489,6 +1474,21 @@
       "type": "hitter",
       "fg_id": "18360",
       "espn_id": 34982
+    },
+    {
+      "rank": 102,
+      "name": "Gavin Williams",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "CLE",
+      "dollars": 10.8,
+      "rpts": 230.0,
+      "type": "pitcher",
+      "fg_id": "30122",
+      "pitcherRole": "SP",
+      "espn_id": 4345076
     },
     {
       "rank": 103,
@@ -4512,7 +4512,7 @@
       ],
       "displayPos": "SP",
       "team": "TEX",
-      "dollars": -8.9,
+      "dollars": -8.8,
       "rpts": 154.0,
       "type": "pitcher",
       "fg_id": "31843",
@@ -4527,7 +4527,7 @@
       ],
       "displayPos": "SP",
       "team": "NYY",
-      "dollars": -8.9,
+      "dollars": -8.8,
       "rpts": 154.0,
       "type": "pitcher",
       "fg_id": "23796",
@@ -5683,7 +5683,7 @@
       ],
       "displayPos": "SP",
       "team": "AZ",
-      "dollars": -14.6,
+      "dollars": -14.5,
       "rpts": 132.0,
       "type": "pitcher",
       "fg_id": "27782",
@@ -5843,7 +5843,7 @@
       ],
       "displayPos": "RP",
       "team": "MIL",
-      "dollars": -15.9,
+      "dollars": -15.8,
       "rpts": 127.0,
       "type": "pitcher",
       "fg_id": "23550",
@@ -6706,6 +6706,21 @@
     },
     {
       "rank": 456,
+      "name": "Bryan King",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "HOU",
+      "dollars": -20.2,
+      "rpts": 110.0,
+      "type": "pitcher",
+      "fg_id": "25890",
+      "pitcherRole": "RP",
+      "espn_id": 5201821
+    },
+    {
+      "rank": 457,
       "name": "Brett Baty",
       "positions": [
         "2B",
@@ -6718,21 +6733,6 @@
       "type": "hitter",
       "fg_id": "26123",
       "espn_id": 42414
-    },
-    {
-      "rank": 457,
-      "name": "Bryan King",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "HOU",
-      "dollars": -20.3,
-      "rpts": 110.0,
-      "type": "pitcher",
-      "fg_id": "25890",
-      "pitcherRole": "RP",
-      "espn_id": 5201821
     },
     {
       "rank": 458,
@@ -6913,6 +6913,51 @@
     },
     {
       "rank": 470,
+      "name": "Rhett Lowder",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "CIN",
+      "dollars": -21.5,
+      "rpts": 105.0,
+      "type": "pitcher",
+      "fg_id": "33876",
+      "pitcherRole": "SP",
+      "espn_id": 4758873
+    },
+    {
+      "rank": 471,
+      "name": "Sam Bachman",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "LAA",
+      "dollars": -21.5,
+      "rpts": 105.0,
+      "type": "pitcher",
+      "fg_id": "29754",
+      "pitcherRole": "RP",
+      "espn_id": 4621489
+    },
+    {
+      "rank": 472,
+      "name": "Jakob Junis",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "TEX",
+      "dollars": -21.5,
+      "rpts": 105.0,
+      "type": "pitcher",
+      "fg_id": "13619",
+      "pitcherRole": "RP",
+      "espn_id": 36056
+    },
+    {
+      "rank": 473,
       "name": "Bryce Eldridge",
       "positions": [
         "1B",
@@ -6925,51 +6970,6 @@
       "type": "hitter",
       "fg_id": "33390",
       "espn_id": 5149064
-    },
-    {
-      "rank": 471,
-      "name": "Rhett Lowder",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "CIN",
-      "dollars": -21.6,
-      "rpts": 105.0,
-      "type": "pitcher",
-      "fg_id": "33876",
-      "pitcherRole": "SP",
-      "espn_id": 4758873
-    },
-    {
-      "rank": 472,
-      "name": "Sam Bachman",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "LAA",
-      "dollars": -21.6,
-      "rpts": 105.0,
-      "type": "pitcher",
-      "fg_id": "29754",
-      "pitcherRole": "RP",
-      "espn_id": 4621489
-    },
-    {
-      "rank": 473,
-      "name": "Jakob Junis",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "TEX",
-      "dollars": -21.6,
-      "rpts": 105.0,
-      "type": "pitcher",
-      "fg_id": "13619",
-      "pitcherRole": "RP",
-      "espn_id": 36056
     },
     {
       "rank": 474,
@@ -7303,6 +7303,96 @@
     },
     {
       "rank": 496,
+      "name": "Shane Drohan",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "MIL",
+      "dollars": -22.8,
+      "rpts": 100.0,
+      "type": "pitcher",
+      "fg_id": "27814",
+      "pitcherRole": "RP",
+      "espn_id": 4315203
+    },
+    {
+      "rank": 497,
+      "name": "Keider Montero",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "DET",
+      "dollars": -22.8,
+      "rpts": 100.0,
+      "type": "pitcher",
+      "fg_id": "22630",
+      "pitcherRole": "SP",
+      "espn_id": 5182933
+    },
+    {
+      "rank": 498,
+      "name": "JoJo Romero",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "STL",
+      "dollars": -22.8,
+      "rpts": 100.0,
+      "type": "pitcher",
+      "fg_id": "19574",
+      "pitcherRole": "RP",
+      "espn_id": 40456
+    },
+    {
+      "rank": 499,
+      "name": "Tyler Alexander",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "TEX",
+      "dollars": -22.8,
+      "rpts": 100.0,
+      "type": "pitcher",
+      "fg_id": "17735",
+      "pitcherRole": "SP",
+      "espn_id": 40360
+    },
+    {
+      "rank": 500,
+      "name": "Brad Keller",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "PHI",
+      "dollars": -22.8,
+      "rpts": 100.0,
+      "type": "pitcher",
+      "fg_id": "15734",
+      "pitcherRole": "RP",
+      "espn_id": 35292
+    },
+    {
+      "rank": 501,
+      "name": "Jason Adam",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "SD",
+      "dollars": -22.8,
+      "rpts": 100.0,
+      "type": "pitcher",
+      "fg_id": "11861",
+      "pitcherRole": "RP",
+      "espn_id": 32145
+    },
+    {
+      "rank": 502,
       "name": "Nick Castellanos",
       "positions": [
         "OF"
@@ -7314,96 +7404,6 @@
       "type": "hitter",
       "fg_id": "11737",
       "espn_id": 31187
-    },
-    {
-      "rank": 497,
-      "name": "Shane Drohan",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "MIL",
-      "dollars": -22.9,
-      "rpts": 100.0,
-      "type": "pitcher",
-      "fg_id": "27814",
-      "pitcherRole": "RP",
-      "espn_id": 4315203
-    },
-    {
-      "rank": 498,
-      "name": "Keider Montero",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "DET",
-      "dollars": -22.9,
-      "rpts": 100.0,
-      "type": "pitcher",
-      "fg_id": "22630",
-      "pitcherRole": "SP",
-      "espn_id": 5182933
-    },
-    {
-      "rank": 499,
-      "name": "JoJo Romero",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "STL",
-      "dollars": -22.9,
-      "rpts": 100.0,
-      "type": "pitcher",
-      "fg_id": "19574",
-      "pitcherRole": "RP",
-      "espn_id": 40456
-    },
-    {
-      "rank": 500,
-      "name": "Tyler Alexander",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "TEX",
-      "dollars": -22.9,
-      "rpts": 100.0,
-      "type": "pitcher",
-      "fg_id": "17735",
-      "pitcherRole": "SP",
-      "espn_id": 40360
-    },
-    {
-      "rank": 501,
-      "name": "Brad Keller",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "PHI",
-      "dollars": -22.9,
-      "rpts": 100.0,
-      "type": "pitcher",
-      "fg_id": "15734",
-      "pitcherRole": "RP",
-      "espn_id": 35292
-    },
-    {
-      "rank": 502,
-      "name": "Jason Adam",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "SD",
-      "dollars": -22.9,
-      "rpts": 100.0,
-      "type": "pitcher",
-      "fg_id": "11861",
-      "pitcherRole": "RP",
-      "espn_id": 32145
     },
     {
       "rank": 503,
@@ -7738,7 +7738,7 @@
       ],
       "displayPos": "RP",
       "team": "NYM",
-      "dollars": -24.2,
+      "dollars": -24.1,
       "rpts": 95.0,
       "type": "pitcher",
       "fg_id": "10061",
@@ -8266,6 +8266,66 @@
     },
     {
       "rank": 561,
+      "name": "Phil Maton",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "CHC",
+      "dollars": -25.9,
+      "rpts": 88.0,
+      "type": "pitcher",
+      "fg_id": "18064",
+      "pitcherRole": "RP",
+      "espn_id": 36161
+    },
+    {
+      "rank": 562,
+      "name": "Antonio Senzatela",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "COL",
+      "dollars": -25.9,
+      "rpts": 88.0,
+      "type": "pitcher",
+      "fg_id": "15488",
+      "pitcherRole": "SP",
+      "espn_id": 33750
+    },
+    {
+      "rank": 563,
+      "name": "Lance McCullers Jr.",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "HOU",
+      "dollars": -25.9,
+      "rpts": 88.0,
+      "type": "pitcher",
+      "fg_id": "14120",
+      "pitcherRole": "SP",
+      "espn_id": 32764
+    },
+    {
+      "rank": 564,
+      "name": "Caleb Thielbar",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "CHC",
+      "dollars": -25.9,
+      "rpts": 88.0,
+      "type": "pitcher",
+      "fg_id": "10078",
+      "pitcherRole": "RP",
+      "espn_id": 32440
+    },
+    {
+      "rank": 565,
       "name": "Pedro Pages",
       "positions": [
         "C"
@@ -8277,66 +8337,6 @@
       "type": "hitter",
       "fg_id": "25782",
       "espn_id": 42608
-    },
-    {
-      "rank": 562,
-      "name": "Phil Maton",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "CHC",
-      "dollars": -26.0,
-      "rpts": 88.0,
-      "type": "pitcher",
-      "fg_id": "18064",
-      "pitcherRole": "RP",
-      "espn_id": 36161
-    },
-    {
-      "rank": 563,
-      "name": "Antonio Senzatela",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "COL",
-      "dollars": -26.0,
-      "rpts": 88.0,
-      "type": "pitcher",
-      "fg_id": "15488",
-      "pitcherRole": "SP",
-      "espn_id": 33750
-    },
-    {
-      "rank": 564,
-      "name": "Lance McCullers Jr.",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "HOU",
-      "dollars": -26.0,
-      "rpts": 88.0,
-      "type": "pitcher",
-      "fg_id": "14120",
-      "pitcherRole": "SP",
-      "espn_id": 32764
-    },
-    {
-      "rank": 565,
-      "name": "Caleb Thielbar",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "CHC",
-      "dollars": -26.0,
-      "rpts": 88.0,
-      "type": "pitcher",
-      "fg_id": "10078",
-      "pitcherRole": "RP",
-      "espn_id": 32440
     },
     {
       "rank": 566,
@@ -8740,6 +8740,81 @@
     },
     {
       "rank": 593,
+      "name": "Martin Perez",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "ATL",
+      "dollars": -27.2,
+      "rpts": 83.0,
+      "type": "pitcher",
+      "fg_id": "6902",
+      "pitcherRole": "SP",
+      "espn_id": 31098
+    },
+    {
+      "rank": 594,
+      "name": "Kendry Rojas",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "MIN",
+      "dollars": -27.2,
+      "rpts": 83.0,
+      "type": "pitcher",
+      "fg_id": "29423",
+      "pitcherRole": "RP",
+      "espn_id": 5296012
+    },
+    {
+      "rank": 595,
+      "name": "Brent Headrick",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "NYY",
+      "dollars": -27.2,
+      "rpts": 83.0,
+      "type": "pitcher",
+      "fg_id": "27702",
+      "pitcherRole": "RP",
+      "espn_id": 5116839
+    },
+    {
+      "rank": 596,
+      "name": "Jacob Webb",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "CHC",
+      "dollars": -27.2,
+      "rpts": 83.0,
+      "type": "pitcher",
+      "fg_id": "19274",
+      "pitcherRole": "RP",
+      "espn_id": 40384
+    },
+    {
+      "rank": 597,
+      "name": "Dennis Santana",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "PIT",
+      "dollars": -27.2,
+      "rpts": 83.0,
+      "type": "pitcher",
+      "fg_id": "17878",
+      "pitcherRole": "RP",
+      "espn_id": 39801
+    },
+    {
+      "rank": 598,
       "name": "Kyle Higashioka",
       "positions": [
         "C",
@@ -8754,7 +8829,7 @@
       "espn_id": 30545
     },
     {
-      "rank": 594,
+      "rank": 599,
       "name": "Dane Myers",
       "positions": [
         "OF"
@@ -8766,81 +8841,6 @@
       "type": "hitter",
       "fg_id": "22054",
       "espn_id": 40048
-    },
-    {
-      "rank": 595,
-      "name": "Martin Perez",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "ATL",
-      "dollars": -27.3,
-      "rpts": 83.0,
-      "type": "pitcher",
-      "fg_id": "6902",
-      "pitcherRole": "SP",
-      "espn_id": 31098
-    },
-    {
-      "rank": 596,
-      "name": "Kendry Rojas",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "MIN",
-      "dollars": -27.3,
-      "rpts": 83.0,
-      "type": "pitcher",
-      "fg_id": "29423",
-      "pitcherRole": "RP",
-      "espn_id": 5296012
-    },
-    {
-      "rank": 597,
-      "name": "Brent Headrick",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "NYY",
-      "dollars": -27.3,
-      "rpts": 83.0,
-      "type": "pitcher",
-      "fg_id": "27702",
-      "pitcherRole": "RP",
-      "espn_id": 5116839
-    },
-    {
-      "rank": 598,
-      "name": "Jacob Webb",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "CHC",
-      "dollars": -27.3,
-      "rpts": 83.0,
-      "type": "pitcher",
-      "fg_id": "19274",
-      "pitcherRole": "RP",
-      "espn_id": 40384
-    },
-    {
-      "rank": 599,
-      "name": "Dennis Santana",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "PIT",
-      "dollars": -27.3,
-      "rpts": 83.0,
-      "type": "pitcher",
-      "fg_id": "17878",
-      "pitcherRole": "RP",
-      "espn_id": 39801
     },
     {
       "rank": 600,
@@ -9275,7 +9275,7 @@
       ],
       "displayPos": "RP",
       "team": "LAA",
-      "dollars": -28.6,
+      "dollars": -28.5,
       "rpts": 78.0,
       "type": "pitcher",
       "fg_id": "31461",
@@ -9290,7 +9290,7 @@
       ],
       "displayPos": "RP",
       "team": "KC",
-      "dollars": -28.6,
+      "dollars": -28.5,
       "rpts": 78.0,
       "type": "pitcher",
       "fg_id": "24452",
@@ -9305,7 +9305,7 @@
       ],
       "displayPos": "RP",
       "team": "TB",
-      "dollars": -28.6,
+      "dollars": -28.5,
       "rpts": 78.0,
       "type": "pitcher",
       "fg_id": "22288",
@@ -9320,7 +9320,7 @@
       ],
       "displayPos": "RP",
       "team": "MIA",
-      "dollars": -28.6,
+      "dollars": -28.5,
       "rpts": 78.0,
       "type": "pitcher",
       "fg_id": "20116",
@@ -9335,7 +9335,7 @@
       ],
       "displayPos": "RP",
       "team": "AZ",
-      "dollars": -28.6,
+      "dollars": -28.5,
       "rpts": 78.0,
       "type": "pitcher",
       "fg_id": "19876",
@@ -9781,7 +9781,7 @@
       ],
       "displayPos": "RP",
       "team": "SEA",
-      "dollars": -29.9,
+      "dollars": -29.8,
       "rpts": 73.0,
       "type": "pitcher",
       "fg_id": "24975",
@@ -9796,7 +9796,7 @@
       ],
       "displayPos": "RP",
       "team": "KC",
-      "dollars": -29.9,
+      "dollars": -29.8,
       "rpts": 73.0,
       "type": "pitcher",
       "fg_id": "13799",
@@ -10445,6 +10445,66 @@
     },
     {
       "rank": 708,
+      "name": "Yariel Rodriguez",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "TOR",
+      "dollars": -31.1,
+      "rpts": 68.0,
+      "type": "pitcher",
+      "fg_id": "33838",
+      "pitcherRole": "RP",
+      "espn_id": 4411979
+    },
+    {
+      "rank": 709,
+      "name": "Hurston Waldrep",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "ATL",
+      "dollars": -31.1,
+      "rpts": 68.0,
+      "type": "pitcher",
+      "fg_id": "33527",
+      "pitcherRole": "SP",
+      "espn_id": 4740117
+    },
+    {
+      "rank": 710,
+      "name": "Cole Winn",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "TEX",
+      "dollars": -31.1,
+      "rpts": 68.0,
+      "type": "pitcher",
+      "fg_id": "22113",
+      "pitcherRole": "RP",
+      "espn_id": 41177
+    },
+    {
+      "rank": 711,
+      "name": "Jovani Moran",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "BOS",
+      "dollars": -31.1,
+      "rpts": 68.0,
+      "type": "pitcher",
+      "fg_id": "20422",
+      "pitcherRole": "RP",
+      "espn_id": 4722926
+    },
+    {
+      "rank": 712,
       "name": "Joey Bart",
       "positions": [
         "C"
@@ -10458,7 +10518,7 @@
       "espn_id": 41168
     },
     {
-      "rank": 709,
+      "rank": 713,
       "name": "Sam Haggerty",
       "positions": [
         "OF"
@@ -10470,66 +10530,6 @@
       "type": "hitter",
       "fg_id": "18054",
       "espn_id": 38347
-    },
-    {
-      "rank": 710,
-      "name": "Yariel Rodriguez",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "TOR",
-      "dollars": -31.2,
-      "rpts": 68.0,
-      "type": "pitcher",
-      "fg_id": "33838",
-      "pitcherRole": "RP",
-      "espn_id": 4411979
-    },
-    {
-      "rank": 711,
-      "name": "Hurston Waldrep",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "ATL",
-      "dollars": -31.2,
-      "rpts": 68.0,
-      "type": "pitcher",
-      "fg_id": "33527",
-      "pitcherRole": "SP",
-      "espn_id": 4740117
-    },
-    {
-      "rank": 712,
-      "name": "Cole Winn",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "TEX",
-      "dollars": -31.2,
-      "rpts": 68.0,
-      "type": "pitcher",
-      "fg_id": "22113",
-      "pitcherRole": "RP",
-      "espn_id": 41177
-    },
-    {
-      "rank": 713,
-      "name": "Jovani Moran",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "BOS",
-      "dollars": -31.2,
-      "rpts": 68.0,
-      "type": "pitcher",
-      "fg_id": "20422",
-      "pitcherRole": "RP",
-      "espn_id": 4722926
     },
     {
       "rank": 714,
@@ -10658,7 +10658,7 @@
       ],
       "displayPos": "RP",
       "team": "LAA",
-      "dollars": -31.7,
+      "dollars": -31.6,
       "rpts": 66.0,
       "type": "pitcher",
       "fg_id": "33908",
@@ -10673,7 +10673,7 @@
       ],
       "displayPos": "RP",
       "team": "MIL",
-      "dollars": -31.7,
+      "dollars": -31.6,
       "rpts": 66.0,
       "type": "pitcher",
       "fg_id": "33248",
@@ -10688,7 +10688,7 @@
       ],
       "displayPos": "RP",
       "team": "SD",
-      "dollars": -31.7,
+      "dollars": -31.6,
       "rpts": 66.0,
       "type": "pitcher",
       "fg_id": "23488",
@@ -10703,7 +10703,7 @@
       ],
       "displayPos": "RP",
       "team": "HOU",
-      "dollars": -31.7,
+      "dollars": -31.6,
       "rpts": 66.0,
       "type": "pitcher",
       "fg_id": "20160",
@@ -10718,7 +10718,7 @@
       ],
       "displayPos": "RP",
       "team": "WSH",
-      "dollars": -31.7,
+      "dollars": -31.6,
       "rpts": 66.0,
       "type": "pitcher",
       "fg_id": "19337",
@@ -10733,7 +10733,7 @@
       ],
       "displayPos": "SP",
       "team": "CWS",
-      "dollars": -31.7,
+      "dollars": -31.6,
       "rpts": 66.0,
       "type": "pitcher",
       "fg_id": "17425",
@@ -10748,7 +10748,7 @@
       ],
       "displayPos": "RP",
       "team": "LAA",
-      "dollars": -31.7,
+      "dollars": -31.6,
       "rpts": 66.0,
       "type": "pitcher",
       "fg_id": "13942",
@@ -11263,6 +11263,96 @@
     },
     {
       "rank": 763,
+      "name": "Riley Cornelio",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "WSH",
+      "dollars": -32.9,
+      "rpts": 61.0,
+      "type": "pitcher",
+      "fg_id": "31953",
+      "pitcherRole": "SP",
+      "espn_id": 4622146
+    },
+    {
+      "rank": 764,
+      "name": "Matt Svanson",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "STL",
+      "dollars": -32.9,
+      "rpts": 61.0,
+      "type": "pitcher",
+      "fg_id": "29629",
+      "pitcherRole": "RP",
+      "espn_id": 4649953
+    },
+    {
+      "rank": 765,
+      "name": "Edwin Uceta",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "TB",
+      "dollars": -32.9,
+      "rpts": 61.0,
+      "type": "pitcher",
+      "fg_id": "20539",
+      "pitcherRole": "RP",
+      "espn_id": 41308
+    },
+    {
+      "rank": 766,
+      "name": "Matt Festa",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "CLE",
+      "dollars": -32.9,
+      "rpts": 61.0,
+      "type": "pitcher",
+      "fg_id": "19330",
+      "pitcherRole": "RP",
+      "espn_id": 39871
+    },
+    {
+      "rank": 767,
+      "name": "Eric Lauer",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "LAD",
+      "dollars": -32.9,
+      "rpts": 61.0,
+      "type": "pitcher",
+      "fg_id": "19316",
+      "pitcherRole": "SP",
+      "espn_id": 39915
+    },
+    {
+      "rank": 768,
+      "name": "Dietrich Enns",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "BAL",
+      "dollars": -32.9,
+      "rpts": 61.0,
+      "type": "pitcher",
+      "fg_id": "13932",
+      "pitcherRole": "RP",
+      "espn_id": 36049
+    },
+    {
+      "rank": 769,
       "name": "Isiah Kiner-Falefa",
       "positions": [
         "2B",
@@ -11276,96 +11366,6 @@
       "type": "hitter",
       "fg_id": "16512",
       "espn_id": 33572
-    },
-    {
-      "rank": 764,
-      "name": "Riley Cornelio",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "WSH",
-      "dollars": -33.0,
-      "rpts": 61.0,
-      "type": "pitcher",
-      "fg_id": "31953",
-      "pitcherRole": "SP",
-      "espn_id": 4622146
-    },
-    {
-      "rank": 765,
-      "name": "Matt Svanson",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "STL",
-      "dollars": -33.0,
-      "rpts": 61.0,
-      "type": "pitcher",
-      "fg_id": "29629",
-      "pitcherRole": "RP",
-      "espn_id": 4649953
-    },
-    {
-      "rank": 766,
-      "name": "Edwin Uceta",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "TB",
-      "dollars": -33.0,
-      "rpts": 61.0,
-      "type": "pitcher",
-      "fg_id": "20539",
-      "pitcherRole": "RP",
-      "espn_id": 41308
-    },
-    {
-      "rank": 767,
-      "name": "Matt Festa",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "CLE",
-      "dollars": -33.0,
-      "rpts": 61.0,
-      "type": "pitcher",
-      "fg_id": "19330",
-      "pitcherRole": "RP",
-      "espn_id": 39871
-    },
-    {
-      "rank": 768,
-      "name": "Eric Lauer",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "LAD",
-      "dollars": -33.0,
-      "rpts": 61.0,
-      "type": "pitcher",
-      "fg_id": "19316",
-      "pitcherRole": "SP",
-      "espn_id": 39915
-    },
-    {
-      "rank": 769,
-      "name": "Dietrich Enns",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "BAL",
-      "dollars": -33.0,
-      "rpts": 61.0,
-      "type": "pitcher",
-      "fg_id": "13932",
-      "pitcherRole": "RP",
-      "espn_id": 36049
     },
     {
       "rank": 770,
@@ -11917,6 +11917,111 @@
     },
     {
       "rank": 807,
+      "name": "David Morgan",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "SD",
+      "dollars": -34.2,
+      "rpts": 56.0,
+      "type": "pitcher",
+      "fg_id": "31616",
+      "pitcherRole": "RP",
+      "espn_id": 5270578
+    },
+    {
+      "rank": 808,
+      "name": "Nicholas Davila",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "SEA",
+      "dollars": -34.2,
+      "rpts": 56.0,
+      "type": "pitcher",
+      "fg_id": "27741",
+      "pitcherRole": "RP",
+      "espn_id": 4630786
+    },
+    {
+      "rank": 809,
+      "name": "Adam Macko",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "TOR",
+      "dollars": -34.2,
+      "rpts": 56.0,
+      "type": "pitcher",
+      "fg_id": "25590",
+      "pitcherRole": "RP",
+      "espn_id": 4918157
+    },
+    {
+      "rank": 810,
+      "name": "Patrick Sandoval",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "BOS",
+      "dollars": -34.2,
+      "rpts": 56.0,
+      "type": "pitcher",
+      "fg_id": "19447",
+      "pitcherRole": "RP",
+      "espn_id": 40975
+    },
+    {
+      "rank": 811,
+      "name": "Jimmy Herget",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "COL",
+      "dollars": -34.2,
+      "rpts": 56.0,
+      "type": "pitcher",
+      "fg_id": "17556",
+      "pitcherRole": "RP",
+      "espn_id": 36093
+    },
+    {
+      "rank": 812,
+      "name": "Daniel Duarte",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "NYM",
+      "dollars": -34.2,
+      "rpts": 56.0,
+      "type": "pitcher",
+      "fg_id": "17480",
+      "pitcherRole": "RP",
+      "espn_id": 41094
+    },
+    {
+      "rank": 813,
+      "name": "Yimi Garcia",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "TOR",
+      "dollars": -34.2,
+      "rpts": 56.0,
+      "type": "pitcher",
+      "fg_id": "12095",
+      "pitcherRole": "RP",
+      "espn_id": 32888
+    },
+    {
+      "rank": 814,
       "name": "Mitch Garver",
       "positions": [
         "C",
@@ -11931,7 +12036,7 @@
       "espn_id": 33667
     },
     {
-      "rank": 808,
+      "rank": 815,
       "name": "Alejandro Osuna",
       "positions": [
         "OF"
@@ -11943,111 +12048,6 @@
       "type": "hitter",
       "fg_id": "27915",
       "espn_id": 4916547
-    },
-    {
-      "rank": 809,
-      "name": "David Morgan",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "SD",
-      "dollars": -34.3,
-      "rpts": 56.0,
-      "type": "pitcher",
-      "fg_id": "31616",
-      "pitcherRole": "RP",
-      "espn_id": 5270578
-    },
-    {
-      "rank": 810,
-      "name": "Nicholas Davila",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "SEA",
-      "dollars": -34.3,
-      "rpts": 56.0,
-      "type": "pitcher",
-      "fg_id": "27741",
-      "pitcherRole": "RP",
-      "espn_id": 4630786
-    },
-    {
-      "rank": 811,
-      "name": "Adam Macko",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "TOR",
-      "dollars": -34.3,
-      "rpts": 56.0,
-      "type": "pitcher",
-      "fg_id": "25590",
-      "pitcherRole": "RP",
-      "espn_id": 4918157
-    },
-    {
-      "rank": 812,
-      "name": "Patrick Sandoval",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "BOS",
-      "dollars": -34.3,
-      "rpts": 56.0,
-      "type": "pitcher",
-      "fg_id": "19447",
-      "pitcherRole": "RP",
-      "espn_id": 40975
-    },
-    {
-      "rank": 813,
-      "name": "Jimmy Herget",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "COL",
-      "dollars": -34.3,
-      "rpts": 56.0,
-      "type": "pitcher",
-      "fg_id": "17556",
-      "pitcherRole": "RP",
-      "espn_id": 36093
-    },
-    {
-      "rank": 814,
-      "name": "Daniel Duarte",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "NYM",
-      "dollars": -34.3,
-      "rpts": 56.0,
-      "type": "pitcher",
-      "fg_id": "17480",
-      "pitcherRole": "RP",
-      "espn_id": 41094
-    },
-    {
-      "rank": 815,
-      "name": "Yimi Garcia",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "TOR",
-      "dollars": -34.3,
-      "rpts": 56.0,
-      "type": "pitcher",
-      "fg_id": "12095",
-      "pitcherRole": "RP",
-      "espn_id": 32888
     },
     {
       "rank": 816,
@@ -12560,6 +12560,111 @@
     },
     {
       "rank": 850,
+      "name": "Alimber Santa",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "HOU",
+      "dollars": -35.5,
+      "rpts": 51.0,
+      "type": "pitcher",
+      "fg_id": "sa3015478",
+      "pitcherRole": "RP",
+      "espn_id": 5332989
+    },
+    {
+      "rank": 851,
+      "name": "Brandyn Garcia",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "AZ",
+      "dollars": -35.5,
+      "rpts": 51.0,
+      "type": "pitcher",
+      "fg_id": "33568",
+      "pitcherRole": "RP",
+      "espn_id": 5202600
+    },
+    {
+      "rank": 852,
+      "name": "Jonah Tong",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "NYM",
+      "dollars": -35.5,
+      "rpts": 51.0,
+      "type": "pitcher",
+      "fg_id": "32157",
+      "pitcherRole": "SP",
+      "espn_id": 5214984
+    },
+    {
+      "rank": 853,
+      "name": "Carson Whisenhunt",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "SF",
+      "dollars": -35.5,
+      "rpts": 51.0,
+      "type": "pitcher",
+      "fg_id": "31676",
+      "pitcherRole": "SP",
+      "espn_id": 4626232
+    },
+    {
+      "rank": 854,
+      "name": "Tanner Gordon",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "COL",
+      "dollars": -35.5,
+      "rpts": 51.0,
+      "type": "pitcher",
+      "fg_id": "27669",
+      "pitcherRole": "SP",
+      "espn_id": 5201228
+    },
+    {
+      "rank": 855,
+      "name": "Peyton Gray",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "TEX",
+      "dollars": -35.5,
+      "rpts": 51.0,
+      "type": "pitcher",
+      "fg_id": "25310",
+      "pitcherRole": "RP",
+      "espn_id": 4187628
+    },
+    {
+      "rank": 856,
+      "name": "PJ Poulin",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "WSH",
+      "dollars": -35.5,
+      "rpts": 51.0,
+      "type": "pitcher",
+      "fg_id": "23394",
+      "pitcherRole": "RP",
+      "espn_id": 4019760
+    },
+    {
+      "rank": 857,
       "name": "Thomas Saggese",
       "positions": [
         "2B",
@@ -12575,7 +12680,7 @@
       "espn_id": 4999876
     },
     {
-      "rank": 851,
+      "rank": 858,
       "name": "Maxwell Clark",
       "positions": [
         "OF"
@@ -12587,111 +12692,6 @@
       "type": "hitter",
       "fg_id": "sa3022683",
       "espn_id": 31210
-    },
-    {
-      "rank": 852,
-      "name": "Alimber Santa",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "HOU",
-      "dollars": -35.6,
-      "rpts": 51.0,
-      "type": "pitcher",
-      "fg_id": "sa3015478",
-      "pitcherRole": "RP",
-      "espn_id": 5332989
-    },
-    {
-      "rank": 853,
-      "name": "Brandyn Garcia",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "AZ",
-      "dollars": -35.6,
-      "rpts": 51.0,
-      "type": "pitcher",
-      "fg_id": "33568",
-      "pitcherRole": "RP",
-      "espn_id": 5202600
-    },
-    {
-      "rank": 854,
-      "name": "Jonah Tong",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "NYM",
-      "dollars": -35.6,
-      "rpts": 51.0,
-      "type": "pitcher",
-      "fg_id": "32157",
-      "pitcherRole": "SP",
-      "espn_id": 5214984
-    },
-    {
-      "rank": 855,
-      "name": "Carson Whisenhunt",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "SF",
-      "dollars": -35.6,
-      "rpts": 51.0,
-      "type": "pitcher",
-      "fg_id": "31676",
-      "pitcherRole": "SP",
-      "espn_id": 4626232
-    },
-    {
-      "rank": 856,
-      "name": "Tanner Gordon",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "COL",
-      "dollars": -35.6,
-      "rpts": 51.0,
-      "type": "pitcher",
-      "fg_id": "27669",
-      "pitcherRole": "SP",
-      "espn_id": 5201228
-    },
-    {
-      "rank": 857,
-      "name": "Peyton Gray",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "TEX",
-      "dollars": -35.6,
-      "rpts": 51.0,
-      "type": "pitcher",
-      "fg_id": "25310",
-      "pitcherRole": "RP",
-      "espn_id": 4187628
-    },
-    {
-      "rank": 858,
-      "name": "PJ Poulin",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "WSH",
-      "dollars": -35.6,
-      "rpts": 51.0,
-      "type": "pitcher",
-      "fg_id": "23394",
-      "pitcherRole": "RP",
-      "espn_id": 4019760
     },
     {
       "rank": 859,
@@ -13163,6 +13163,66 @@
     },
     {
       "rank": 891,
+      "name": "Daniel Espino",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "CLE",
+      "dollars": -36.8,
+      "rpts": 46.0,
+      "type": "pitcher",
+      "fg_id": "sa3011495",
+      "pitcherRole": "RP",
+      "espn_id": 42438
+    },
+    {
+      "rank": 892,
+      "name": "Franco Aleman",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "CLE",
+      "dollars": -36.8,
+      "rpts": 46.0,
+      "type": "pitcher",
+      "fg_id": "30195",
+      "pitcherRole": "RP",
+      "espn_id": 4719319
+    },
+    {
+      "rank": 893,
+      "name": "Ryan Watson",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "BOS",
+      "dollars": -36.8,
+      "rpts": 46.0,
+      "type": "pitcher",
+      "fg_id": "27853",
+      "pitcherRole": "RP",
+      "espn_id": 5125911
+    },
+    {
+      "rank": 894,
+      "name": "Hunter Stratton",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "ATL",
+      "dollars": -36.8,
+      "rpts": 46.0,
+      "type": "pitcher",
+      "fg_id": "23455",
+      "pitcherRole": "RP",
+      "espn_id": 4987652
+    },
+    {
+      "rank": 895,
       "name": "Hyeseong Kim",
       "positions": [
         "2B",
@@ -13175,66 +13235,6 @@
       "type": "hitter",
       "fg_id": "35322",
       "espn_id": 5134614
-    },
-    {
-      "rank": 892,
-      "name": "Daniel Espino",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "CLE",
-      "dollars": -36.9,
-      "rpts": 46.0,
-      "type": "pitcher",
-      "fg_id": "sa3011495",
-      "pitcherRole": "RP",
-      "espn_id": 42438
-    },
-    {
-      "rank": 893,
-      "name": "Franco Aleman",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "CLE",
-      "dollars": -36.9,
-      "rpts": 46.0,
-      "type": "pitcher",
-      "fg_id": "30195",
-      "pitcherRole": "RP",
-      "espn_id": 4719319
-    },
-    {
-      "rank": 894,
-      "name": "Ryan Watson",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "BOS",
-      "dollars": -36.9,
-      "rpts": 46.0,
-      "type": "pitcher",
-      "fg_id": "27853",
-      "pitcherRole": "RP",
-      "espn_id": 5125911
-    },
-    {
-      "rank": 895,
-      "name": "Hunter Stratton",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "ATL",
-      "dollars": -36.9,
-      "rpts": 46.0,
-      "type": "pitcher",
-      "fg_id": "23455",
-      "pitcherRole": "RP",
-      "espn_id": 4987652
     },
     {
       "rank": 896,
@@ -13384,6 +13384,51 @@
     },
     {
       "rank": 906,
+      "name": "Joey Gerber",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "NYM",
+      "dollars": -37.3,
+      "rpts": 44.0,
+      "type": "pitcher",
+      "fg_id": "24591",
+      "pitcherRole": "RP",
+      "espn_id": 41375
+    },
+    {
+      "rank": 907,
+      "name": "Tayler Saucedo",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "LAA",
+      "dollars": -37.3,
+      "rpts": 44.0,
+      "type": "pitcher",
+      "fg_id": "17888",
+      "pitcherRole": "RP",
+      "espn_id": 42683
+    },
+    {
+      "rank": 908,
+      "name": "Tayron Guerrero",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "BOS",
+      "dollars": -37.3,
+      "rpts": 44.0,
+      "type": "pitcher",
+      "fg_id": "11691",
+      "pitcherRole": "RP",
+      "espn_id": 33654
+    },
+    {
+      "rank": 909,
       "name": "Mickey Gasper",
       "positions": [
         "C"
@@ -13397,7 +13442,7 @@
       "espn_id": 5132012
     },
     {
-      "rank": 907,
+      "rank": 910,
       "name": "Blake Perkins",
       "positions": [
         "OF"
@@ -13411,7 +13456,7 @@
       "espn_id": 36974
     },
     {
-      "rank": 908,
+      "rank": 911,
       "name": "Victor Bericoto",
       "positions": [
         "OF"
@@ -13423,51 +13468,6 @@
       "type": "hitter",
       "fg_id": "26468",
       "espn_id": 42502
-    },
-    {
-      "rank": 909,
-      "name": "Joey Gerber",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "NYM",
-      "dollars": -37.4,
-      "rpts": 44.0,
-      "type": "pitcher",
-      "fg_id": "24591",
-      "pitcherRole": "RP",
-      "espn_id": 41375
-    },
-    {
-      "rank": 910,
-      "name": "Tayler Saucedo",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "LAA",
-      "dollars": -37.4,
-      "rpts": 44.0,
-      "type": "pitcher",
-      "fg_id": "17888",
-      "pitcherRole": "RP",
-      "espn_id": 42683
-    },
-    {
-      "rank": 911,
-      "name": "Tayron Guerrero",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "BOS",
-      "dollars": -37.4,
-      "rpts": 44.0,
-      "type": "pitcher",
-      "fg_id": "11691",
-      "pitcherRole": "RP",
-      "espn_id": 33654
     },
     {
       "rank": 912,
@@ -13849,6 +13849,96 @@
     },
     {
       "rank": 938,
+      "name": "Jayden Murray",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "HOU",
+      "dollars": -38.1,
+      "rpts": 41.0,
+      "type": "pitcher",
+      "fg_id": "26482",
+      "pitcherRole": "RP",
+      "espn_id": 4722919
+    },
+    {
+      "rank": 939,
+      "name": "Orlando Ribalta",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "WSH",
+      "dollars": -38.1,
+      "rpts": 41.0,
+      "type": "pitcher",
+      "fg_id": "26247",
+      "pitcherRole": "RP",
+      "espn_id": 5132036
+    },
+    {
+      "rank": 940,
+      "name": "Alec Gamboa",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "BOS",
+      "dollars": -38.1,
+      "rpts": 41.0,
+      "type": "pitcher",
+      "fg_id": "26227",
+      "pitcherRole": "RP",
+      "espn_id": 5200550
+    },
+    {
+      "rank": 941,
+      "name": "Codi Heuer",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "CLE",
+      "dollars": -38.1,
+      "rpts": 41.0,
+      "type": "pitcher",
+      "fg_id": "23293",
+      "pitcherRole": "RP",
+      "espn_id": 42138
+    },
+    {
+      "rank": 942,
+      "name": "Kyle Hart",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "SD",
+      "dollars": -38.1,
+      "rpts": 41.0,
+      "type": "pitcher",
+      "fg_id": "19646",
+      "pitcherRole": "RP",
+      "espn_id": 39936
+    },
+    {
+      "rank": 943,
+      "name": "Chris Devenski",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "PIT",
+      "dollars": -38.1,
+      "rpts": 41.0,
+      "type": "pitcher",
+      "fg_id": "12763",
+      "pitcherRole": "RP",
+      "espn_id": 32511
+    },
+    {
+      "rank": 944,
       "name": "Tyler Heineman",
       "positions": [
         "C"
@@ -13860,96 +13950,6 @@
       "type": "hitter",
       "fg_id": "13897",
       "espn_id": 33142
-    },
-    {
-      "rank": 939,
-      "name": "Jayden Murray",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "HOU",
-      "dollars": -38.2,
-      "rpts": 41.0,
-      "type": "pitcher",
-      "fg_id": "26482",
-      "pitcherRole": "RP",
-      "espn_id": 4722919
-    },
-    {
-      "rank": 940,
-      "name": "Orlando Ribalta",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "WSH",
-      "dollars": -38.2,
-      "rpts": 41.0,
-      "type": "pitcher",
-      "fg_id": "26247",
-      "pitcherRole": "RP",
-      "espn_id": 5132036
-    },
-    {
-      "rank": 941,
-      "name": "Alec Gamboa",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "BOS",
-      "dollars": -38.2,
-      "rpts": 41.0,
-      "type": "pitcher",
-      "fg_id": "26227",
-      "pitcherRole": "RP",
-      "espn_id": 5200550
-    },
-    {
-      "rank": 942,
-      "name": "Codi Heuer",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "CLE",
-      "dollars": -38.2,
-      "rpts": 41.0,
-      "type": "pitcher",
-      "fg_id": "23293",
-      "pitcherRole": "RP",
-      "espn_id": 42138
-    },
-    {
-      "rank": 943,
-      "name": "Kyle Hart",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "SD",
-      "dollars": -38.2,
-      "rpts": 41.0,
-      "type": "pitcher",
-      "fg_id": "19646",
-      "pitcherRole": "RP",
-      "espn_id": 39936
-    },
-    {
-      "rank": 944,
-      "name": "Chris Devenski",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "PIT",
-      "dollars": -38.2,
-      "rpts": 41.0,
-      "type": "pitcher",
-      "fg_id": "12763",
-      "pitcherRole": "RP",
-      "espn_id": 32511
     },
     {
       "rank": 945,
@@ -14056,6 +14056,36 @@
     },
     {
       "rank": 952,
+      "name": "Chris Murphy",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "CWS",
+      "dollars": -38.6,
+      "rpts": 39.0,
+      "type": "pitcher",
+      "fg_id": "26214",
+      "pitcherRole": "RP",
+      "espn_id": 4084958
+    },
+    {
+      "rank": 953,
+      "name": "Zak Kent",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "WSH",
+      "dollars": -38.6,
+      "rpts": 39.0,
+      "type": "pitcher",
+      "fg_id": "25703",
+      "pitcherRole": "RP",
+      "espn_id": 5014989
+    },
+    {
+      "rank": 954,
       "name": "Jon Berti",
       "positions": [
         "3B"
@@ -14069,7 +14099,7 @@
       "espn_id": 32273
     },
     {
-      "rank": 953,
+      "rank": 955,
       "name": "Weston Wilson",
       "positions": [
         "OF"
@@ -14083,7 +14113,7 @@
       "espn_id": 38682
     },
     {
-      "rank": 954,
+      "rank": 956,
       "name": "Mark Canha",
       "positions": [
         "OF"
@@ -14095,36 +14125,6 @@
       "type": "hitter",
       "fg_id": "11445",
       "espn_id": 31670
-    },
-    {
-      "rank": 955,
-      "name": "Chris Murphy",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "CWS",
-      "dollars": -38.7,
-      "rpts": 39.0,
-      "type": "pitcher",
-      "fg_id": "26214",
-      "pitcherRole": "RP",
-      "espn_id": 4084958
-    },
-    {
-      "rank": 956,
-      "name": "Zak Kent",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "WSH",
-      "dollars": -38.7,
-      "rpts": 39.0,
-      "type": "pitcher",
-      "fg_id": "25703",
-      "pitcherRole": "RP",
-      "espn_id": 5014989
     },
     {
       "rank": 957,
@@ -14395,6 +14395,36 @@
     },
     {
       "rank": 975,
+      "name": "Jordan Wicks",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "CHC",
+      "dollars": -39.9,
+      "rpts": 34.0,
+      "type": "pitcher",
+      "fg_id": "30094",
+      "pitcherRole": "RP",
+      "espn_id": 4420749
+    },
+    {
+      "rank": 976,
+      "name": "Joey Estes",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "OAK",
+      "dollars": -39.9,
+      "rpts": 34.0,
+      "type": "pitcher",
+      "fg_id": "26257",
+      "pitcherRole": "RP",
+      "espn_id": 4917636
+    },
+    {
+      "rank": 977,
       "name": "Santiago Espinal",
       "positions": [
         "2B",
@@ -14409,7 +14439,7 @@
       "espn_id": 39924
     },
     {
-      "rank": 976,
+      "rank": 978,
       "name": "Tim Tawa",
       "positions": [
         "1B",
@@ -14425,7 +14455,7 @@
       "espn_id": 4345192
     },
     {
-      "rank": 977,
+      "rank": 979,
       "name": "Bo Naylor",
       "positions": [
         "C"
@@ -14437,36 +14467,6 @@
       "type": "hitter",
       "fg_id": "21865",
       "espn_id": 41183
-    },
-    {
-      "rank": 978,
-      "name": "Jordan Wicks",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "CHC",
-      "dollars": -40.0,
-      "rpts": 34.0,
-      "type": "pitcher",
-      "fg_id": "30094",
-      "pitcherRole": "RP",
-      "espn_id": 4420749
-    },
-    {
-      "rank": 979,
-      "name": "Joey Estes",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "OAK",
-      "dollars": -40.0,
-      "rpts": 34.0,
-      "type": "pitcher",
-      "fg_id": "26257",
-      "pitcherRole": "RP",
-      "espn_id": 4917636
     },
     {
       "rank": 980,
@@ -14874,6 +14874,21 @@
     },
     {
       "rank": 1008,
+      "name": "Mason Black",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "RP",
+      "team": "KC",
+      "dollars": -41.2,
+      "rpts": 29.0,
+      "type": "pitcher",
+      "fg_id": "30171",
+      "pitcherRole": "RP",
+      "espn_id": 5099971
+    },
+    {
+      "rank": 1009,
       "name": "Petey Halpin",
       "positions": [
         "OF"
@@ -14885,21 +14900,6 @@
       "type": "hitter",
       "fg_id": "27931",
       "espn_id": 4722962
-    },
-    {
-      "rank": 1009,
-      "name": "Mason Black",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "RP",
-      "team": "KC",
-      "dollars": -41.3,
-      "rpts": 29.0,
-      "type": "pitcher",
-      "fg_id": "30171",
-      "pitcherRole": "RP",
-      "espn_id": 5099971
     },
     {
       "rank": 1010,
@@ -15528,6 +15528,21 @@
     },
     {
       "rank": 1053,
+      "name": "Josiah Gray",
+      "positions": [
+        "P"
+      ],
+      "displayPos": "SP",
+      "team": "WSH",
+      "dollars": -43.0,
+      "rpts": 22.0,
+      "type": "pitcher",
+      "fg_id": "24580",
+      "pitcherRole": "SP",
+      "espn_id": 41165
+    },
+    {
+      "rank": 1054,
       "name": "Matthew Lugo",
       "positions": [
         "OF"
@@ -15539,21 +15554,6 @@
       "type": "hitter",
       "fg_id": "25980",
       "espn_id": 42486
-    },
-    {
-      "rank": 1054,
-      "name": "Josiah Gray",
-      "positions": [
-        "P"
-      ],
-      "displayPos": "SP",
-      "team": "WSH",
-      "dollars": -43.1,
-      "rpts": 22.0,
-      "type": "pitcher",
-      "fg_id": "24580",
-      "pitcherRole": "SP",
-      "espn_id": 41165
     },
     {
       "rank": 1055,
