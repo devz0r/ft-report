@@ -10105,7 +10105,8 @@
       "k9": "8.00",
       "ip": "39.3"
     },
-    "splits_window_years": 2
+    "splits_window_years": 2,
+    "pitcher_hand": "R"
   },
   "543037": {
     "mlb_id": 543037,
