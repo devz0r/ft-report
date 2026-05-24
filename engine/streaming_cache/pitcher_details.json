@@ -10319,5 +10319,22 @@
   "802408": {
     "mlb_id": 802408,
     "pitcher_hand": "L"
+  },
+  "675512": {
+    "mlb_id": 675512,
+    "career_vs_l": {
+      "ops": "0.657",
+      "whip": "1.11",
+      "k9": "5.18",
+      "ip": "24.3"
+    },
+    "career_vs_r": {
+      "ops": "0.553",
+      "whip": "0.90",
+      "k9": "9.43",
+      "ip": "21.0"
+    },
+    "splits_window_years": 1,
+    "pitcher_hand": "R"
   }
 }
