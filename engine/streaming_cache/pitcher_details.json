@@ -1867,7 +1867,8 @@
       }
     ],
     "fb_velo": 92.7,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "677958": {
     "mlb_id": 677958,
@@ -5960,7 +5961,8 @@
       }
     ],
     "fb_velo": 91.8,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "701542": {
     "mlb_id": 701542,
@@ -8181,7 +8183,8 @@
       "whip": "1.50",
       "k9": "10.80",
       "ip": "13.1"
-    }
+    },
+    "pitcher_hand": "L"
   },
   "687064": {
     "mlb_id": 687064,
@@ -9841,7 +9844,8 @@
       "k9": "10.02",
       "ip": "55.7"
     },
-    "splits_window_years": 1
+    "splits_window_years": 1,
+    "pitcher_hand": "R"
   },
   "689254": {
     "mlb_id": 689254,
