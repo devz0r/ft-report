@@ -7818,6 +7818,8 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .stream-explain .why-start { color: #86efac; }
 .stream-explain .why-borderline { color: #fbbf24; }
 .stream-explain .why-sit { color: #fca5a5; }
+.stream-caution { margin-top: 7px; padding: 7px 9px; border-radius: 6px; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.28); color: #fcd34d; font-size: 12px; line-height: 1.4; }
+.stream-caution b { color: #fde68a; }
 .decision-card { margin-top: 8px; }
 .decision-summary { padding: 10px 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid #1a1a24; }
 .decision-pill { display: inline-flex; gap: 4px; align-items: center; padding: 3px 8px; border-radius: 999px; background: #1a1a24; border: 1px solid #2a2a35; color: #aaa; font-size: 11px; }
@@ -8557,6 +8559,67 @@ function pitchFitPhrase(s, kind) {
   return name + ' is a matchup concern';
 }
 
+function streamingRiskGuardSignals(s) {
+  var signals = [];
+  var score = 0;
+  var recentEra = Number(s.recent_era);
+  var oppRank = Number(s.opp_rank || 15);
+  var parkFactor = Number(s.park_factor || 0);
+  var k9 = Number(s.k9 || s.proj_k9 || 0);
+  var workload = Number(s.workload_risk_score || 0);
+  var pitchScore = s.pitch_matchup_score === null || s.pitch_matchup_score === undefined
+    ? null : Number(s.pitch_matchup_score);
+
+  if (s.trend === 'cold') {
+    score += 2;
+    signals.push('COLD tag');
+  }
+  if (isFinite(recentEra) && recentEra >= 5.14) {
+    score += 1;
+    signals.push('recent ERA >= 5.14');
+  }
+  if (isFinite(oppRank) && oppRank <= 10) {
+    score += 1;
+    signals.push('top-10 opponent offense');
+  }
+  if (parkFactor && parkFactor >= 1.05) {
+    score += 1;
+    signals.push('hitter-friendly park');
+  }
+  if (s.platoon === 'risk') {
+    score += 1;
+    signals.push('platoon risk');
+  }
+  if (k9 && k9 < 7.5) {
+    score += 1;
+    signals.push('low K/9');
+  }
+  if (workload && workload >= 0.4) {
+    score += 1;
+    signals.push('workload risk');
+  }
+  if (pitchScore !== null && isFinite(pitchScore) && pitchScore <= -0.05) {
+    score += 1;
+    signals.push('negative pitch matchup');
+  }
+  return {score: score, signals: signals};
+}
+
+function streamingRiskGuardWarning(s) {
+  var tier = s.tier || '';
+  if (tier !== 'must_start' && tier !== 'start' && tier !== 'borderline') return '';
+  var risk = streamingRiskGuardSignals(s);
+  if (!(s.trend === 'cold' || risk.signals.indexOf('recent ERA >= 5.14') !== -1 || risk.score >= 2)) {
+    return '';
+  }
+  var lead = tier === 'borderline'
+    ? 'Borderline only'
+    : 'Start with caution';
+  var signals = risk.signals.slice(0, 3).join(', ');
+  var note = 'Backtest caution: ' + signals + ' has been linked to more bust risk. This does not change the projection or tier.';
+  return '<div class="stream-caution"><b>' + escHtml(lead) + ':</b> ' + escHtml(note) + '</div>';
+}
+
 function streamingExplanation(s) {
   var reasons = [];
   var risks = [];
@@ -8698,6 +8761,8 @@ function renderPitcherEntry(s, allReal) {
     h += '<span>\u2022 <span class="opp-il-warn">\u26A0 ' + escHtml(s.probable_warning) + '</span></span>';
   }
   h += '</div>';
+
+  h += streamingRiskGuardWarning(s);
 
   // Row 3: pitch arsenal matchup
   var pa = s.pitch_analysis;
