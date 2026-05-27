@@ -3898,7 +3898,8 @@
       }
     ],
     "fb_velo": 93.6,
-    "pitch_count": 5
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   },
   "650911": {
     "mlb_id": 650911,
@@ -8689,7 +8690,8 @@
     "pitch_count": 5
   },
   "694346": {
-    "mlb_id": 694346
+    "mlb_id": 694346,
+    "pitcher_hand": "R"
   },
   "657514": {
     "mlb_id": 657514,
