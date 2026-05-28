@@ -7574,6 +7574,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           matchup_action_summary=None,
                           hitter_decision_summary=None,
                           matchup_edge_summary=None,
+                          decision_policy_summary=None,
                           team_handedness_context=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
@@ -7605,6 +7606,14 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
         add_drop_priority_summary = build_add_drop_priority_summary(
             snapshot_date, daily_decision_summary, next_watchlist_summary
         )
+    if decision_policy_summary is None:
+        try:
+            decision_policy_summary = build_start_sit_policy_backtest_summary()
+        except Exception as e:
+            decision_policy_summary = {
+                'available': False,
+                'note': f'Decision policy backtest unavailable: {type(e).__name__}: {e}',
+            }
     matchup_snapshot_data = None
     if matchup_snapshot_summary is None or matchup_action_summary is None:
         try:
@@ -8037,6 +8046,7 @@ var CALIBRATION = $CALIBRATION_JSON;
 var LEARNED_BIASES = $LEARNED_BIASES_JSON;
 var LEARNED_CANDIDATES = $LEARNED_CANDIDATES_JSON;
 var LEARNING_SAMPLE_SUMMARY = $LEARNING_SAMPLE_SUMMARY_JSON;
+var DECISION_POLICY_BACKTEST = $DECISION_POLICY_BACKTEST_JSON;
 var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
 var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
 var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
@@ -8879,6 +8889,61 @@ function renderAccuracy() {
   h += renderMissList('Most over-predicted (we said go, they bombed)', cal.worst_overpredictions, 'over');
   h += renderMissList('Best surprises (we underestimated)', cal.best_underpredictions, 'under');
 
+  function renderPolicyBacktest() {
+    var p = DECISION_POLICY_BACKTEST || {};
+    var h2 = '<div class="day-card accuracy-card">';
+    h2 += '<div class="day-header"><span>Decision policy backtest</span><span style="color:#777;font-size:11px">analysis only</span></div>';
+    if (!p.available) {
+      h2 += '<div class="stream-note" style="color:#777">' + escHtml(p.note || 'Decision policy backtest is not available yet.') + '</div></div>';
+      return h2;
+    }
+    var best = p.best || {};
+    var current = p.current || {};
+    var deltas = p.deltas || {};
+    var diff = p.diff_summary || {};
+    h2 += '<div class="decision-summary">';
+    h2 += '<span class="decision-pill">Best policy <b>' + escHtml(best.label || 'n/a') + '</b></span>';
+    h2 += '<span class="decision-pill">Rows <b>' + escHtml(p.labeled_rows || 0) + '</b></span>';
+    h2 += '<span class="decision-pill">Changed <b>' + escHtml(diff.changed || 0) + '</b></span>';
+    h2 += '<span class="decision-pill">Helped/Hurt/Neutral <b>' + escHtml((diff.helped || 0) + '/' + (diff.hurt || 0) + '/' + (diff.neutral || 0)) + '</b></span>';
+    h2 += '</div>';
+    h2 += '<div class="accuracy-table-wrap"><table class="accuracy-table">';
+    h2 += '<tr style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:4px 16px">Metric</td><td style="padding:4px 16px;text-align:right">Current</td><td style="padding:4px 16px;text-align:right">Best</td><td style="padding:4px 16px;text-align:right">Change</td></tr>';
+    var rows = [
+      ['START bust rate', current.start_bust_rate, best.start_bust_rate, deltas.start_bust_rate, '%'],
+      ['Negative recommended starts', current.negative_recommended, best.negative_recommended, deltas.negative_recommended, ''],
+      ['Good starts missed', current.good_starts_missed, best.good_starts_missed, deltas.good_starts_missed, '']
+    ];
+    rows.forEach(function(row) {
+      var isPct = row[4] === '%';
+      var cur = Number(row[1] || 0);
+      var bst = Number(row[2] || 0);
+      var delta = Number(row[3] || 0);
+      var dCls = delta < 0 ? 'opp-easy' : (delta > 0 ? 'opp-hard' : '');
+      h2 += '<tr><td style="padding:6px 16px"><b>' + escHtml(row[0]) + '</b></td>';
+      h2 += '<td style="padding:6px 16px;text-align:right">' + (isPct ? cur.toFixed(1) + '%' : cur.toFixed(0)) + '</td>';
+      h2 += '<td style="padding:6px 16px;text-align:right">' + (isPct ? bst.toFixed(1) + '%' : bst.toFixed(0)) + '</td>';
+      h2 += '<td style="padding:6px 16px;text-align:right" class="' + dCls + '">' + (delta >= 0 ? '+' : '') + (isPct ? delta.toFixed(1) + ' pts' : delta.toFixed(0)) + '</td></tr>';
+    });
+    h2 += '</table></div>';
+    var reasons = diff.reason_summary || [];
+    if (reasons.length) {
+      h2 += '<div class="accuracy-list">';
+      h2 += '<div class="accuracy-detail" style="margin-bottom:5px">Top risk reasons from the best policy diff:</div>';
+      reasons.slice(0, 6).forEach(function(r) {
+        h2 += '<div class="accuracy-row">';
+        h2 += '<div class="accuracy-row-main"><b>' + escHtml(r.reason || '') + '</b></div>';
+        h2 += '<div class="accuracy-row-detail">' + escHtml(r.demotions || 0) + ' demotions &middot; helped ' + escHtml(r.helped || 0) + ' &middot; hurt ' + escHtml(r.hurt || 0) + '</div>';
+        h2 += '</div>';
+      });
+      h2 += '</div>';
+    }
+    h2 += '<div class="stream-note" style="margin:0;color:#777">' + escHtml(p.note || 'Analysis only. Current recommendations are unchanged.') + '</div>';
+    h2 += '</div>';
+    return h2;
+  }
+  h += renderPolicyBacktest();
+
   h += '<div class="stream-note" style="margin:8px 0;color:#777">';
   h += 'Learning uses one selected pregame snapshot per actual start, so duplicate logs and repeated snapshots do not overweight the model.';
   if (LEARNING_SAMPLE_SUMMARY && LEARNING_SAMPLE_SUMMARY.raw_rows !== undefined && LEARNING_SAMPLE_SUMMARY.unique_actual_starts !== undefined) {
@@ -8964,6 +9029,7 @@ renderAccuracy();
         ),
         LEARNED_CANDIDATES_JSON=json.dumps(learned_candidates or []),
         LEARNING_SAMPLE_SUMMARY_JSON=json.dumps(learning_sample_summary) if learning_sample_summary else 'null',
+        DECISION_POLICY_BACKTEST_JSON=json.dumps(decision_policy_summary) if decision_policy_summary else 'null',
         DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
         NEXT_WATCHLIST_JSON=json.dumps(next_watchlist_summary) if next_watchlist_summary else 'null',
         ADD_DROP_PRIORITY_JSON=json.dumps(add_drop_priority_summary) if add_drop_priority_summary else 'null',
@@ -11624,19 +11690,17 @@ def _print_policy_diff_analysis(work, policy_key, policy_label):
     }
 
 
-def analyze_start_sit_policy_backtest():
-    """Read-only comparison of alternate start/sit decision policies."""
-    print("START/SIT DECISION-RULE BACKTEST")
-    print("=" * 60)
-    print("Analysis only: this does not change scoring, predictions, tiers, recommendations, or learned corrections.")
-
+def build_start_sit_policy_backtest_summary():
+    """Build a compact, read-only decision-policy backtest summary."""
     work, source, skipped_source = _load_start_sit_analysis_rows()
-    if skipped_source:
-        print(f"Warehouse source skipped: {skipped_source}")
-    print(f"Source: {source}")
     if work.empty:
-        print("No labeled starts with actual fantasy points are available yet.")
-        return {'labeled_rows': 0, 'policies': []}
+        return {
+            'available': False,
+            'source': source,
+            'skipped_source': skipped_source,
+            'labeled_rows': 0,
+            'note': 'No labeled starts with actual fantasy points are available yet.',
+        }
 
     policies = [
         ('current', 'Current logged tiers', 'Use the recommendation tier exactly as logged.'),
@@ -11647,11 +11711,6 @@ def analyze_start_sit_policy_backtest():
         ('streamer_conservative', 'FA/waiver conservative', 'Demote FA/WAIVER streams with any risk flag or projection below 10.'),
     ]
 
-    print(f"\nLabeled starts analyzed: {len(work)}")
-    if len(work) < 100:
-        print("Small-sample warning: fewer than 100 labeled decisions are available.")
-    print("Fantasy utility score is directional only: it punishes recommended busts and negative starts more heavily than missed upside.")
-
     rows = []
     for key, label, description in policies:
         col = f'_policy_{key}'
@@ -11660,6 +11719,81 @@ def analyze_start_sit_policy_backtest():
         rows.append({'key': key, 'label': label, 'description': description, **metrics})
 
     rows_sorted = sorted(rows, key=lambda r: (-r['utility_score'], r['start_bust_rate'], r['good_starts_missed']))
+    current = next((r for r in rows if r['key'] == 'current'), None)
+    best = rows_sorted[0] if rows_sorted else None
+    diff_summary = None
+    if best and best['key'] != 'current':
+        diffs = _policy_diff_rows(work, best['key'])
+        if diffs.empty:
+            diff_summary = {'changed': 0, 'helped': 0, 'hurt': 0, 'neutral': 0, 'reason_summary': []}
+        else:
+            helped = diffs[diffs['_policy_outcome'] == 'helped']
+            hurt = diffs[diffs['_policy_outcome'] == 'hurt']
+            neutral = diffs[diffs['_policy_outcome'] == 'neutral']
+            from collections import Counter
+            reason_counter = Counter()
+            reason_help = Counter()
+            reason_hurt = Counter()
+            for _, row in diffs.iterrows():
+                reasons = [r.strip() for r in str(row.get('_policy_reasons') or '').split(';') if r.strip()]
+                for reason in reasons:
+                    reason_counter[reason] += 1
+                    if row.get('_policy_outcome') == 'helped':
+                        reason_help[reason] += 1
+                    elif row.get('_policy_outcome') == 'hurt':
+                        reason_hurt[reason] += 1
+            watched_reasons = {'recent_era>=5.14', 'cold', 'top-10 offense', 'platoon risk'}
+            reason_summary = []
+            seen_reasons = set()
+            for reason in ('recent_era>=5.14', 'cold', 'top-10 offense', 'platoon risk'):
+                if reason_counter.get(reason):
+                    seen_reasons.add(reason)
+                    reason_summary.append({
+                        'reason': reason,
+                        'demotions': int(reason_counter[reason]),
+                        'helped': int(reason_help[reason]),
+                        'hurt': int(reason_hurt[reason]),
+                    })
+            for reason, count in reason_counter.most_common(8):
+                if reason in seen_reasons or reason in watched_reasons:
+                    continue
+                reason_summary.append({
+                    'reason': reason,
+                    'demotions': int(count),
+                    'helped': int(reason_help[reason]),
+                    'hurt': int(reason_hurt[reason]),
+                })
+                if len(reason_summary) >= 6:
+                    break
+            diff_summary = {
+                'changed': int(len(diffs)),
+                'helped': int(len(helped)),
+                'hurt': int(len(hurt)),
+                'neutral': int(len(neutral)),
+                'reason_summary': reason_summary,
+            }
+    deltas = {}
+    if current and best:
+        deltas = {
+            'start_bust_rate': round(best['start_bust_rate'] - current['start_bust_rate'], 1),
+            'negative_recommended': int(best['negative_recommended'] - current['negative_recommended']),
+            'good_starts_missed': int(best['good_starts_missed'] - current['good_starts_missed']),
+        }
+    return {
+        'available': True,
+        'source': source,
+        'skipped_source': skipped_source,
+        'labeled_rows': int(len(work)),
+        'current': current,
+        'best': best,
+        'deltas': deltas,
+        'diff_summary': diff_summary,
+        'policies': rows_sorted,
+        'note': 'Analysis only. Current recommendations are unchanged.',
+    }
+
+
+def _print_policy_comparison_table(rows_sorted):
     print("\nPolicy comparison")
     print(
         f"{'Policy':<26s} {'START/BORD/SIT':>16s} {'Start hit':>9s} "
@@ -11676,10 +11810,35 @@ def analyze_start_sit_policy_backtest():
             f"{r['utility_score']:>8.1f}"
         )
 
-    current = next((r for r in rows if r['key'] == 'current'), None)
-    best = rows_sorted[0] if rows_sorted else None
+
+def analyze_start_sit_policy_backtest():
+    """Read-only comparison of alternate start/sit decision policies."""
+    print("START/SIT DECISION-RULE BACKTEST")
+    print("=" * 60)
+    print("Analysis only: this does not change scoring, predictions, tiers, recommendations, or learned corrections.")
+
+    summary = build_start_sit_policy_backtest_summary()
+    if summary.get('skipped_source'):
+        print(f"Warehouse source skipped: {summary['skipped_source']}")
+    print(f"Source: {summary.get('source')}")
+    if not summary.get('available'):
+        print(summary.get('note') or "No labeled starts with actual fantasy points are available yet.")
+        return {'labeled_rows': 0, 'policies': []}
+
+    work, _source, _skipped_source = _load_start_sit_analysis_rows()
+    rows_sorted = summary.get('policies') or []
+    current = summary.get('current')
+    best = summary.get('best')
+
+    print(f"\nLabeled starts analyzed: {summary['labeled_rows']}")
+    if summary['labeled_rows'] < 100:
+        print("Small-sample warning: fewer than 100 labeled decisions are available.")
+    print("Fantasy utility score is directional only: it punishes recommended busts and negative starts more heavily than missed upside.")
+
+    _print_policy_comparison_table(rows_sorted)
+
     print("\nPolicy notes")
-    for r in rows:
+    for r in rows_sorted:
         print(f"  - {r['label']}: {r['description']}")
 
     diff_summary = None
