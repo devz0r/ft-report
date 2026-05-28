@@ -4699,6 +4699,28 @@ def _decision_risk_boost_flags(record):
     return risks, boosts
 
 
+def _risky_borderline_streamer_reasons(record, risks=None):
+    """Display-only tag for Borderline FA/WAIVER streamers with backtested bust signals."""
+    if (record.get('tier') or '') != 'borderline':
+        return []
+    if (record.get('status') or '') not in ('FA', 'WAIVER'):
+        return []
+    features = record.get('features') or {}
+    reasons = []
+    recent_era = _feature_float(features, 'recent_era')
+    if features.get('trend') == 'cold':
+        reasons.append('cold recent form')
+    if recent_era is not None and recent_era >= 5.14:
+        reasons.append(f'recent ERA {recent_era:.2f}')
+    counted_risks = [
+        r for r in (risks if risks is not None else _decision_risk_boost_flags(record)[0])
+        if r not in ('borderline tier', 'borderline projection')
+    ]
+    if len(counted_risks) >= 2:
+        reasons.append('multiple risk flags')
+    return reasons[:3]
+
+
 def _decision_points(record):
     return _fast_preview_float(record.get('predicted_pts') or record.get('final_pts'), 0.0)
 
@@ -5108,15 +5130,20 @@ def _decision_plain_reasons(record, risks=None, boosts=None, confidence=None):
         main_reason = f"Playable for volume, not a safe start at {pts:.1f} projected points"
         if not risk_reasons:
             risk_reason = "Borderline stream, not a priority add"
+        risky_reasons = _risky_borderline_streamer_reasons(record, risks)
+        if risky_reasons:
+            main_reason = f"Avoid unless chasing volume at {pts:.1f} projected points"
+            risk_reason = f"Backtest caution: {', '.join(risky_reasons)}"
     return _compact_decision_text(main_reason), _compact_decision_text(risk_reason)
 
 
 def _decision_report_item(record):
     risks, boosts = _decision_risk_boost_flags(record)
+    risky_borderline = _risky_borderline_streamer_reasons(record, risks)
     confidence = {
         'must_start': 'Strong Start',
         'start': 'Start',
-        'borderline': 'Playable, Not Safe',
+        'borderline': 'Volume Only' if risky_borderline else 'Playable, Not Safe',
         'avoid': 'Avoid',
     }.get(record.get('tier'), 'Borderline')
     main_reason, risk_reason = _decision_plain_reasons(record, risks, boosts, confidence)
@@ -5133,6 +5160,8 @@ def _decision_report_item(record):
         'risk_reason': risk_reason,
         'risks': risks[:3],
         'boosts': boosts[:3],
+        'risk_guard_candidate': bool(risky_borderline),
+        'risk_guard_reasons': risky_borderline,
         '_matchup_source': record.get('_matchup_source'),
         '_matchup_snapshot_date': record.get('_matchup_snapshot_date') or _matchup_record_snapshot_date(record),
     }
@@ -5850,7 +5879,12 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
         ):
             for rec in rows:
                 item = _decision_report_item(rec)
-                item['watch_label'] = 'DESPERATION ONLY' if label == 'FA/WAIVER TARGET' and rec.get('tier') == 'avoid' else label
+                if label == 'FA/WAIVER TARGET' and rec.get('tier') == 'avoid':
+                    item['watch_label'] = 'DESPERATION ONLY'
+                elif label == 'FA/WAIVER TARGET' and item.get('risk_guard_candidate'):
+                    item['watch_label'] = 'VOLUME ONLY'
+                else:
+                    item['watch_label'] = label
                 day_items.append(item)
 
         if day_items:
@@ -5938,8 +5972,12 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
             text = f"Add {item.get('name')} for today against {item.get('opponent')} ({pts:.1f} pts) if available."
             add_action('ADD', text, item, (daily_summary or {}).get('date') or base_date, 10)
         elif item.get('tier') == 'borderline':
-            text = f"Consider {item.get('name')} only if you need volume today {matchup} ({pts:.1f} pts); playable but not safe."
-            add_action('CONSIDER', text, item, (daily_summary or {}).get('date') or base_date, 30)
+            if item.get('risk_guard_candidate'):
+                text = f"Avoid {item.get('name')} unless chasing volume today {matchup} ({pts:.1f} pts); backtest flags extra bust risk."
+                add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 35)
+            else:
+                text = f"Consider {item.get('name')} only if you need volume today {matchup} ({pts:.1f} pts); playable but not safe."
+                add_action('CONSIDER', text, item, (daily_summary or {}).get('date') or base_date, 30)
         else:
             text = f"Desperation only: {item.get('name')} today {matchup} ({pts:.1f} pts)."
             add_action('DESPERATION', text, item, (daily_summary or {}).get('date') or base_date, 80)
@@ -5948,7 +5986,7 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
         day_date = day.get('date')
         for item in day.get('items', []):
             label = item.get('watch_label')
-            if label not in ('FA/WAIVER TARGET', 'DESPERATION ONLY'):
+            if label not in ('FA/WAIVER TARGET', 'VOLUME ONLY', 'DESPERATION ONLY'):
                 continue
             pts = item.get('points') or 0
             date_text = _action_date_text(day_date, base_date)
@@ -5959,6 +5997,9 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
             elif item.get('tier') in ('must_start', 'start'):
                 text = f"Add or queue {item.get('name')} for {date_text} {matchup} ({pts:.1f} pts)."
                 add_action('ADD', text, item, day_date, 20)
+            elif label == 'VOLUME ONLY' or item.get('risk_guard_candidate'):
+                text = f"Watch only as a volume fallback: {item.get('name')} {date_text} {matchup} ({pts:.1f} pts); risk-guard profile."
+                add_action('WATCH', text, item, day_date, 55)
             else:
                 text = f"Watch {item.get('name')} for {date_text}; borderline stream, not a priority add {matchup} ({pts:.1f} pts)."
                 add_action('WATCH', text, item, day_date, 45)
@@ -6322,7 +6363,8 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
         if item.get('tier') == 'avoid':
             add_prediction_action('BENCH', _matchup_decision_item_text('Bench unless desperate:', item), item, base_date, 18, prediction_source_kind)
         elif item.get('tier') == 'borderline':
-            add_prediction_action('CONSIDER', _matchup_decision_item_text('Use only if you need volume:', item), item, base_date, 38, prediction_source_kind)
+            prefix = 'Verify as volume-only fallback:' if item.get('risk_guard_candidate') else 'Use only if you need volume:'
+            add_prediction_action('WATCH', _matchup_decision_item_text(prefix, item), item, base_date, 38, prediction_source_kind)
         else:
             risk = (item.get('risks') or ['risk flags'])[0]
             add_prediction_action('CONSIDER', f"Check {item.get('name')} before lock: {risk}.", item, base_date, 42, prediction_source_kind)
@@ -6331,7 +6373,10 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
         if item.get('tier') in ('must_start', 'start'):
             add_prediction_action('ADD', _matchup_decision_item_text('Add/start', item), item, base_date, 20, prediction_source_kind)
         elif item.get('tier') == 'borderline':
-            add_prediction_action('CONSIDER', _matchup_decision_item_text('Consider only for volume:', item), item, base_date, 45, prediction_source_kind)
+            if item.get('risk_guard_candidate'):
+                add_prediction_action('WATCH', _matchup_decision_item_text('Avoid unless chasing volume:', item), item, base_date, 48, prediction_source_kind)
+            else:
+                add_prediction_action('CONSIDER', _matchup_decision_item_text('Consider only for volume:', item), item, base_date, 45, prediction_source_kind)
 
     for item in sections.get('avoid_traps', [])[:3]:
         add_prediction_action('AVOID', _matchup_decision_item_text('Avoid streaming', item), item, base_date, 70, prediction_source_kind)
@@ -6344,7 +6389,8 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
             if item.get('tier') in ('must_start', 'start'):
                 add_prediction_action('WATCH', _matchup_decision_item_text('Queue streamer', item, date_label), item, day.get('date'), 55, prediction_source_kind)
             elif item.get('tier') == 'borderline':
-                add_prediction_action('WATCH', _matchup_decision_item_text('Watch as volume fallback', item, date_label), item, day.get('date'), 62, prediction_source_kind)
+                prefix = 'Watch only as risky volume fallback' if item.get('risk_guard_candidate') else 'Watch as volume fallback'
+                add_prediction_action('WATCH', _matchup_decision_item_text(prefix, item, date_label), item, day.get('date'), 62, prediction_source_kind)
             if len(actions) >= limit + 4:
                 break
 
