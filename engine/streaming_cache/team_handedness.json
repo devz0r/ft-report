@@ -1,35 +1,345 @@
 {
-  "LAA": {
-    "left": 3,
-    "right": 9,
-    "switch": 1,
-    "total": 13,
-    "left_pct": 23,
-    "right_pct": 69
-  },
-  "HOU": {
+  "BAL": {
     "left": 4,
-    "right": 9,
-    "switch": 0,
+    "right": 7,
+    "switch": 2,
     "total": 13,
     "left_pct": 31,
-    "right_pct": 69
+    "right_pct": 54,
+    "players": {
+      "adley rutschman": {
+        "name": "Adley Rutschman",
+        "mlb_id": 668939,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "BAL"
+      },
+      "blaze alexander": {
+        "name": "Blaze Alexander",
+        "mlb_id": 677942,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "BAL"
+      },
+      "coby mayo": {
+        "name": "Coby Mayo",
+        "mlb_id": 691723,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "BAL"
+      },
+      "colton cowser": {
+        "name": "Colton Cowser",
+        "mlb_id": 681297,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "BAL"
+      },
+      "gunnar henderson": {
+        "name": "Gunnar Henderson",
+        "mlb_id": 683002,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "SS",
+        "team": "BAL"
+      },
+      "jackson holliday": {
+        "name": "Jackson Holliday",
+        "mlb_id": 702616,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "BAL"
+      },
+      "jeremiah jackson": {
+        "name": "Jeremiah Jackson",
+        "mlb_id": 669236,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "BAL"
+      },
+      "leody taveras": {
+        "name": "Leody Taveras",
+        "mlb_id": 665750,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "CF",
+        "team": "BAL"
+      },
+      "pete alonso": {
+        "name": "Pete Alonso",
+        "mlb_id": 624413,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "BAL"
+      },
+      "samuel basallo": {
+        "name": "Samuel Basallo",
+        "mlb_id": 694212,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "BAL"
+      },
+      "taylor ward": {
+        "name": "Taylor Ward",
+        "mlb_id": 621493,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "BAL"
+      },
+      "tyler oneill": {
+        "name": "Tyler O'Neill",
+        "mlb_id": 641933,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "BAL"
+      },
+      "weston wilson": {
+        "name": "Weston Wilson",
+        "mlb_id": 642215,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "BAL"
+      }
+    }
   },
-  "DET": {
-    "left": 6,
-    "right": 6,
-    "switch": 1,
+  "BOS": {
+    "left": 4,
+    "right": 7,
+    "switch": 2,
     "total": 13,
-    "left_pct": 46,
-    "right_pct": 46
+    "left_pct": 31,
+    "right_pct": 54,
+    "players": {
+      "andruw monasterio": {
+        "name": "Andruw Monasterio",
+        "mlb_id": 655316,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "BOS"
+      },
+      "caleb durbin": {
+        "name": "Caleb Durbin",
+        "mlb_id": 702332,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "BOS"
+      },
+      "carlos narvaez": {
+        "name": "Carlos Narv\u00e1ez",
+        "mlb_id": 665966,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "BOS"
+      },
+      "ceddanne rafaela": {
+        "name": "Ceddanne Rafaela",
+        "mlb_id": 678882,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "BOS"
+      },
+      "connor wong": {
+        "name": "Connor Wong",
+        "mlb_id": 657136,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "BOS"
+      },
+      "isiah kiner-falefa": {
+        "name": "Isiah Kiner-Falefa",
+        "mlb_id": 643396,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "BOS"
+      },
+      "jarren duran": {
+        "name": "Jarren Duran",
+        "mlb_id": 680776,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "LF",
+        "team": "BOS"
+      },
+      "marcelo mayer": {
+        "name": "Marcelo Mayer",
+        "mlb_id": 691785,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "BOS"
+      },
+      "masataka yoshida": {
+        "name": "Masataka Yoshida",
+        "mlb_id": 807799,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "BOS"
+      },
+      "mickey gasper": {
+        "name": "Mickey Gasper",
+        "mlb_id": 681508,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "BOS"
+      },
+      "nick sogard": {
+        "name": "Nick Sogard",
+        "mlb_id": 686765,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "3B",
+        "team": "BOS"
+      },
+      "willson contreras": {
+        "name": "Willson Contreras",
+        "mlb_id": 575929,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "BOS"
+      },
+      "wilyer abreu": {
+        "name": "Wilyer Abreu",
+        "mlb_id": 677800,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "RF",
+        "team": "BOS"
+      }
+    }
   },
   "AZ": {
-    "left": 3,
-    "right": 6,
+    "left": 2,
+    "right": 7,
     "switch": 4,
     "total": 13,
-    "left_pct": 23,
-    "right_pct": 46
+    "left_pct": 15,
+    "right_pct": 54,
+    "players": {
+      "adrian del castillo": {
+        "name": "Adrian Del Castillo",
+        "mlb_id": 680728,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "AZ"
+      },
+      "aramis garcia": {
+        "name": "Aramis Garcia",
+        "mlb_id": 605244,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "AZ"
+      },
+      "corbin carroll": {
+        "name": "Corbin Carroll",
+        "mlb_id": 682998,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "RF",
+        "team": "AZ"
+      },
+      "gabriel moreno": {
+        "name": "Gabriel Moreno",
+        "mlb_id": 672515,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "AZ"
+      },
+      "geraldo perdomo": {
+        "name": "Geraldo Perdomo",
+        "mlb_id": 672695,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "SS",
+        "team": "AZ"
+      },
+      "ildemaro vargas": {
+        "name": "Ildemaro Vargas",
+        "mlb_id": 545121,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "1B",
+        "team": "AZ"
+      },
+      "jorge barrosa": {
+        "name": "Jorge Barrosa",
+        "mlb_id": 678489,
+        "bat_side": "S",
+        "throws": "L",
+        "position": "CF",
+        "team": "AZ"
+      },
+      "jose fernandez": {
+        "name": "Jose Fernandez",
+        "mlb_id": 699912,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "AZ"
+      },
+      "ketel marte": {
+        "name": "Ketel Marte",
+        "mlb_id": 606466,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "2B",
+        "team": "AZ"
+      },
+      "nolan arenado": {
+        "name": "Nolan Arenado",
+        "mlb_id": 571448,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "AZ"
+      },
+      "ryan waldschmidt": {
+        "name": "Ryan Waldschmidt",
+        "mlb_id": 814439,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "AZ"
+      },
+      "tim tawa": {
+        "name": "Tim Tawa",
+        "mlb_id": 694374,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "AZ"
+      },
+      "tommy troy": {
+        "name": "Tommy Troy",
+        "mlb_id": 694371,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "OF",
+        "team": "AZ"
+      }
+    }
   },
   "COL": {
     "left": 6,
@@ -37,39 +347,447 @@
     "switch": 1,
     "total": 13,
     "left_pct": 46,
-    "right_pct": 46
-  },
-  "BOS": {
-    "left": 5,
-    "right": 8,
-    "switch": 0,
-    "total": 13,
-    "left_pct": 38,
-    "right_pct": 62
+    "right_pct": 46,
+    "players": {
+      "braxton fulford": {
+        "name": "Braxton Fulford",
+        "mlb_id": 690924,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "COL"
+      },
+      "brett sullivan": {
+        "name": "Brett Sullivan",
+        "mlb_id": 664954,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "COL"
+      },
+      "chad stevens": {
+        "name": "Chad Stevens",
+        "mlb_id": 677060,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "COL"
+      },
+      "edouard julien": {
+        "name": "Edouard Julien",
+        "mlb_id": 666397,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "COL"
+      },
+      "ezequiel tovar": {
+        "name": "Ezequiel Tovar",
+        "mlb_id": 678662,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "COL"
+      },
+      "hunter goodman": {
+        "name": "Hunter Goodman",
+        "mlb_id": 696100,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "COL"
+      },
+      "jake mccarthy": {
+        "name": "Jake McCarthy",
+        "mlb_id": 664983,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "LF",
+        "team": "COL"
+      },
+      "kyle karros": {
+        "name": "Kyle Karros",
+        "mlb_id": 691720,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "COL"
+      },
+      "sterlin thompson": {
+        "name": "Sterlin Thompson",
+        "mlb_id": 694514,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "COL"
+      },
+      "tj rumfield": {
+        "name": "TJ Rumfield",
+        "mlb_id": 681198,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "COL"
+      },
+      "troy johnston": {
+        "name": "Troy Johnston",
+        "mlb_id": 687859,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "RF",
+        "team": "COL"
+      },
+      "tyler freeman": {
+        "name": "Tyler Freeman",
+        "mlb_id": 671289,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "COL"
+      },
+      "willi castro": {
+        "name": "Willi Castro",
+        "mlb_id": 650489,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "2B",
+        "team": "COL"
+      }
+    }
   },
   "CHC": {
-    "left": 5,
-    "right": 7,
-    "switch": 1,
-    "total": 13,
-    "left_pct": 38,
-    "right_pct": 54
-  },
-  "CLE": {
-    "left": 7,
-    "right": 3,
-    "switch": 3,
-    "total": 13,
-    "left_pct": 54,
-    "right_pct": 23
-  },
-  "BAL": {
     "left": 4,
     "right": 7,
     "switch": 2,
     "total": 13,
     "left_pct": 31,
-    "right_pct": 54
+    "right_pct": 54,
+    "players": {
+      "alex bregman": {
+        "name": "Alex Bregman",
+        "mlb_id": 608324,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "CHC"
+      },
+      "carson kelly": {
+        "name": "Carson Kelly",
+        "mlb_id": 608348,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "CHC"
+      },
+      "dansby swanson": {
+        "name": "Dansby Swanson",
+        "mlb_id": 621020,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "CHC"
+      },
+      "ian happ": {
+        "name": "Ian Happ",
+        "mlb_id": 664023,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "LF",
+        "team": "CHC"
+      },
+      "kevin alcantara": {
+        "name": "Kevin Alc\u00e1ntara",
+        "mlb_id": 682634,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "CHC"
+      },
+      "michael busch": {
+        "name": "Michael Busch",
+        "mlb_id": 683737,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "CHC"
+      },
+      "michael conforto": {
+        "name": "Michael Conforto",
+        "mlb_id": 624424,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "CHC"
+      },
+      "miguel amaya": {
+        "name": "Miguel Amaya",
+        "mlb_id": 665804,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "CHC"
+      },
+      "moises ballesteros": {
+        "name": "Mois\u00e9s Ballesteros",
+        "mlb_id": 694208,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "CHC"
+      },
+      "nico hoerner": {
+        "name": "Nico Hoerner",
+        "mlb_id": 663538,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "CHC"
+      },
+      "pedro ramirez": {
+        "name": "Pedro Ram\u00edrez",
+        "mlb_id": 699393,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "2B",
+        "team": "CHC"
+      },
+      "pete crow-armstrong": {
+        "name": "Pete Crow-Armstrong",
+        "mlb_id": 691718,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "CF",
+        "team": "CHC"
+      },
+      "seiya suzuki": {
+        "name": "Seiya Suzuki",
+        "mlb_id": 673548,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "CHC"
+      }
+    }
+  },
+  "CLE": {
+    "left": 5,
+    "right": 3,
+    "switch": 4,
+    "total": 12,
+    "left_pct": 42,
+    "right_pct": 25,
+    "players": {
+      "angel martinez": {
+        "name": "Angel Mart\u00ednez",
+        "mlb_id": 682657,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "LF",
+        "team": "CLE"
+      },
+      "austin hedges": {
+        "name": "Austin Hedges",
+        "mlb_id": 595978,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "CLE"
+      },
+      "brayan rocchio": {
+        "name": "Brayan Rocchio",
+        "mlb_id": 677587,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "SS",
+        "team": "CLE"
+      },
+      "chase delauter": {
+        "name": "Chase DeLauter",
+        "mlb_id": 800050,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "RF",
+        "team": "CLE"
+      },
+      "daniel schneemann": {
+        "name": "Daniel Schneemann",
+        "mlb_id": 682177,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "CLE"
+      },
+      "david fry": {
+        "name": "David Fry",
+        "mlb_id": 681807,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "CLE"
+      },
+      "jose ramirez": {
+        "name": "Jos\u00e9 Ram\u00edrez",
+        "mlb_id": 608070,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "3B",
+        "team": "CLE"
+      },
+      "kyle manzardo": {
+        "name": "Kyle Manzardo",
+        "mlb_id": 700932,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "CLE"
+      },
+      "patrick bailey": {
+        "name": "Patrick Bailey",
+        "mlb_id": 672275,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "CLE"
+      },
+      "petey halpin": {
+        "name": "Petey Halpin",
+        "mlb_id": 690984,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "CLE"
+      },
+      "rhys hoskins": {
+        "name": "Rhys Hoskins",
+        "mlb_id": 656555,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "CLE"
+      },
+      "travis bazzana": {
+        "name": "Travis Bazzana",
+        "mlb_id": 683953,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "CLE"
+      }
+    }
+  },
+  "LAA": {
+    "left": 3,
+    "right": 10,
+    "switch": 0,
+    "total": 13,
+    "left_pct": 23,
+    "right_pct": 77,
+    "players": {
+      "adam frazier": {
+        "name": "Adam Frazier",
+        "mlb_id": 624428,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "LAA"
+      },
+      "donovan walton": {
+        "name": "Donovan Walton",
+        "mlb_id": 622268,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "LAA"
+      },
+      "jo adell": {
+        "name": "Jo Adell",
+        "mlb_id": 666176,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "LAA"
+      },
+      "jorge soler": {
+        "name": "Jorge Soler",
+        "mlb_id": 624585,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "LAA"
+      },
+      "jose siri": {
+        "name": "Jose Siri",
+        "mlb_id": 642350,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "LAA"
+      },
+      "logan ohoppe": {
+        "name": "Logan O'Hoppe",
+        "mlb_id": 681351,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "LAA"
+      },
+      "mike trout": {
+        "name": "Mike Trout",
+        "mlb_id": 545361,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "LAA"
+      },
+      "nick madrigal": {
+        "name": "Nick Madrigal",
+        "mlb_id": 663611,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "LAA"
+      },
+      "oswald peraza": {
+        "name": "Oswald Peraza",
+        "mlb_id": 672724,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "LAA"
+      },
+      "sebastian rivero": {
+        "name": "Sebasti\u00e1n Rivero",
+        "mlb_id": 665861,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "LAA"
+      },
+      "vaughn grissom": {
+        "name": "Vaughn Grissom",
+        "mlb_id": 687093,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "LAA"
+      },
+      "wade meckler": {
+        "name": "Wade Meckler",
+        "mlb_id": 685133,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "OF",
+        "team": "LAA"
+      },
+      "zach neto": {
+        "name": "Zach Neto",
+        "mlb_id": 687263,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "LAA"
+      }
+    }
   },
   "CIN": {
     "left": 4,
@@ -77,47 +795,341 @@
     "switch": 1,
     "total": 13,
     "left_pct": 31,
-    "right_pct": 62
+    "right_pct": 62,
+    "players": {
+      "blake dunn": {
+        "name": "Blake Dunn",
+        "mlb_id": 694362,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "CIN"
+      },
+      "dane myers": {
+        "name": "Dane Myers",
+        "mlb_id": 667472,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "CIN"
+      },
+      "elly de la cruz": {
+        "name": "Elly De La Cruz",
+        "mlb_id": 682829,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "SS",
+        "team": "CIN"
+      },
+      "eugenio suarez": {
+        "name": "Eugenio Su\u00e1rez",
+        "mlb_id": 553993,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "CIN"
+      },
+      "jj bleday": {
+        "name": "JJ Bleday",
+        "mlb_id": 668709,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "LF",
+        "team": "CIN"
+      },
+      "matt mclain": {
+        "name": "Matt McLain",
+        "mlb_id": 680574,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "CIN"
+      },
+      "nathaniel lowe": {
+        "name": "Nathaniel Lowe",
+        "mlb_id": 663993,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "CIN"
+      },
+      "pj higgins": {
+        "name": "P.J. Higgins",
+        "mlb_id": 664731,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "CIN"
+      },
+      "sal stewart": {
+        "name": "Sal Stewart",
+        "mlb_id": 701398,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "CIN"
+      },
+      "spencer steer": {
+        "name": "Spencer Steer",
+        "mlb_id": 668715,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "CIN"
+      },
+      "tj friedl": {
+        "name": "TJ Friedl",
+        "mlb_id": 670770,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "CF",
+        "team": "CIN"
+      },
+      "tyler stephenson": {
+        "name": "Tyler Stephenson",
+        "mlb_id": 663886,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "CIN"
+      },
+      "will benson": {
+        "name": "Will Benson",
+        "mlb_id": 666181,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "RF",
+        "team": "CIN"
+      }
+    }
   },
-  "WSH": {
-    "left": 6,
-    "right": 4,
-    "switch": 3,
-    "total": 13,
-    "left_pct": 46,
-    "right_pct": 31
-  },
-  "PIT": {
+  "HOU": {
     "left": 4,
-    "right": 7,
-    "switch": 2,
+    "right": 9,
+    "switch": 0,
     "total": 13,
     "left_pct": 31,
-    "right_pct": 54
+    "right_pct": 69,
+    "players": {
+      "braden shewmake": {
+        "name": "Braden Shewmake",
+        "mlb_id": 669699,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "SS",
+        "team": "HOU"
+      },
+      "brice matthews": {
+        "name": "Brice Matthews",
+        "mlb_id": 694728,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "HOU"
+      },
+      "cam smith": {
+        "name": "Cam Smith",
+        "mlb_id": 701358,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "HOU"
+      },
+      "cesar salazar": {
+        "name": "C\u00e9sar Salazar",
+        "mlb_id": 663967,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "HOU"
+      },
+      "christian vazquez": {
+        "name": "Christian V\u00e1zquez",
+        "mlb_id": 543877,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "HOU"
+      },
+      "christian walker": {
+        "name": "Christian Walker",
+        "mlb_id": 572233,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "HOU"
+      },
+      "isaac paredes": {
+        "name": "Isaac Paredes",
+        "mlb_id": 670623,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "HOU"
+      },
+      "jake meyers": {
+        "name": "Jake Meyers",
+        "mlb_id": 676694,
+        "bat_side": "R",
+        "throws": "L",
+        "position": "CF",
+        "team": "HOU"
+      },
+      "jeremy pena": {
+        "name": "Jeremy Pe\u00f1a",
+        "mlb_id": 665161,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "HOU"
+      },
+      "nick allen": {
+        "name": "Nick Allen",
+        "mlb_id": 669397,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "HOU"
+      },
+      "taylor trammell": {
+        "name": "Taylor Trammell",
+        "mlb_id": 666211,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "CF",
+        "team": "HOU"
+      },
+      "yordan alvarez": {
+        "name": "Yordan Alvarez",
+        "mlb_id": 670541,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "HOU"
+      },
+      "zach dezenzo": {
+        "name": "Zach Dezenzo",
+        "mlb_id": 701305,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "HOU"
+      }
+    }
   },
-  "LAD": {
-    "left": 6,
-    "right": 6,
-    "switch": 1,
-    "total": 13,
-    "left_pct": 46,
-    "right_pct": 46
-  },
-  "NYM": {
-    "left": 4,
-    "right": 8,
-    "switch": 1,
-    "total": 13,
-    "left_pct": 31,
-    "right_pct": 62
-  },
-  "OAK": {
+  "DET": {
     "left": 5,
     "right": 7,
     "switch": 1,
     "total": 13,
     "left_pct": 38,
-    "right_pct": 54
+    "right_pct": 54,
+    "players": {
+      "colt keith": {
+        "name": "Colt Keith",
+        "mlb_id": 690993,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "DET"
+      },
+      "dillon dingler": {
+        "name": "Dillon Dingler",
+        "mlb_id": 693307,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "DET"
+      },
+      "gage workman": {
+        "name": "Gage Workman",
+        "mlb_id": 669398,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "DET"
+      },
+      "hao-yu lee": {
+        "name": "Hao-Yu  Lee",
+        "mlb_id": 701678,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "DET"
+      },
+      "jahmai jones": {
+        "name": "Jahmai Jones",
+        "mlb_id": 663330,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "DET"
+      },
+      "jake rogers": {
+        "name": "Jake Rogers",
+        "mlb_id": 668670,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "DET"
+      },
+      "kevin mcgonigle": {
+        "name": "Kevin McGonigle",
+        "mlb_id": 805808,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "SS",
+        "team": "DET"
+      },
+      "matt vierling": {
+        "name": "Matt Vierling",
+        "mlb_id": 663837,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "DET"
+      },
+      "riley greene": {
+        "name": "Riley Greene",
+        "mlb_id": 682985,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "LF",
+        "team": "DET"
+      },
+      "spencer torkelson": {
+        "name": "Spencer Torkelson",
+        "mlb_id": 679529,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "DET"
+      },
+      "wenceel perez": {
+        "name": "Wenceel P\u00e9rez",
+        "mlb_id": 672761,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "RF",
+        "team": "DET"
+      },
+      "zach mckinstry": {
+        "name": "Zach McKinstry",
+        "mlb_id": 656716,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "DET"
+      },
+      "zack short": {
+        "name": "Zack Short",
+        "mlb_id": 670097,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "DET"
+      }
+    }
   },
   "KC": {
     "left": 5,
@@ -125,31 +1137,1017 @@
     "switch": 1,
     "total": 13,
     "left_pct": 38,
-    "right_pct": 54
+    "right_pct": 54,
+    "players": {
+      "bobby witt": {
+        "name": "Bobby Witt Jr.",
+        "mlb_id": 677951,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "KC"
+      },
+      "carter jensen": {
+        "name": "Carter Jensen",
+        "mlb_id": 695600,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "KC"
+      },
+      "isaac collins": {
+        "name": "Isaac Collins",
+        "mlb_id": 686555,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "LF",
+        "team": "KC"
+      },
+      "jac caglianone": {
+        "name": "Jac Caglianone",
+        "mlb_id": 695506,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "RF",
+        "team": "KC"
+      },
+      "kyle isbel": {
+        "name": "Kyle Isbel",
+        "mlb_id": 664728,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "KC"
+      },
+      "lane thomas": {
+        "name": "Lane Thomas",
+        "mlb_id": 657041,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "KC"
+      },
+      "maikel garcia": {
+        "name": "Maikel Garcia",
+        "mlb_id": 672580,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "KC"
+      },
+      "michael massey": {
+        "name": "Michael Massey",
+        "mlb_id": 686681,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "KC"
+      },
+      "nick loftin": {
+        "name": "Nick Loftin",
+        "mlb_id": 679845,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "KC"
+      },
+      "salvador perez": {
+        "name": "Salvador Perez",
+        "mlb_id": 521692,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "KC"
+      },
+      "starling marte": {
+        "name": "Starling Marte",
+        "mlb_id": 516782,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "KC"
+      },
+      "tyler tolbert": {
+        "name": "Tyler Tolbert",
+        "mlb_id": 686475,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "KC"
+      },
+      "vinnie pasquantino": {
+        "name": "Vinnie Pasquantino",
+        "mlb_id": 686469,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "1B",
+        "team": "KC"
+      }
+    }
   },
-  "SD": {
-    "left": 3,
-    "right": 9,
+  "LAD": {
+    "left": 6,
+    "right": 6,
     "switch": 1,
     "total": 13,
-    "left_pct": 23,
-    "right_pct": 69
+    "left_pct": 46,
+    "right_pct": 46,
+    "players": {
+      "alex call": {
+        "name": "Alex Call",
+        "mlb_id": 669743,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "LAD"
+      },
+      "alex freeland": {
+        "name": "Alex Freeland",
+        "mlb_id": 690976,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "2B",
+        "team": "LAD"
+      },
+      "andy pages": {
+        "name": "Andy Pages",
+        "mlb_id": 681624,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "LAD"
+      },
+      "dalton rushing": {
+        "name": "Dalton Rushing",
+        "mlb_id": 687221,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "LAD"
+      },
+      "freddie freeman": {
+        "name": "Freddie Freeman",
+        "mlb_id": 518692,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "LAD"
+      },
+      "hyeseong kim": {
+        "name": "Hyeseong Kim",
+        "mlb_id": 808975,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "SS",
+        "team": "LAD"
+      },
+      "kyle tucker": {
+        "name": "Kyle Tucker",
+        "mlb_id": 663656,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "LAD"
+      },
+      "max muncy": {
+        "name": "Max Muncy",
+        "mlb_id": 571970,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "LAD"
+      },
+      "miguel rojas": {
+        "name": "Miguel Rojas",
+        "mlb_id": 500743,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "LAD"
+      },
+      "mookie betts": {
+        "name": "Mookie Betts",
+        "mlb_id": 605141,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "LAD"
+      },
+      "shohei ohtani": {
+        "name": "Shohei Ohtani",
+        "mlb_id": 660271,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "TWP",
+        "team": "LAD"
+      },
+      "teoscar hernandez": {
+        "name": "Teoscar Hern\u00e1ndez",
+        "mlb_id": 606192,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "LAD"
+      },
+      "will smith": {
+        "name": "Will Smith",
+        "mlb_id": 669257,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "LAD"
+      }
+    }
   },
-  "SEA": {
-    "left": 5,
-    "right": 6,
-    "switch": 2,
+  "WSH": {
+    "left": 6,
+    "right": 4,
+    "switch": 3,
     "total": 13,
-    "left_pct": 38,
-    "right_pct": 46
+    "left_pct": 46,
+    "right_pct": 31,
+    "players": {
+      "andres chaparro": {
+        "name": "Andr\u00e9s Chaparro",
+        "mlb_id": 665953,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "WSH"
+      },
+      "cj abrams": {
+        "name": "CJ Abrams",
+        "mlb_id": 682928,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "SS",
+        "team": "WSH"
+      },
+      "curtis mead": {
+        "name": "Curtis Mead",
+        "mlb_id": 678554,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "WSH"
+      },
+      "daylen lile": {
+        "name": "Daylen Lile",
+        "mlb_id": 695734,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "LF",
+        "team": "WSH"
+      },
+      "drew millas": {
+        "name": "Drew Millas",
+        "mlb_id": 686452,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "WSH"
+      },
+      "dylan crews": {
+        "name": "Dylan Crews",
+        "mlb_id": 686611,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "WSH"
+      },
+      "jacob young": {
+        "name": "Jacob Young",
+        "mlb_id": 696285,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "WSH"
+      },
+      "james wood": {
+        "name": "James Wood",
+        "mlb_id": 695578,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "WSH"
+      },
+      "jorbit vivas": {
+        "name": "Jorbit Vivas",
+        "mlb_id": 678391,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "WSH"
+      },
+      "jose tena": {
+        "name": "Jos\u00e9 Tena",
+        "mlb_id": 677588,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "WSH"
+      },
+      "keibert ruiz": {
+        "name": "Keibert Ruiz",
+        "mlb_id": 660688,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "WSH"
+      },
+      "luis garcia": {
+        "name": "Luis Garc\u00eda Jr.",
+        "mlb_id": 671277,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "WSH"
+      },
+      "nasim nunez": {
+        "name": "Nasim Nu\u00f1ez",
+        "mlb_id": 683083,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "2B",
+        "team": "WSH"
+      }
+    }
   },
-  "SF": {
+  "NYM": {
+    "left": 6,
+    "right": 6,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 46,
+    "right_pct": 46,
+    "players": {
+      "aj ewing": {
+        "name": "A.J. Ewing",
+        "mlb_id": 805999,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "NYM"
+      },
+      "bo bichette": {
+        "name": "Bo Bichette",
+        "mlb_id": 666182,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "NYM"
+      },
+      "brett baty": {
+        "name": "Brett Baty",
+        "mlb_id": 683146,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "NYM"
+      },
+      "carson benge": {
+        "name": "Carson Benge",
+        "mlb_id": 701807,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "NYM"
+      },
+      "eric wagaman": {
+        "name": "Eric Wagaman",
+        "mlb_id": 676572,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "NYM"
+      },
+      "hayden senger": {
+        "name": "Hayden Senger",
+        "mlb_id": 663584,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "NYM"
+      },
+      "jared young": {
+        "name": "Jared Young",
+        "mlb_id": 676724,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "NYM"
+      },
+      "juan soto": {
+        "name": "Juan Soto",
+        "mlb_id": 665742,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "LF",
+        "team": "NYM"
+      },
+      "luis torrens": {
+        "name": "Luis Torrens",
+        "mlb_id": 620443,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "NYM"
+      },
+      "mj melendez": {
+        "name": "MJ Melendez",
+        "mlb_id": 669004,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "NYM"
+      },
+      "marcus semien": {
+        "name": "Marcus Semien",
+        "mlb_id": 543760,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "NYM"
+      },
+      "mark vientos": {
+        "name": "Mark Vientos",
+        "mlb_id": 668901,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "NYM"
+      },
+      "vidal brujan": {
+        "name": "Vidal Bruj\u00e1n",
+        "mlb_id": 660644,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "SS",
+        "team": "NYM"
+      }
+    }
+  },
+  "PIT": {
+    "left": 4,
+    "right": 6,
+    "switch": 3,
+    "total": 13,
+    "left_pct": 31,
+    "right_pct": 46,
+    "players": {
+      "brandon lowe": {
+        "name": "Brandon Lowe",
+        "mlb_id": 664040,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "PIT"
+      },
+      "bryan reynolds": {
+        "name": "Bryan Reynolds",
+        "mlb_id": 668804,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "LF",
+        "team": "PIT"
+      },
+      "endy rodriguez": {
+        "name": "Endy Rodr\u00edguez",
+        "mlb_id": 682848,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "PIT"
+      },
+      "henry davis": {
+        "name": "Henry Davis",
+        "mlb_id": 680779,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "PIT"
+      },
+      "jake mangum": {
+        "name": "Jake Mangum",
+        "mlb_id": 663968,
+        "bat_side": "S",
+        "throws": "L",
+        "position": "LF",
+        "team": "PIT"
+      },
+      "jared triolo": {
+        "name": "Jared Triolo",
+        "mlb_id": 669707,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "PIT"
+      },
+      "jhostynxon garcia": {
+        "name": "Jhostynxon Garcia",
+        "mlb_id": 691373,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "PIT"
+      },
+      "konnor griffin": {
+        "name": "Konnor Griffin",
+        "mlb_id": 804606,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "PIT"
+      },
+      "marcell ozuna": {
+        "name": "Marcell Ozuna",
+        "mlb_id": 542303,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "PIT"
+      },
+      "nick gonzales": {
+        "name": "Nick Gonzales",
+        "mlb_id": 693304,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "PIT"
+      },
+      "oneil cruz": {
+        "name": "Oneil Cruz",
+        "mlb_id": 665833,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "PIT"
+      },
+      "spencer horwitz": {
+        "name": "Spencer Horwitz",
+        "mlb_id": 687462,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "PIT"
+      },
+      "tyler callihan": {
+        "name": "Tyler Callihan",
+        "mlb_id": 682997,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "LF",
+        "team": "PIT"
+      }
+    }
+  },
+  "OAK": {
     "left": 5,
     "right": 7,
     "switch": 1,
     "total": 13,
     "left_pct": 38,
-    "right_pct": 54
+    "right_pct": 54,
+    "players": {
+      "alika williams": {
+        "name": "Alika Williams",
+        "mlb_id": 675961,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "OAK"
+      },
+      "brent rooker": {
+        "name": "Brent Rooker",
+        "mlb_id": 667670,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "OAK"
+      },
+      "carlos cortes": {
+        "name": "Carlos Cortes",
+        "mlb_id": 666126,
+        "bat_side": "L",
+        "throws": "S",
+        "position": "RF",
+        "team": "OAK"
+      },
+      "colby thomas": {
+        "name": "Colby Thomas",
+        "mlb_id": 687515,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "OAK"
+      },
+      "darell hernaiz": {
+        "name": "Darell Hernaiz",
+        "mlb_id": 687231,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "OAK"
+      },
+      "henry bolte": {
+        "name": "Henry Bolte",
+        "mlb_id": 703607,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "OAK"
+      },
+      "jeff mcneil": {
+        "name": "Jeff McNeil",
+        "mlb_id": 643446,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "OAK"
+      },
+      "jonah heim": {
+        "name": "Jonah Heim",
+        "mlb_id": 641680,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "OAK"
+      },
+      "lawrence butler": {
+        "name": "Lawrence Butler",
+        "mlb_id": 671732,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "OAK"
+      },
+      "nick kurtz": {
+        "name": "Nick Kurtz",
+        "mlb_id": 701762,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "1B",
+        "team": "OAK"
+      },
+      "shea langeliers": {
+        "name": "Shea Langeliers",
+        "mlb_id": 669127,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "OAK"
+      },
+      "tyler soderstrom": {
+        "name": "Tyler Soderstrom",
+        "mlb_id": 691016,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "LF",
+        "team": "OAK"
+      },
+      "zack gelof": {
+        "name": "Zack Gelof",
+        "mlb_id": 680869,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "OAK"
+      }
+    }
+  },
+  "SF": {
+    "left": 4,
+    "right": 8,
+    "switch": 0,
+    "total": 12,
+    "left_pct": 33,
+    "right_pct": 67,
+    "players": {
+      "bryce eldridge": {
+        "name": "Bryce Eldridge",
+        "mlb_id": 805811,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "SF"
+      },
+      "casey schmitt": {
+        "name": "Casey Schmitt",
+        "mlb_id": 669477,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "SF"
+      },
+      "daniel susac": {
+        "name": "Daniel Susac",
+        "mlb_id": 691740,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "SF"
+      },
+      "drew gilbert": {
+        "name": "Drew Gilbert",
+        "mlb_id": 687551,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "CF",
+        "team": "SF"
+      },
+      "eric haase": {
+        "name": "Eric Haase",
+        "mlb_id": 606992,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "SF"
+      },
+      "harrison bader": {
+        "name": "Harrison Bader",
+        "mlb_id": 664056,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "SF"
+      },
+      "jesus rodriguez": {
+        "name": "Jesus Rodriguez",
+        "mlb_id": 683679,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "SF"
+      },
+      "luis arraez": {
+        "name": "Luis Arraez",
+        "mlb_id": 650333,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "SF"
+      },
+      "matt chapman": {
+        "name": "Matt Chapman",
+        "mlb_id": 656305,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "SF"
+      },
+      "rafael devers": {
+        "name": "Rafael Devers",
+        "mlb_id": 646240,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "SF"
+      },
+      "victor bericoto": {
+        "name": "Victor Bericoto",
+        "mlb_id": 682674,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "SF"
+      },
+      "willy adames": {
+        "name": "Willy Adames",
+        "mlb_id": 642715,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "SF"
+      }
+    }
+  },
+  "SEA": {
+    "left": 6,
+    "right": 7,
+    "switch": 0,
+    "total": 13,
+    "left_pct": 46,
+    "right_pct": 54,
+    "players": {
+      "cole young": {
+        "name": "Cole Young",
+        "mlb_id": 702284,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "SEA"
+      },
+      "colt emerson": {
+        "name": "Colt Emerson",
+        "mlb_id": 806068,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "SEA"
+      },
+      "dominic canzone": {
+        "name": "Dominic Canzone",
+        "mlb_id": 686527,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "SEA"
+      },
+      "jp crawford": {
+        "name": "J.P. Crawford",
+        "mlb_id": 641487,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "SS",
+        "team": "SEA"
+      },
+      "jhonny pereda": {
+        "name": "Jhonny Pereda",
+        "mlb_id": 640902,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "SEA"
+      },
+      "josh naylor": {
+        "name": "Josh Naylor",
+        "mlb_id": 647304,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "1B",
+        "team": "SEA"
+      },
+      "julio rodriguez": {
+        "name": "Julio Rodr\u00edguez",
+        "mlb_id": 677594,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "SEA"
+      },
+      "luke raley": {
+        "name": "Luke Raley",
+        "mlb_id": 670042,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "SEA"
+      },
+      "mitch garver": {
+        "name": "Mitch Garver",
+        "mlb_id": 641598,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "SEA"
+      },
+      "patrick wisdom": {
+        "name": "Patrick Wisdom",
+        "mlb_id": 621550,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "SEA"
+      },
+      "randy arozarena": {
+        "name": "Randy Arozarena",
+        "mlb_id": 668227,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "SEA"
+      },
+      "rob refsnyder": {
+        "name": "Rob Refsnyder",
+        "mlb_id": 608701,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "SEA"
+      },
+      "victor robles": {
+        "name": "Victor Robles",
+        "mlb_id": 645302,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "SEA"
+      }
+    }
+  },
+  "TB": {
+    "left": 7,
+    "right": 5,
+    "switch": 1,
+    "total": 13,
+    "left_pct": 54,
+    "right_pct": 38,
+    "players": {
+      "carson williams": {
+        "name": "Carson Williams",
+        "mlb_id": 700246,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "TB"
+      },
+      "cedric mullins": {
+        "name": "Cedric Mullins",
+        "mlb_id": 656775,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "CF",
+        "team": "TB"
+      },
+      "chandler simpson": {
+        "name": "Chandler Simpson",
+        "mlb_id": 802415,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "LF",
+        "team": "TB"
+      },
+      "hunter feduccia": {
+        "name": "Hunter Feduccia",
+        "mlb_id": 676439,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "TB"
+      },
+      "jonathan aranda": {
+        "name": "Jonathan Aranda",
+        "mlb_id": 666018,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "TB"
+      },
+      "junior caminero": {
+        "name": "Junior Caminero",
+        "mlb_id": 691406,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "TB"
+      },
+      "nick fortes": {
+        "name": "Nick Fortes",
+        "mlb_id": 663743,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "TB"
+      },
+      "oliver dunn": {
+        "name": "Oliver Dunn",
+        "mlb_id": 686554,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "TB"
+      },
+      "richie palacios": {
+        "name": "Richie Palacios",
+        "mlb_id": 680700,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "TB"
+      },
+      "ryan vilade": {
+        "name": "Ryan Vilade",
+        "mlb_id": 668723,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "TB"
+      },
+      "taylor walls": {
+        "name": "Taylor Walls",
+        "mlb_id": 670764,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "SS",
+        "team": "TB"
+      },
+      "victor mesa": {
+        "name": "Victor Mesa Jr.",
+        "mlb_id": 683748,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "CF",
+        "team": "TB"
+      },
+      "yandy diaz": {
+        "name": "Yandy D\u00edaz",
+        "mlb_id": 650490,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "TB"
+      }
+    }
   },
   "STL": {
     "left": 6,
@@ -157,23 +2155,227 @@
     "switch": 0,
     "total": 13,
     "left_pct": 46,
-    "right_pct": 54
+    "right_pct": 54,
+    "players": {
+      "alec burleson": {
+        "name": "Alec Burleson",
+        "mlb_id": 676475,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "1B",
+        "team": "STL"
+      },
+      "bryan torres": {
+        "name": "Bryan Torres",
+        "mlb_id": 663494,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "OF",
+        "team": "STL"
+      },
+      "cesar prieto": {
+        "name": "C\u00e9sar Prieto",
+        "mlb_id": 693409,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "STL"
+      },
+      "ivan herrera": {
+        "name": "Iv\u00e1n Herrera",
+        "mlb_id": 671056,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "STL"
+      },
+      "jj wetherholt": {
+        "name": "JJ Wetherholt",
+        "mlb_id": 802139,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "STL"
+      },
+      "jordan walker": {
+        "name": "Jordan Walker",
+        "mlb_id": 691023,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "STL"
+      },
+      "jose fermin": {
+        "name": "Jos\u00e9 Ferm\u00edn",
+        "mlb_id": 665877,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "STL"
+      },
+      "masyn winn": {
+        "name": "Masyn Winn",
+        "mlb_id": 691026,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "STL"
+      },
+      "nolan gorman": {
+        "name": "Nolan Gorman",
+        "mlb_id": 669357,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "STL"
+      },
+      "pedro pages": {
+        "name": "Pedro Pag\u00e9s",
+        "mlb_id": 686780,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "STL"
+      },
+      "thomas saggese": {
+        "name": "Thomas Saggese",
+        "mlb_id": 695336,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "STL"
+      },
+      "victor scott": {
+        "name": "Victor Scott II",
+        "mlb_id": 687363,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "CF",
+        "team": "STL"
+      },
+      "yohel pozo": {
+        "name": "Yohel Pozo",
+        "mlb_id": 650968,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "STL"
+      }
+    }
   },
-  "TB": {
-    "left": 6,
-    "right": 6,
+  "SD": {
+    "left": 3,
+    "right": 9,
     "switch": 1,
     "total": 13,
-    "left_pct": 46,
-    "right_pct": 46
-  },
-  "MIN": {
-    "left": 5,
-    "right": 5,
-    "switch": 3,
-    "total": 13,
-    "left_pct": 38,
-    "right_pct": 38
+    "left_pct": 23,
+    "right_pct": 69,
+    "players": {
+      "bryce johnson": {
+        "name": "Bryce Johnson",
+        "mlb_id": 669369,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "RF",
+        "team": "SD"
+      },
+      "fernando tatis": {
+        "name": "Fernando Tatis Jr.",
+        "mlb_id": 665487,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "SD"
+      },
+      "freddy fermin": {
+        "name": "Freddy Fermin",
+        "mlb_id": 666023,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "SD"
+      },
+      "gavin sheets": {
+        "name": "Gavin Sheets",
+        "mlb_id": 657757,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "1B",
+        "team": "SD"
+      },
+      "jackson merrill": {
+        "name": "Jackson Merrill",
+        "mlb_id": 701538,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "SD"
+      },
+      "manny machado": {
+        "name": "Manny Machado",
+        "mlb_id": 592518,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "SD"
+      },
+      "miguel andujar": {
+        "name": "Miguel Andujar",
+        "mlb_id": 609280,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "SD"
+      },
+      "nick castellanos": {
+        "name": "Nick Castellanos",
+        "mlb_id": 592206,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "SD"
+      },
+      "ramon laureano": {
+        "name": "Ram\u00f3n Laureano",
+        "mlb_id": 657656,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "SD"
+      },
+      "rodolfo duran": {
+        "name": "Rodolfo Dur\u00e1n",
+        "mlb_id": 660710,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "SD"
+      },
+      "sung-mun song": {
+        "name": "Sung-Mun Song",
+        "mlb_id": 823550,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "SD"
+      },
+      "ty france": {
+        "name": "Ty France",
+        "mlb_id": 664034,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "SD"
+      },
+      "xander bogaerts": {
+        "name": "Xander Bogaerts",
+        "mlb_id": 593428,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "SD"
+      }
+    }
   },
   "TEX": {
     "left": 5,
@@ -181,55 +2383,675 @@
     "switch": 1,
     "total": 13,
     "left_pct": 38,
-    "right_pct": 54
+    "right_pct": 54,
+    "players": {
+      "alejandro osuna": {
+        "name": "Alejandro Osuna",
+        "mlb_id": 696030,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "LF",
+        "team": "TEX"
+      },
+      "brandon nimmo": {
+        "name": "Brandon Nimmo",
+        "mlb_id": 607043,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "TEX"
+      },
+      "danny jansen": {
+        "name": "Danny Jansen",
+        "mlb_id": 643376,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "TEX"
+      },
+      "evan carter": {
+        "name": "Evan Carter",
+        "mlb_id": 694497,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "TEX"
+      },
+      "ezequiel duran": {
+        "name": "Ezequiel Duran",
+        "mlb_id": 677649,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "TEX"
+      },
+      "jake burger": {
+        "name": "Jake Burger",
+        "mlb_id": 669394,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "TEX"
+      },
+      "joc pederson": {
+        "name": "Joc Pederson",
+        "mlb_id": 592626,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "DH",
+        "team": "TEX"
+      },
+      "josh jung": {
+        "name": "Josh Jung",
+        "mlb_id": 673962,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "TEX"
+      },
+      "justin foscue": {
+        "name": "Justin Foscue",
+        "mlb_id": 679822,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "TEX"
+      },
+      "kyle higashioka": {
+        "name": "Kyle Higashioka",
+        "mlb_id": 543309,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "TEX"
+      },
+      "michael helman": {
+        "name": "Michael Helman",
+        "mlb_id": 680737,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "TEX"
+      },
+      "nicky lopez": {
+        "name": "Nicky Lopez",
+        "mlb_id": 670032,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "TEX"
+      },
+      "sam haggerty": {
+        "name": "Sam Haggerty",
+        "mlb_id": 664059,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "LF",
+        "team": "TEX"
+      }
+    }
+  },
+  "MIN": {
+    "left": 4,
+    "right": 6,
+    "switch": 3,
+    "total": 13,
+    "left_pct": 31,
+    "right_pct": 46,
+    "players": {
+      "alex jackson": {
+        "name": "Alex Jackson",
+        "mlb_id": 656577,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "MIN"
+      },
+      "austin martin": {
+        "name": "Austin Martin",
+        "mlb_id": 668885,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "MIN"
+      },
+      "brooks lee": {
+        "name": "Brooks Lee",
+        "mlb_id": 686797,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "SS",
+        "team": "MIN"
+      },
+      "byron buxton": {
+        "name": "Byron Buxton",
+        "mlb_id": 621439,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "MIN"
+      },
+      "james outman": {
+        "name": "James Outman",
+        "mlb_id": 681546,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "MIN"
+      },
+      "josh bell": {
+        "name": "Josh Bell",
+        "mlb_id": 605137,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "DH",
+        "team": "MIN"
+      },
+      "kody clemens": {
+        "name": "Kody Clemens",
+        "mlb_id": 665019,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "MIN"
+      },
+      "luke keaschall": {
+        "name": "Luke Keaschall",
+        "mlb_id": 807712,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "MIN"
+      },
+      "orlando arcia": {
+        "name": "Orlando Arcia",
+        "mlb_id": 606115,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "MIN"
+      },
+      "ryan kreidler": {
+        "name": "Ryan Kreidler",
+        "mlb_id": 668952,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "MIN"
+      },
+      "trevor larnach": {
+        "name": "Trevor Larnach",
+        "mlb_id": 663616,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "LF",
+        "team": "MIN"
+      },
+      "tristan gray": {
+        "name": "Tristan Gray",
+        "mlb_id": 656484,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "MIN"
+      },
+      "victor caratini": {
+        "name": "Victor Caratini",
+        "mlb_id": 605170,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "MIN"
+      }
+    }
+  },
+  "TOR": {
+    "left": 5,
+    "right": 6,
+    "switch": 2,
+    "total": 13,
+    "left_pct": 38,
+    "right_pct": 46,
+    "players": {
+      "andres gimenez": {
+        "name": "Andr\u00e9s Gim\u00e9nez",
+        "mlb_id": 665926,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "SS",
+        "team": "TOR"
+      },
+      "brandon valenzuela": {
+        "name": "Brandon Valenzuela",
+        "mlb_id": 678218,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "TOR"
+      },
+      "charles mcadoo": {
+        "name": "Charles McAdoo",
+        "mlb_id": 807727,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "TOR"
+      },
+      "daulton varsho": {
+        "name": "Daulton Varsho",
+        "mlb_id": 662139,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "TOR"
+      },
+      "ernie clement": {
+        "name": "Ernie Clement",
+        "mlb_id": 676391,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "TOR"
+      },
+      "george springer": {
+        "name": "George Springer",
+        "mlb_id": 543807,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "TOR"
+      },
+      "jesus sanchez": {
+        "name": "Jes\u00fas S\u00e1nchez",
+        "mlb_id": 660821,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "TOR"
+      },
+      "kazuma okamoto": {
+        "name": "Kazuma Okamoto",
+        "mlb_id": 672960,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "TOR"
+      },
+      "myles straw": {
+        "name": "Myles Straw",
+        "mlb_id": 664702,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "TOR"
+      },
+      "nathan lukes": {
+        "name": "Nathan Lukes",
+        "mlb_id": 664770,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "TOR"
+      },
+      "tyler heineman": {
+        "name": "Tyler Heineman",
+        "mlb_id": 623168,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "TOR"
+      },
+      "vladimir guerrero": {
+        "name": "Vladimir Guerrero Jr.",
+        "mlb_id": 665489,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "TOR"
+      },
+      "yohendrick pinango": {
+        "name": "Yohendrick Pi\u00f1ango",
+        "mlb_id": 682818,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "LF",
+        "team": "TOR"
+      }
+    }
   },
   "PHI": {
     "left": 6,
-    "right": 6,
+    "right": 5,
     "switch": 1,
-    "total": 13,
-    "left_pct": 46,
-    "right_pct": 46
+    "total": 12,
+    "left_pct": 50,
+    "right_pct": 42,
+    "players": {
+      "adolis garcia": {
+        "name": "Adolis Garc\u00eda",
+        "mlb_id": 666969,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "PHI"
+      },
+      "alec bohm": {
+        "name": "Alec Bohm",
+        "mlb_id": 664761,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "PHI"
+      },
+      "brandon marsh": {
+        "name": "Brandon Marsh",
+        "mlb_id": 669016,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "LF",
+        "team": "PHI"
+      },
+      "bryce harper": {
+        "name": "Bryce Harper",
+        "mlb_id": 547180,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "PHI"
+      },
+      "bryson stott": {
+        "name": "Bryson Stott",
+        "mlb_id": 681082,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "PHI"
+      },
+      "edmundo sosa": {
+        "name": "Edmundo Sosa",
+        "mlb_id": 624641,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "PHI"
+      },
+      "garrett stubbs": {
+        "name": "Garrett Stubbs",
+        "mlb_id": 596117,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "PHI"
+      },
+      "jt realmuto": {
+        "name": "J.T. Realmuto",
+        "mlb_id": 592663,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "PHI"
+      },
+      "justin crawford": {
+        "name": "Justin Crawford",
+        "mlb_id": 702222,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "PHI"
+      },
+      "kyle schwarber": {
+        "name": "Kyle Schwarber",
+        "mlb_id": 656941,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "PHI"
+      },
+      "rafael marchan": {
+        "name": "Rafael March\u00e1n",
+        "mlb_id": 665561,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "PHI"
+      },
+      "trea turner": {
+        "name": "Trea Turner",
+        "mlb_id": 607208,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "PHI"
+      }
+    }
   },
   "ATL": {
-    "left": 6,
-    "right": 6,
-    "switch": 1,
-    "total": 13,
-    "left_pct": 46,
-    "right_pct": 46
-  },
-  "CWS": {
-    "left": 6,
-    "right": 5,
-    "switch": 2,
-    "total": 13,
-    "left_pct": 46,
-    "right_pct": 38
-  },
-  "TOR": {
     "left": 4,
     "right": 7,
     "switch": 2,
     "total": 13,
     "left_pct": 31,
-    "right_pct": 54
+    "right_pct": 54,
+    "players": {
+      "austin riley": {
+        "name": "Austin Riley",
+        "mlb_id": 663586,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "ATL"
+      },
+      "chadwick tromp": {
+        "name": "Chadwick Tromp",
+        "mlb_id": 644433,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "ATL"
+      },
+      "dominic smith": {
+        "name": "Dominic Smith",
+        "mlb_id": 642086,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "DH",
+        "team": "ATL"
+      },
+      "eli white": {
+        "name": "Eli White",
+        "mlb_id": 642201,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "ATL"
+      },
+      "ha-seong kim": {
+        "name": "Ha-Seong Kim",
+        "mlb_id": 673490,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "ATL"
+      },
+      "jorge mateo": {
+        "name": "Jorge Mateo",
+        "mlb_id": 622761,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "ATL"
+      },
+      "matt olson": {
+        "name": "Matt Olson",
+        "mlb_id": 621566,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "ATL"
+      },
+      "mauricio dubon": {
+        "name": "Mauricio Dub\u00f3n",
+        "mlb_id": 643289,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "ATL"
+      },
+      "michael harris": {
+        "name": "Michael Harris II",
+        "mlb_id": 671739,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "CF",
+        "team": "ATL"
+      },
+      "mike yastrzemski": {
+        "name": "Mike Yastrzemski",
+        "mlb_id": 573262,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "LF",
+        "team": "ATL"
+      },
+      "ozzie albies": {
+        "name": "Ozzie Albies",
+        "mlb_id": 645277,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "2B",
+        "team": "ATL"
+      },
+      "ronald acuna": {
+        "name": "Ronald Acu\u00f1a Jr.",
+        "mlb_id": 660670,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "ATL"
+      },
+      "sandy leon": {
+        "name": "Sandy Le\u00f3n",
+        "mlb_id": 506702,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "ATL"
+      }
+    }
   },
   "MIL": {
     "left": 6,
-    "right": 6,
-    "switch": 1,
+    "right": 5,
+    "switch": 2,
     "total": 13,
     "left_pct": 46,
-    "right_pct": 46
-  },
-  "NYY": {
-    "left": 7,
-    "right": 5,
-    "switch": 1,
-    "total": 13,
-    "left_pct": 54,
-    "right_pct": 38
+    "right_pct": 38,
+    "players": {
+      "andrew vaughn": {
+        "name": "Andrew Vaughn",
+        "mlb_id": 683734,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "MIL"
+      },
+      "blake perkins": {
+        "name": "Blake Perkins",
+        "mlb_id": 663368,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "CF",
+        "team": "MIL"
+      },
+      "brice turang": {
+        "name": "Brice Turang",
+        "mlb_id": 668930,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "MIL"
+      },
+      "christian yelich": {
+        "name": "Christian Yelich",
+        "mlb_id": 592885,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "DH",
+        "team": "MIL"
+      },
+      "david hamilton": {
+        "name": "David Hamilton",
+        "mlb_id": 666152,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "SS",
+        "team": "MIL"
+      },
+      "garrett mitchell": {
+        "name": "Garrett Mitchell",
+        "mlb_id": 669003,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "MIL"
+      },
+      "gary sanchez": {
+        "name": "Gary S\u00e1nchez",
+        "mlb_id": 596142,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "DH",
+        "team": "MIL"
+      },
+      "jackson chourio": {
+        "name": "Jackson Chourio",
+        "mlb_id": 694192,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "MIL"
+      },
+      "jake bauers": {
+        "name": "Jake Bauers",
+        "mlb_id": 641343,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "1B",
+        "team": "MIL"
+      },
+      "joey ortiz": {
+        "name": "Joey Ortiz",
+        "mlb_id": 687401,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "MIL"
+      },
+      "luis rengifo": {
+        "name": "Luis Rengifo",
+        "mlb_id": 650859,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "3B",
+        "team": "MIL"
+      },
+      "sal frelick": {
+        "name": "Sal Frelick",
+        "mlb_id": 686217,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "MIL"
+      },
+      "william contreras": {
+        "name": "William Contreras",
+        "mlb_id": 661388,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "C",
+        "team": "MIL"
+      }
+    }
   },
   "MIA": {
     "left": 6,
@@ -237,6 +3059,340 @@
     "switch": 1,
     "total": 13,
     "left_pct": 46,
-    "right_pct": 46
+    "right_pct": 46,
+    "players": {
+      "christopher morel": {
+        "name": "Christopher Morel",
+        "mlb_id": 666624,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "MIA"
+      },
+      "connor norby": {
+        "name": "Connor Norby",
+        "mlb_id": 681393,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "MIA"
+      },
+      "esteury ruiz": {
+        "name": "Esteury Ruiz",
+        "mlb_id": 665923,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "MIA"
+      },
+      "graham pauley": {
+        "name": "Graham Pauley",
+        "mlb_id": 688363,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "MIA"
+      },
+      "heriberto hernandez": {
+        "name": "Heriberto Hern\u00e1ndez",
+        "mlb_id": 681715,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "LF",
+        "team": "MIA"
+      },
+      "jakob marsee": {
+        "name": "Jakob Marsee",
+        "mlb_id": 805300,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "CF",
+        "team": "MIA"
+      },
+      "javier sanoja": {
+        "name": "Javier Sanoja",
+        "mlb_id": 691594,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "MIA"
+      },
+      "joe mack": {
+        "name": "Joe Mack",
+        "mlb_id": 691788,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "MIA"
+      },
+      "kyle stowers": {
+        "name": "Kyle Stowers",
+        "mlb_id": 669065,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "LF",
+        "team": "MIA"
+      },
+      "liam hicks": {
+        "name": "Liam Hicks",
+        "mlb_id": 689414,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "MIA"
+      },
+      "otto lopez": {
+        "name": "Otto Lopez",
+        "mlb_id": 672640,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "MIA"
+      },
+      "owen caissie": {
+        "name": "Owen Caissie",
+        "mlb_id": 683357,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "RF",
+        "team": "MIA"
+      },
+      "xavier edwards": {
+        "name": "Xavier Edwards",
+        "mlb_id": 669364,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "2B",
+        "team": "MIA"
+      }
+    }
+  },
+  "CWS": {
+    "left": 6,
+    "right": 5,
+    "switch": 2,
+    "total": 13,
+    "left_pct": 46,
+    "right_pct": 38,
+    "players": {
+      "andrew benintendi": {
+        "name": "Andrew Benintendi",
+        "mlb_id": 643217,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "DH",
+        "team": "CWS"
+      },
+      "chase meidroth": {
+        "name": "Chase Meidroth",
+        "mlb_id": 805367,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "2B",
+        "team": "CWS"
+      },
+      "colson montgomery": {
+        "name": "Colson Montgomery",
+        "mlb_id": 695657,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "SS",
+        "team": "CWS"
+      },
+      "derek hill": {
+        "name": "Derek Hill",
+        "mlb_id": 656537,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "CWS"
+      },
+      "drew romo": {
+        "name": "Drew Romo",
+        "mlb_id": 691011,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "CWS"
+      },
+      "edgar quero": {
+        "name": "Edgar Quero",
+        "mlb_id": 700337,
+        "bat_side": "S",
+        "throws": "R",
+        "position": "C",
+        "team": "CWS"
+      },
+      "luisangel acuna": {
+        "name": "Luisangel Acu\u00f1a",
+        "mlb_id": 682668,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "CF",
+        "team": "CWS"
+      },
+      "miguel vargas": {
+        "name": "Miguel Vargas",
+        "mlb_id": 678246,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "CWS"
+      },
+      "munetaka murakami": {
+        "name": "Munetaka Murakami",
+        "mlb_id": 808959,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "CWS"
+      },
+      "randal grichuk": {
+        "name": "Randal Grichuk",
+        "mlb_id": 545341,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "CWS"
+      },
+      "rikuu nishida": {
+        "name": "Rikuu Nishida",
+        "mlb_id": 807747,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "OF",
+        "team": "CWS"
+      },
+      "sam antonacci": {
+        "name": "Sam Antonacci",
+        "mlb_id": 803011,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "LF",
+        "team": "CWS"
+      },
+      "tristan peters": {
+        "name": "Tristan Peters",
+        "mlb_id": 671976,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "CF",
+        "team": "CWS"
+      }
+    }
+  },
+  "NYY": {
+    "left": 7,
+    "right": 6,
+    "switch": 0,
+    "total": 13,
+    "left_pct": 54,
+    "right_pct": 46,
+    "players": {
+      "aaron judge": {
+        "name": "Aaron Judge",
+        "mlb_id": 592450,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "RF",
+        "team": "NYY"
+      },
+      "amed rosario": {
+        "name": "Amed Rosario",
+        "mlb_id": 642708,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "3B",
+        "team": "NYY"
+      },
+      "anthony volpe": {
+        "name": "Anthony Volpe",
+        "mlb_id": 683011,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "NYY"
+      },
+      "austin wells": {
+        "name": "Austin Wells",
+        "mlb_id": 669224,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "NYY"
+      },
+      "ben rice": {
+        "name": "Ben Rice",
+        "mlb_id": 700250,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "1B",
+        "team": "NYY"
+      },
+      "cody bellinger": {
+        "name": "Cody Bellinger",
+        "mlb_id": 641355,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "LF",
+        "team": "NYY"
+      },
+      "jc escarra": {
+        "name": "J.C. Escarra",
+        "mlb_id": 641555,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "C",
+        "team": "NYY"
+      },
+      "jazz chisholm": {
+        "name": "Jazz Chisholm Jr.",
+        "mlb_id": 665862,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "2B",
+        "team": "NYY"
+      },
+      "jose caballero": {
+        "name": "Jos\u00e9 Caballero",
+        "mlb_id": 676609,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "NYY"
+      },
+      "max schuemann": {
+        "name": "Max Schuemann",
+        "mlb_id": 680474,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "SS",
+        "team": "NYY"
+      },
+      "paul goldschmidt": {
+        "name": "Paul Goldschmidt",
+        "mlb_id": 502671,
+        "bat_side": "R",
+        "throws": "R",
+        "position": "1B",
+        "team": "NYY"
+      },
+      "ryan mcmahon": {
+        "name": "Ryan McMahon",
+        "mlb_id": 641857,
+        "bat_side": "L",
+        "throws": "R",
+        "position": "3B",
+        "team": "NYY"
+      },
+      "trent grisham": {
+        "name": "Trent Grisham",
+        "mlb_id": 663757,
+        "bat_side": "L",
+        "throws": "L",
+        "position": "CF",
+        "team": "NYY"
+      }
+    }
   }
 }
