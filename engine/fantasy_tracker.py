@@ -1954,6 +1954,17 @@ def _fetch_single_team_handedness(mlb_team_id):
         return None
 
 
+def _team_handedness_has_player_metadata(team_handedness):
+    """Return True when cached handedness includes per-player bat-side data."""
+    if not isinstance(team_handedness, dict):
+        return False
+    for data in team_handedness.values():
+        players = (data or {}).get('players')
+        if isinstance(players, dict) and players:
+            return True
+    return False
+
+
 def _load_il_snapshot_for_diff(min_age_days=4, max_age_days=14):
     """Find a previous IL snapshot to use as a baseline for detecting returns.
 
@@ -2108,9 +2119,11 @@ def fetch_team_il_hitters(players_list):
 def fetch_team_handedness():
     """Fetch batter handedness for all 30 teams (parallelized, cached 24h)."""
     cached, age = _load_streaming_cache('team_handedness.json')
-    if cached:
+    if cached and _team_handedness_has_player_metadata(cached):
         print(f"  Using cached team handedness ({age:.1f}h old)")
         return cached
+    if cached:
+        print("  Cached team handedness lacks player bat-side metadata; refreshing")
 
     print("  Fetching team roster handedness (30 teams)...")
     results = {}
@@ -6497,6 +6510,48 @@ def _hitter_field(row, value, *keys):
     return None
 
 
+def _normalize_hand_code(value):
+    if value in (None, ''):
+        return None
+    text = str(value).strip().upper()
+    if text in ('L', 'LEFT', 'LEFTY'):
+        return 'L'
+    if text in ('R', 'RIGHT', 'RIGHTY'):
+        return 'R'
+    if text in ('S', 'SWITCH', 'BOTH'):
+        return 'S'
+    return None
+
+
+def _hitter_platoon_context(hitter_bats, pitcher_hand):
+    """Simple read-only hitter platoon label; not used for recommendations."""
+    bat = _normalize_hand_code(hitter_bats)
+    hand = _normalize_hand_code(pitcher_hand)
+    if not bat or not hand:
+        return {
+            'label': 'unknown',
+            'note': 'platoon unknown',
+            'detail': 'missing hitter bat side or opposing pitcher hand',
+        }
+    if bat == 'S':
+        return {
+            'label': 'switch_hitter',
+            'note': f'switch hitter vs {hand}HP',
+            'detail': 'switch hitter can usually take the preferred side',
+        }
+    if bat != hand:
+        return {
+            'label': 'platoon_edge',
+            'note': f'platoon edge vs {hand}HP',
+            'detail': 'opposite-side hitter matchup',
+        }
+    return {
+        'label': 'platoon_risk',
+        'note': f'platoon risk vs {hand}HP',
+        'detail': 'same-side hitter matchup',
+    }
+
+
 def _handedness_player_lookup(team_handedness):
     lookup = {}
     for team, data in (team_handedness or {}).items():
@@ -6717,6 +6772,7 @@ def _hitter_context_row(row, lookup, game_context, base_date, roster_state,
         or hand_player.get('throws')
     )
     opp_hand = today_game.get('opposing_pitcher_hand')
+    platoon_context = _hitter_platoon_context(hitter_bats, opp_hand)
     lineup_status = lineup_player.get('lineup_status') or 'unknown'
     batting_order_status = lineup_player.get('batting_order_status') or 'unknown'
     batting_order_spot = lineup_player.get('batting_order_spot')
@@ -6774,6 +6830,9 @@ def _hitter_context_row(row, lookup, game_context, base_date, roster_state,
         'opposing_pitcher_team': today_game.get('probable_pitcher_team'),
         'opposing_probable_source': today_game.get('probable_source'),
         'opposing_pitcher_hand': opp_hand,
+        'hitter_platoon_context': platoon_context.get('label'),
+        'hitter_platoon_note': platoon_context.get('note'),
+        'hitter_platoon_detail': platoon_context.get('detail'),
         'opposing_pitcher_projected_pts': today_game.get('opposing_pitcher_projected_pts'),
         'opposing_pitcher_tier': today_game.get('opposing_pitcher_tier'),
         'opposing_pitcher_proj_era': today_game.get('opposing_pitcher_proj_era'),
@@ -6864,6 +6923,10 @@ def build_hitter_daily_context(base_date=None, players_list=None, matchup_snapsh
             'with_team_handedness_context': with_team_hand,
             'with_hitter_bats': sum(1 for row in rows if row.get('hitter_bats')),
             'with_hitter_throws': sum(1 for row in rows if row.get('hitter_throws')),
+            'with_hitter_platoon_context': sum(1 for row in rows if row.get('hitter_platoon_context') and row.get('hitter_platoon_context') != 'unknown'),
+            'hitter_platoon_edge': sum(1 for row in rows if row.get('hitter_platoon_context') == 'platoon_edge'),
+            'hitter_platoon_risk': sum(1 for row in rows if row.get('hitter_platoon_context') == 'platoon_risk'),
+            'hitter_switch_context': sum(1 for row in rows if row.get('hitter_platoon_context') == 'switch_hitter'),
             'with_confirmed_lineup_status': sum(1 for row in rows if row.get('lineup_status') != 'unknown'),
             'with_lineup_spot': sum(1 for row in rows if row.get('batting_order_spot') is not None),
             'injury_status_rows': injured,
@@ -6894,6 +6957,76 @@ def _hitter_action(kind, text, priority, row=None, value=None, source='espn_rost
         'rpts': round(_safe_float(value.get('rpts')) or 0.0, 1),
         'source': source,
     }
+
+
+def _hitter_context_action_value(row):
+    return {
+        'dollars': _safe_float((row or {}).get('ros_dollars')) or 0.0,
+        'rpts': _safe_float((row or {}).get('ros_rpts')) or 0.0,
+        'status': (row or {}).get('roster_status') or '',
+    }
+
+
+def _hitter_context_candidate_key(row):
+    lineup_status = (row or {}).get('lineup_status') or ''
+    lineup_score = 3 if lineup_status == 'confirmed_starting' else 1 if lineup_status == 'unknown' else 0
+    platoon = (row or {}).get('hitter_platoon_context') or ''
+    platoon_score = 2 if platoon == 'platoon_edge' else 1 if platoon == 'switch_hitter' else -1 if platoon == 'platoon_risk' else 0
+    spot = (row or {}).get('batting_order_spot')
+    spot_score = 0 if spot is None else max(0, 10 - int(spot))
+    return (
+        _safe_float((row or {}).get('ros_dollars')) or 0.0,
+        lineup_score,
+        platoon_score,
+        spot_score,
+        _safe_float((row or {}).get('ros_rpts')) or 0.0,
+    )
+
+
+def _hitter_context_matchup_text(row):
+    if not row:
+        return ''
+    bits = []
+    if row.get('home_away_today') and row.get('opponent_today'):
+        bits.append(f"{row.get('home_away_today')} vs {row.get('opponent_today')}")
+    if row.get('batting_order_spot') is not None:
+        bits.append(f"batting {row.get('batting_order_spot')}")
+    elif row.get('lineup_status') and row.get('lineup_status') != 'unknown':
+        bits.append(str(row.get('lineup_status')).replace('_', ' '))
+    if row.get('hitter_platoon_note') and row.get('hitter_platoon_context') != 'unknown':
+        bits.append(row.get('hitter_platoon_note'))
+    if row.get('opposing_probable_pitcher'):
+        hand = row.get('opposing_pitcher_hand') or '?'
+        bits.append(f"vs {row.get('opposing_probable_pitcher')} ({hand})")
+    return '; '.join(bits)
+
+
+def _hitter_context_replacement_text(candidate, source_label):
+    if not candidate:
+        return ''
+    bits = []
+    if candidate.get('home_away_today') and candidate.get('opponent_today'):
+        bits.append(f"{candidate.get('home_away_today')} vs {candidate.get('opponent_today')}")
+    if candidate.get('batting_order_spot') is not None:
+        bits.append(f"batting {candidate.get('batting_order_spot')}")
+    if candidate.get('hitter_platoon_note') and candidate.get('hitter_platoon_context') != 'unknown':
+        bits.append(candidate.get('hitter_platoon_note'))
+    detail = f"{candidate.get('name')} (${(_safe_float(candidate.get('ros_dollars')) or 0.0):.1f})"
+    if bits:
+        detail += f", {'; '.join(bits)}"
+    return f" {source_label}: {detail}. Check eligibility."
+
+
+def _best_hitter_context_replacement(rows):
+    candidates = [
+        row for row in rows or []
+        if row.get('team_has_game_today') is True
+        and not row.get('injury_status')
+        and row.get('lineup_status') != 'not_in_confirmed_lineup'
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=_hitter_context_candidate_key)
 
 
 def build_hitter_decision_summary(base_date=None, players_list=None, matchup_snapshot_data=None,
@@ -6956,6 +7089,11 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
 
     active = [row for row in (snapshot or {}).get('my_active') or [] if _matchup_player_is_hitter(row)]
     bench = [row for row in (snapshot or {}).get('my_bench') or [] if _matchup_player_is_hitter(row)]
+    if team_handedness_context is None:
+        try:
+            team_handedness_context = fetch_team_handedness()
+        except Exception:
+            team_handedness_context, _age = _load_streaming_cache('team_handedness.json', max_age_hours=168)
     daily_context = build_hitter_daily_context(
         base_date,
         players_list=players_list,
@@ -6964,6 +7102,12 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
         allow_live_snapshot=False,
         team_handedness_context=team_handedness_context,
     )
+    context_rows = daily_context.get('rows') or []
+    active_context = [row for row in context_rows if row.get('roster_state') == 'active']
+    bench_context = [row for row in context_rows if row.get('roster_state') == 'bench']
+    available_context = [row for row in context_rows if row.get('roster_state') == 'available']
+    best_bench_context = _best_hitter_context_replacement(bench_context)
+    best_fa_context = _best_hitter_context_replacement(available_context)
     active_hurt = [row for row in active if row.get('injury')]
     bench_usable = [
         row for row in bench
@@ -6973,11 +7117,10 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
 
     for row in active_hurt:
         value = _hitter_value(row, lookup)
-        replacement = bench_usable[0] if bench_usable else None
-        repl_text = ''
-        if replacement:
-            repl_value = _hitter_value(replacement, lookup)
-            repl_text = f" Top bench replacement: {replacement.get('name')} (${repl_value['dollars']:.1f} RoS)."
+        repl_text = (
+            _hitter_context_replacement_text(best_bench_context, 'Best bench')
+            or _hitter_context_replacement_text(best_fa_context, 'Best FA')
+        )
         add(_hitter_action(
             'INJURY CHECK',
             f"Check {row.get('name')} in active {row.get('slot')}: ESPN status {row.get('injury')}.{repl_text}",
@@ -6987,17 +7130,13 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
         ))
 
     if today_teams:
-        active_no_game = [
-            row for row in active
-            if not row.get('injury') and _hitter_team_has_game(row, today_teams) is False
-        ]
-        for row in sorted(active_no_game, key=lambda r: _hitter_value(r, lookup)['dollars'])[:3]:
-            value = _hitter_value(row, lookup)
-            replacement = bench_usable[0] if bench_usable else None
-            repl_text = ''
-            if replacement:
-                repl_value = _hitter_value(replacement, lookup)
-                repl_text = f" {replacement.get('name')} has a game today (${repl_value['dollars']:.1f} RoS) if eligible."
+        active_no_game = [row for row in active_context if not row.get('injury_status') and row.get('team_has_game_today') is False]
+        for row in sorted(active_no_game, key=_hitter_context_candidate_key)[:3]:
+            value = _hitter_context_action_value(row)
+            repl_text = (
+                _hitter_context_replacement_text(best_bench_context, 'Best bench')
+                or _hitter_context_replacement_text(best_fa_context, 'Best FA')
+            )
             add(_hitter_action(
                 'NO GAME',
                 f"{row.get('name')} appears active at {row.get('slot')} with no game today.{repl_text}",
@@ -7006,14 +7145,43 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
                 value,
             ))
 
-    for row in bench_usable[:3]:
-        value = _hitter_value(row, lookup)
-        if value['dollars'] <= 0 and not active_hurt:
+    active_missing_lineup = [
+        row for row in active_context
+        if not row.get('injury_status')
+        and row.get('team_has_game_today') is not False
+        and row.get('lineup_status') == 'not_in_confirmed_lineup'
+    ]
+    for row in sorted(active_missing_lineup, key=_hitter_context_candidate_key)[:3]:
+        value = _hitter_context_action_value(row)
+        repl_text = (
+            _hitter_context_replacement_text(best_bench_context, 'Best bench')
+            or _hitter_context_replacement_text(best_fa_context, 'Best FA')
+        )
+        add(_hitter_action(
+            'BENCH',
+            f"{row.get('name')} is active but not in the posted lineup yet.{repl_text}",
+            24,
+            row,
+            value,
+        ))
+
+    bench_context_usable = [
+        row for row in bench_context
+        if row.get('team_has_game_today') is True
+        and not row.get('injury_status')
+        and row.get('lineup_status') != 'not_in_confirmed_lineup'
+    ]
+    bench_context_usable.sort(key=_hitter_context_candidate_key, reverse=True)
+    for row in bench_context_usable[:3]:
+        value = _hitter_context_action_value(row)
+        if value['dollars'] <= 0 and not active_hurt and not active_missing_lineup:
             continue
         label = 'START' if active_hurt or value['dollars'] >= 5 else 'WATCH'
+        matchup = _hitter_context_matchup_text(row)
+        matchup_text = f" {matchup}." if matchup else ""
         add(_hitter_action(
             label,
-            f"{row.get('name')} is on bench with a game today; ${value['dollars']:.1f} RoS value.",
+            f"{row.get('name')} is on bench with a game today; ${value['dollars']:.1f} RoS value.{matchup_text}",
             28 if label == 'START' else 55,
             row,
             value,
@@ -7024,15 +7192,36 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
         if row.get('status') in ('FA', 'WAIVER') and (_safe_float(row.get('dollars')) or 0.0) > 0
     ]
     fa_hitters.sort(key=lambda p: (_safe_float(p.get('dollars')) or 0.0, _safe_float(p.get('rpts')) or 0.0), reverse=True)
-    for player in fa_hitters[:4]:
-        add(_hitter_action(
-            'ADD',
-            f"Watch/add {player.get('name')} if you need hitter depth; ${_safe_float(player.get('dollars')) or 0.0:.1f} RoS value.",
-            65,
-            {'name': player.get('name'), 'team': player.get('team'), 'slot': player.get('displayPos') or player.get('best_pos')},
-            player,
-            source='ros_values',
-        ))
+    fa_context_candidates = [
+        row for row in available_context
+        if row.get('team_has_game_today') is True
+        and row.get('lineup_status') != 'not_in_confirmed_lineup'
+        and (_safe_float(row.get('ros_dollars')) or 0.0) > 0
+    ]
+    fa_context_candidates.sort(key=_hitter_context_candidate_key, reverse=True)
+    if fa_context_candidates:
+        for row in fa_context_candidates[:4]:
+            value = _hitter_context_action_value(row)
+            matchup = _hitter_context_matchup_text(row)
+            matchup_text = f" {matchup}." if matchup else ""
+            add(_hitter_action(
+                'ADD',
+                f"Watch/add {row.get('name')} if you need hitter depth; ${value['dollars']:.1f} RoS value.{matchup_text}",
+                65,
+                row,
+                value,
+                source='hitter_context',
+            ))
+    else:
+        for player in fa_hitters[:4]:
+            add(_hitter_action(
+                'ADD',
+                f"Watch/add {player.get('name')} if you need hitter depth; ${_safe_float(player.get('dollars')) or 0.0:.1f} RoS value.",
+                65,
+                {'name': player.get('name'), 'team': player.get('team'), 'slot': player.get('displayPos') or player.get('best_pos')},
+                player,
+                source='ros_values',
+            ))
 
     actions = sorted(actions, key=lambda a: (a.get('priority', 99), -(_safe_float(a.get('dollars')) or 0.0), a.get('text')))[:limit]
     return {
@@ -7071,6 +7260,7 @@ def print_hitter_decisions(summary):
             f"{coverage.get('with_opposing_pitcher_quality', 0)} with pitcher quality, "
             f"{coverage.get('with_park_or_venue', 0)} with park/venue, "
             f"{coverage.get('with_hitter_bats', 0)} with hitter bats, "
+            f"{coverage.get('with_hitter_platoon_context', 0)} with platoon context, "
             f"{coverage.get('with_lineup_spot', 0)} with lineup spot"
         )
     items = (summary or {}).get('items') or []
@@ -7105,6 +7295,7 @@ def print_hitter_context(context, limit=12):
         f"park/venue: {coverage.get('with_park_or_venue', 0)} | "
         f"pitcher hand: {coverage.get('with_opposing_pitcher_hand', 0)} | "
         f"hitter bats: {coverage.get('with_hitter_bats', 0)} | "
+        f"platoon context: {coverage.get('with_hitter_platoon_context', 0)} | "
         f"lineup spot: {coverage.get('with_lineup_spot', 0)} | "
         f"posted lineup teams: {coverage.get('teams_with_posted_lineups', 0)}"
     )
@@ -7117,6 +7308,7 @@ def print_hitter_context(context, limit=12):
         pitcher_quality = f"{pitcher}, {pitcher_pts:.1f} pitcher pts" if pitcher_pts is not None else pitcher
         hand = row.get('opposing_pitcher_hand') or 'pitcher hand TODO'
         bats = row.get('hitter_bats') or 'bats TODO'
+        platoon = row.get('hitter_platoon_note') or 'platoon TODO'
         lineup = (
             f"batting {row.get('batting_order_spot')}"
             if row.get('batting_order_spot') is not None
@@ -7127,13 +7319,200 @@ def print_hitter_context(context, limit=12):
             f"{row.get('slot') or row.get('display_pos')}): {game} vs {opp}; "
             f"${row.get('ros_dollars')} RoS; opp SP {pitcher_quality}; "
             f"{row.get('park_today') or row.get('venue_name_today') or 'park TODO'}; "
-            f"bats {bats}; {hand}; {lineup}"
+            f"bats {bats}; {hand}; {platoon}; {lineup}"
         )
     notes = (context or {}).get('notes') or []
     if notes:
         print("\nNotes")
         for note in notes:
             print(f"  - {note}")
+
+
+def _hitter_context_score(row):
+    return (
+        _safe_float((row or {}).get('ros_dollars')) or 0.0,
+        _safe_float((row or {}).get('ros_rpts')) or 0.0,
+    )
+
+
+def _hitter_context_name(row):
+    name = (row or {}).get('name') or 'Unknown'
+    team = (row or {}).get('team') or '?'
+    slot = (row or {}).get('slot') or (row or {}).get('display_pos') or '?'
+    value = _safe_float((row or {}).get('ros_dollars')) or 0.0
+    return f"{name} ({team}, {slot}, ${value:.1f} RoS)"
+
+
+def _print_hitter_context_rows(title, rows, limit=6, empty='None'):
+    print(f"\n{title}")
+    if not rows:
+        print(f"  {empty}")
+        return
+    for row in rows[:limit]:
+        details = []
+        if row.get('injury_status'):
+            details.append(f"injury {row.get('injury_status')}")
+        if row.get('team_has_game_today') is False:
+            details.append('no game today')
+        elif row.get('opponent_today'):
+            details.append(f"{row.get('home_away_today') or '?'} vs {row.get('opponent_today')}")
+        if row.get('lineup_status') and row.get('lineup_status') != 'unknown':
+            lineup = row.get('lineup_status')
+            if row.get('batting_order_spot') is not None:
+                lineup += f", batting {row.get('batting_order_spot')}"
+            details.append(lineup)
+        if row.get('opposing_probable_pitcher'):
+            hand = row.get('opposing_pitcher_hand') or '?'
+            pts = row.get('opposing_pitcher_projected_pts')
+            pitcher = f"opp SP {row.get('opposing_probable_pitcher')} ({hand})"
+            if pts is not None:
+                pitcher += f", {pts:.1f} pitcher pts"
+            details.append(pitcher)
+        if row.get('hitter_bats'):
+            details.append(f"bats {row.get('hitter_bats')}")
+        if row.get('hitter_platoon_note') and row.get('hitter_platoon_context') != 'unknown':
+            details.append(row.get('hitter_platoon_note'))
+        suffix = f" — {'; '.join(details)}" if details else ''
+        print(f"  - {_hitter_context_name(row)}{suffix}")
+
+
+def build_hitter_decision_context_analysis(base_date=None, players_list=None):
+    """Read-only hitter decision context analysis; no recommendation changes."""
+    base_date = base_date or date.today().isoformat()
+    players_list = [dict(p) for p in (players_list or [])]
+    records, source_kind, source_label = _matchup_prediction_records_for_actions(base_date, days=6)
+    snapshot = None
+    try:
+        snapshot = build_matchup_snapshot()
+    except Exception as e:
+        snapshot = {'error': f'{type(e).__name__}: {e}'}
+    try:
+        team_handedness = fetch_team_handedness()
+    except Exception:
+        team_handedness, _age = _load_streaming_cache('team_handedness.json', max_age_hours=168)
+    team_handedness = team_handedness if isinstance(team_handedness, dict) else {}
+    context = build_hitter_daily_context(
+        base_date,
+        players_list=players_list,
+        matchup_snapshot_data=snapshot,
+        prediction_records=records,
+        allow_live_snapshot=False,
+        team_handedness_context=team_handedness,
+    )
+    rows = context.get('rows') or []
+    active = [r for r in rows if r.get('roster_state') == 'active']
+    bench = [r for r in rows if r.get('roster_state') == 'bench']
+    available = [r for r in rows if r.get('roster_state') == 'available']
+
+    active_injured = sorted(
+        [r for r in active if r.get('injury_status')],
+        key=_hitter_context_score,
+        reverse=True,
+    )
+    active_no_game = sorted(
+        [r for r in active if r.get('team_has_game_today') is False and not r.get('injury_status')],
+        key=_hitter_context_score,
+    )
+    active_missing_lineup = sorted(
+        [r for r in active if r.get('lineup_status') == 'not_in_confirmed_lineup'],
+        key=_hitter_context_score,
+        reverse=True,
+    )
+    risky_active = active_injured + active_no_game + active_missing_lineup
+    risky_floor = min([_hitter_context_score(r)[0] for r in risky_active], default=None)
+    bench_with_game = [
+        r for r in bench
+        if r.get('team_has_game_today') is True and not r.get('injury_status')
+    ]
+    if risky_floor is not None:
+        bench_better = [r for r in bench_with_game if (_hitter_context_score(r)[0] > risky_floor)]
+    else:
+        bench_better = bench_with_game
+    bench_better = sorted(bench_better, key=_hitter_context_score, reverse=True)
+    fa_replacements = sorted(
+        [
+            r for r in available
+            if r.get('team_has_game_today') is not False
+            and not r.get('injury_status')
+            and (_safe_float(r.get('ros_dollars')) or 0.0) > 0
+        ],
+        key=_hitter_context_score,
+        reverse=True,
+    )
+    return {
+        'date': base_date,
+        'prediction_source': source_label or source_kind,
+        'snapshot_available': bool(snapshot and not snapshot.get('error') and not snapshot.get('low_confidence')),
+        'snapshot_error': (snapshot or {}).get('error') or ('low confidence matchup snapshot' if (snapshot or {}).get('low_confidence') else None),
+        'context': context,
+        'active_injured': active_injured,
+        'active_no_game': active_no_game,
+        'active_missing_lineup': active_missing_lineup,
+        'bench_better': bench_better,
+        'fa_replacements': fa_replacements,
+        'notes': context.get('notes') or [],
+    }
+
+
+def print_hitter_decision_context_analysis(summary):
+    print("\nHITTER DECISION CONTEXT ANALYSIS")
+    print("=" * 60)
+    print("Analysis only: this does not change scoring, predictions, recommendations, or roster moves.")
+    print(f"Date: {summary.get('date')}")
+    print(f"Prediction context source: {summary.get('prediction_source') or 'unknown'}")
+    if summary.get('snapshot_error'):
+        print(f"ESPN matchup/roster snapshot note: {summary.get('snapshot_error')}")
+    context = summary.get('context') or {}
+    coverage = context.get('coverage') or {}
+    total = coverage.get('total_rows', 0)
+    print("\nContext coverage")
+    print(f"  Rows analyzed: {total}")
+    print(f"  Team game known/today: {coverage.get('with_game_today', 0)}/{total}")
+    print(f"  Hitter bats known: {coverage.get('with_hitter_bats', 0)}/{total}")
+    print(f"  Opposing pitcher hand known: {coverage.get('with_opposing_pitcher_hand', 0)}/{total}")
+    print(f"  Platoon context known: {coverage.get('with_hitter_platoon_context', 0)}/{total}")
+    print(
+        f"    edge {coverage.get('hitter_platoon_edge', 0)}, "
+        f"risk {coverage.get('hitter_platoon_risk', 0)}, "
+        f"switch {coverage.get('hitter_switch_context', 0)}"
+    )
+    print(f"  Lineup status known: {coverage.get('with_confirmed_lineup_status', 0)}/{total}")
+    print(f"  Batting order spot known: {coverage.get('with_lineup_spot', 0)}/{total}")
+    print(f"  Injury status rows: {coverage.get('injury_status_rows', 0)}")
+    print(f"  Posted lineup teams: {coverage.get('teams_with_posted_lineups', 0)}")
+
+    _print_hitter_context_rows(
+        "Active hitters with injury/DTD/IL/OUT status",
+        summary.get('active_injured') or [],
+        empty='No active hitter injury flags found.',
+    )
+    _print_hitter_context_rows(
+        "Active hitters with no game today",
+        summary.get('active_no_game') or [],
+        empty='No active hitter no-game spots found.',
+    )
+    _print_hitter_context_rows(
+        "Active hitters missing confirmed lineup spot",
+        summary.get('active_missing_lineup') or [],
+        empty='No active hitters missing from posted lineups, or lineups not posted yet.',
+    )
+    _print_hitter_context_rows(
+        "Bench hitters with game today and better RoS value than risky active spots",
+        summary.get('bench_better') or [],
+        empty='No clear bench replacements found from current context.',
+    )
+    _print_hitter_context_rows(
+        "Best FA/waiver hitter replacements by RoS value",
+        summary.get('fa_replacements') or [],
+        empty='No positive RoS FA/waiver hitter replacements found.',
+    )
+
+    notes = summary.get('notes') or []
+    if notes:
+        print("\nNotes / TODO")
+        for note in notes:
+            print(f"  - {note}")
+    print("\nCurrent hitter recommendations are unchanged. Use this to see where context is reliable enough for future modeling.")
 
 
 def _current_players_for_hitter_decisions():
@@ -7185,23 +7564,29 @@ def _current_players_for_hitter_decisions():
 
 
 def hitter_decisions():
+    global PREVIEW_LOCAL
+    old_preview = PREVIEW_LOCAL
+    PREVIEW_LOCAL = True
     try:
-        players_list = _current_players_for_hitter_decisions()
-    except Exception as e:
-        print(f"Current RoS hitter load failed: {type(e).__name__}: {e}")
-        snapshot = load_latest_snapshot() or {}
-        players_list = snapshot.get('players') or []
-    if not players_list:
-        print("No local tracker snapshot found; run --preview-local or a normal report first.")
-    summary = build_hitter_decision_summary(
-        date.today().isoformat(),
-        players_list=players_list,
-        matchup_snapshot_data=None,
-        prediction_records=None,
-        allow_live_snapshot=True,
-    )
-    print_hitter_decisions(summary)
-    return summary
+        try:
+            players_list = _current_players_for_hitter_decisions()
+        except Exception as e:
+            print(f"Current RoS hitter load failed: {type(e).__name__}: {e}")
+            snapshot = load_latest_snapshot() or {}
+            players_list = snapshot.get('players') or []
+        if not players_list:
+            print("No local tracker snapshot found; run --preview-local or a normal report first.")
+        summary = build_hitter_decision_summary(
+            date.today().isoformat(),
+            players_list=players_list,
+            matchup_snapshot_data=None,
+            prediction_records=None,
+            allow_live_snapshot=True,
+        )
+        print_hitter_decisions(summary)
+        return summary
+    finally:
+        PREVIEW_LOCAL = old_preview
 
 
 def hitter_context():
@@ -7236,6 +7621,28 @@ def hitter_context():
         PREVIEW_LOCAL = old_preview
     print_hitter_context(context)
     return context
+
+
+def analyze_hitter_decision_context():
+    global PREVIEW_LOCAL
+    old_preview = PREVIEW_LOCAL
+    PREVIEW_LOCAL = True
+    try:
+        try:
+            players_list = _current_players_for_hitter_decisions()
+        except Exception as e:
+            print(f"Current RoS hitter load failed: {type(e).__name__}: {e}")
+            players_list = (load_latest_snapshot() or {}).get('players') or []
+        if not players_list:
+            print("No player list found; run --preview-local or a normal report first.")
+        summary = build_hitter_decision_context_analysis(
+            date.today().isoformat(),
+            players_list=players_list,
+        )
+        print_hitter_decision_context_analysis(summary)
+        return summary
+    finally:
+        PREVIEW_LOCAL = old_preview
 
 
 def _player_value_lookup(players_list):
@@ -8432,6 +8839,7 @@ function renderHitterDecisions() {
     h += '<span class="decision-pill">Park/venue <b>' + (coverage.with_park_or_venue || 0) + '</b></span>';
     h += '<span class="decision-pill">Pitcher hand <b>' + (coverage.with_opposing_pitcher_hand || 0) + '</b></span>';
     h += '<span class="decision-pill">Hitter bats <b>' + (coverage.with_hitter_bats || 0) + '</b></span>';
+    h += '<span class="decision-pill">Platoon context <b>' + (coverage.with_hitter_platoon_context || 0) + '</b></span>';
     h += '<span class="decision-pill">Lineup spot <b>' + (coverage.with_lineup_spot || 0) + '</b></span>';
     h += '<span class="decision-pill">Posted lineups <b>' + (coverage.teams_with_posted_lineups || 0) + '</b></span>';
   }
@@ -13367,6 +13775,7 @@ def main():
     parser.add_argument('--matchup-edge', action='store_true', help='Read-only rough current H2H matchup edge summary')
     parser.add_argument('--hitter-decisions', action='store_true', help='Read-only hitter lineup/FA decisions from existing roster and RoS data')
     parser.add_argument('--hitter-context', action='store_true', help='Read-only logged hitter daily context coverage')
+    parser.add_argument('--analyze-hitter-decision-context', action='store_true', help='Read-only hitter decision context reliability analysis')
     parser.add_argument('--debug-matchup-payload', action='store_true', help='Read-only compact ESPN matchup payload diagnostic')
     parser.add_argument('--explain-pitcher-schedule', metavar='PITCHER', help='Read-only probable-date diagnostic for one pitcher')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
@@ -13475,6 +13884,10 @@ def main():
 
     if args.hitter_context:
         hitter_context()
+        return
+
+    if args.analyze_hitter_decision_context:
+        analyze_hitter_decision_context()
         return
 
     if args.setup:
