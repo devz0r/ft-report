@@ -136,6 +136,11 @@ PARK_FACTORS = {
 # gets 50% weight. Higher = more regression toward league average early on.
 OPP_REGRESS_PA = 800
 
+# Recent-form trend labels feed learned hot/cold correction buckets. Keep the
+# threshold higher than one good/bad turn so tiny samples do not move points.
+RECENT_TREND_MIN_STARTS = 3
+RECENT_TREND_MIN_IP_FALLBACK = 15.0
+
 NAME_OVERRIDES = {}
 
 
@@ -1479,6 +1484,7 @@ def fetch_fg_recent_form():
         key = f"{normalize_name(name)}|{team}"
         recent[key] = {
             'IP': ip,
+            'GS': p.get('GS') or p.get('G') or None,
             'ERA': p.get('ERA', 0) or 0,
             'WHIP': p.get('WHIP', 0) or 0,
             'K9': p.get('K/9', 0) or 0,
@@ -1830,6 +1836,7 @@ def blend_today_into_recent(recent_form, today_lines, baseline_recent=None):
                 new_br = baserunners_prev + bb_t + h_t
                 new_k = k_prev + k_t
                 r['IP'] = new_ip
+                r['GS'] = (r.get('GS') or 0) + 1
                 r['ERA'] = new_er / new_ip * 9.0
                 r['WHIP'] = new_br / new_ip
                 r['K9'] = new_k / new_ip * 9.0
@@ -1838,6 +1845,7 @@ def blend_today_into_recent(recent_form, today_lines, baseline_recent=None):
             # First L14D entry for this pitcher (e.g., just returned from minors)
             recent_form[f"{norm}|{team}"] = {
                 'IP': ip_t,
+                'GS': 1,
                 'ERA': (er_t / ip_t) * 9.0 if ip_t else 0.0,
                 'WHIP': (bb_t + h_t) / ip_t if ip_t else 0.0,
                 'K9': (k_t / ip_t) * 9.0 if ip_t else 0.0,
@@ -3344,6 +3352,19 @@ def assess_trend(proj, recent):
     """
     if not recent:
         return ''
+    try:
+        recent_ip = float(recent.get('IP') or 0.0)
+    except Exception:
+        recent_ip = 0.0
+    try:
+        recent_starts = float(recent.get('GS')) if recent.get('GS') not in (None, '') else None
+    except Exception:
+        recent_starts = None
+    if recent_starts is not None:
+        if recent_starts < RECENT_TREND_MIN_STARTS:
+            return ''
+    elif recent_ip < RECENT_TREND_MIN_IP_FALLBACK:
+        return ''
     proj_era = proj.get('ERA', 4.0)
     recent_era = recent.get('ERA', proj_era)
     proj_k9 = proj.get('K9', 8.0)
@@ -4374,6 +4395,8 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'tag': tag,
             'trend': trend,
             'recent_era': round(recent['ERA'], 2) if recent else None,
+            'recent_ip': round(recent.get('IP'), 1) if recent and recent.get('IP') is not None else None,
+            'recent_k9': round(recent.get('K9'), 1) if recent and recent.get('K9') is not None else None,
             'fb_velo': details.get('fb_velo'),
             'pitch_count': details.get('pitch_count', 0),
             'status': status,
