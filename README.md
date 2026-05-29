@@ -22,7 +22,13 @@ Deeper warehouse check after the normal report:
 scripts/daily_report.sh --audit
 ```
 
-The daily script prints the local report path and live GitHub Pages URL when it finishes. Warehouse backfills and audits only run when `--audit` is passed.
+Later in the day, when MLB lineups are closer to posting, refresh hitter lineup context and build a local preview:
+
+```bash
+scripts/daily_report.sh --lineups
+```
+
+The daily script prints the local report path and live GitHub Pages URL when it finishes. Warehouse backfills and audits only run when `--audit` is passed. The lineup helper only refreshes local hitter lineup context and writes a local preview.
 
 ## Warehouse Foundation
 
