@@ -31,7 +31,7 @@ import fnmatch
 import subprocess
 from datetime import datetime, date, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 # =============================================================================
 # CONFIGURATION
@@ -7541,6 +7541,91 @@ def print_hitter_decision_context_analysis(summary):
     print("\nCurrent hitter recommendations are unchanged. Use this to see where context is reliable enough for future modeling.")
 
 
+def _pct(count, total):
+    if not total:
+        return "0%"
+    return f"{round(count / total * 100)}%"
+
+
+def print_hitter_context_coverage_audit(summary, decision_summary=None):
+    print("\nHITTER CONTEXT COVERAGE AUDIT")
+    print("=" * 60)
+    print("Read-only: measures hitter context reliability; recommendations are unchanged.")
+    print(f"Date: {summary.get('date')}")
+    print(f"Prediction context source: {summary.get('prediction_source') or 'unknown'}")
+    if summary.get('snapshot_error'):
+        print(f"ESPN matchup/roster snapshot note: {summary.get('snapshot_error')}")
+    context = summary.get('context') or {}
+    coverage = context.get('coverage') or {}
+    rows = context.get('rows') or []
+    total = coverage.get('total_rows', len(rows))
+
+    checks = [
+        ('Team game today', coverage.get('with_game_today', 0)),
+        ('Opponent known', coverage.get('with_opponent_today', 0)),
+        ('Opposing pitcher known', coverage.get('with_opposing_pitcher', 0)),
+        ('Opposing pitcher hand', coverage.get('with_opposing_pitcher_hand', 0)),
+        ('Opposing pitcher quality', coverage.get('with_opposing_pitcher_quality', 0)),
+        ('Hitter bats', coverage.get('with_hitter_bats', 0)),
+        ('Platoon context', coverage.get('with_hitter_platoon_context', 0)),
+        ('Lineup status', coverage.get('with_confirmed_lineup_status', 0)),
+        ('Lineup spot', coverage.get('with_lineup_spot', 0)),
+        ('Park/venue', coverage.get('with_park_or_venue', 0)),
+    ]
+    print("\nCoverage")
+    print(f"  Rows analyzed: {total}")
+    for label, count in checks:
+        print(f"  {label}: {count}/{total} ({_pct(count, total)})")
+    print(
+        "  Platoon split: "
+        f"edge {coverage.get('hitter_platoon_edge', 0)}, "
+        f"risk {coverage.get('hitter_platoon_risk', 0)}, "
+        f"switch {coverage.get('hitter_switch_context', 0)}"
+    )
+    print(f"  Posted lineup teams: {coverage.get('teams_with_posted_lineups', 0)}")
+
+    rows_by_state = Counter(row.get('roster_state') or 'unknown' for row in rows)
+    print("\nRows by roster state")
+    for state in ('active', 'bench', 'available', 'unknown'):
+        if rows_by_state.get(state):
+            print(f"  {state}: {rows_by_state[state]}")
+
+    actions = (decision_summary or {}).get('items') or []
+    confidence_counts = Counter(action.get('context_confidence') or 'No label' for action in actions)
+    kind_counts = Counter(action.get('kind') or 'UNKNOWN' for action in actions)
+    print("\nAction confidence")
+    if actions:
+        print(f"  Actions analyzed: {len(actions)}")
+        for label in ('High context', 'Medium context', 'Low context', 'No label'):
+            if confidence_counts.get(label):
+                print(f"  {label}: {confidence_counts[label]}/{len(actions)} ({_pct(confidence_counts[label], len(actions))})")
+        print("  Action types: " + ", ".join(f"{kind} {count}" for kind, count in sorted(kind_counts.items())))
+    else:
+        print("  No hitter actions available.")
+
+    blockers = []
+    if coverage.get('with_lineup_spot', 0) < total:
+        blockers.append('lineup spots are not fully posted yet')
+    if coverage.get('with_opposing_pitcher_hand', 0) < total:
+        blockers.append('opposing pitcher handedness is missing for some rows')
+    if coverage.get('with_hitter_bats', 0) < total:
+        blockers.append('hitter handedness is missing for some rows')
+    if coverage.get('with_game_today', 0) < total:
+        blockers.append('some hitters do not have a detected game today')
+    print("\nMain confidence blockers")
+    if blockers:
+        for blocker in blockers:
+            print(f"  - {blocker}")
+    else:
+        print("  None obvious from current context.")
+
+    notes = summary.get('notes') or []
+    if notes:
+        print("\nNotes")
+        for note in notes:
+            print(f"  - {note}")
+
+
 def _current_players_for_hitter_decisions():
     """Fetch current RoS player values/status in memory for read-only CLI output."""
     global PREVIEW_LOCAL
@@ -7666,6 +7751,36 @@ def analyze_hitter_decision_context():
             players_list=players_list,
         )
         print_hitter_decision_context_analysis(summary)
+        return summary
+    finally:
+        PREVIEW_LOCAL = old_preview
+
+
+def analyze_hitter_context_coverage():
+    global PREVIEW_LOCAL
+    old_preview = PREVIEW_LOCAL
+    PREVIEW_LOCAL = True
+    try:
+        try:
+            players_list = _current_players_for_hitter_decisions()
+        except Exception as e:
+            print(f"Current RoS hitter load failed: {type(e).__name__}: {e}")
+            players_list = (load_latest_snapshot() or {}).get('players') or []
+        if not players_list:
+            print("No player list found; run --preview-local or a normal report first.")
+        target_date = date.today().isoformat()
+        summary = build_hitter_decision_context_analysis(
+            target_date,
+            players_list=players_list,
+        )
+        decision_summary = build_hitter_decision_summary(
+            target_date,
+            players_list=players_list,
+            matchup_snapshot_data=None,
+            prediction_records=None,
+            allow_live_snapshot=True,
+        )
+        print_hitter_context_coverage_audit(summary, decision_summary)
         return summary
     finally:
         PREVIEW_LOCAL = old_preview
@@ -13833,6 +13948,7 @@ def main():
     parser.add_argument('--hitter-decisions', action='store_true', help='Read-only hitter lineup/FA decisions from existing roster and RoS data')
     parser.add_argument('--hitter-context', action='store_true', help='Read-only logged hitter daily context coverage')
     parser.add_argument('--analyze-hitter-decision-context', action='store_true', help='Read-only hitter decision context reliability analysis')
+    parser.add_argument('--analyze-hitter-context-coverage', action='store_true', help='Read-only hitter context coverage and confidence audit')
     parser.add_argument('--debug-matchup-payload', action='store_true', help='Read-only compact ESPN matchup payload diagnostic')
     parser.add_argument('--explain-pitcher-schedule', metavar='PITCHER', help='Read-only probable-date diagnostic for one pitcher')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
@@ -13945,6 +14061,10 @@ def main():
 
     if args.analyze_hitter_decision_context:
         analyze_hitter_decision_context()
+        return
+
+    if args.analyze_hitter_context_coverage:
+        analyze_hitter_context_coverage()
         return
 
     if args.setup:
