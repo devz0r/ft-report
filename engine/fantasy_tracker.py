@@ -47,6 +47,7 @@ CONFIG_FILE = os.path.join(SCRIPT_DIR, "tracker_config.json")
 OUTPUT_HTML = os.path.join(SCRIPT_DIR, "tracker_report.html")
 LOCAL_PREVIEW_DIR = os.path.join(SCRIPT_DIR, "local_preview")
 PREVIEW_LOCAL = False
+HITTER_DECISIONS_DIR = os.path.join(SCRIPT_DIR, "hitter_decisions")
 WAREHOUSE_DIR = os.path.join(SCRIPT_DIR, "warehouse")
 WAREHOUSE_LAYERS = ("raw", "clean", "features", "predictions", "outcomes", "views")
 
@@ -7309,6 +7310,105 @@ def print_hitter_decisions(summary):
             print(f"  - {note}")
 
 
+def _hitter_decision_log_path(target_date):
+    os.makedirs(HITTER_DECISIONS_DIR, exist_ok=True)
+    return os.path.join(HITTER_DECISIONS_DIR, f"{target_date}.jsonl")
+
+
+def write_hitter_decision_log(summary, source='report'):
+    """Write generated hitter decision actions for later evaluation."""
+    if not summary:
+        return None
+    target_date = summary.get('date') or date.today().isoformat()
+    items = summary.get('items') or []
+    context = summary.get('daily_context') or {}
+    coverage = context.get('coverage') or {}
+    logged_at = datetime.now().isoformat(timespec='seconds')
+    rows = []
+    for idx, item in enumerate(items, 1):
+        rows.append({
+            'date': target_date,
+            'logged_at': logged_at,
+            'source': source,
+            'rank': idx,
+            'kind': item.get('kind'),
+            'name': item.get('name'),
+            'team': item.get('team'),
+            'slot': item.get('slot'),
+            'status': item.get('status'),
+            'dollars': item.get('dollars'),
+            'rpts': item.get('rpts'),
+            'context_confidence': item.get('context_confidence'),
+            'text': item.get('text'),
+            'action_source': item.get('source'),
+            'coverage': {
+                'total_rows': coverage.get('total_rows'),
+                'with_game_today': coverage.get('with_game_today'),
+                'with_hitter_bats': coverage.get('with_hitter_bats'),
+                'with_hitter_platoon_context': coverage.get('with_hitter_platoon_context'),
+                'with_lineup_spot': coverage.get('with_lineup_spot'),
+                'teams_with_posted_lineups': coverage.get('teams_with_posted_lineups'),
+            },
+        })
+    path = _hitter_decision_log_path(target_date)
+    with open(path, 'w') as f:
+        for row in rows:
+            f.write(json.dumps(row, sort_keys=True) + '\n')
+    return path
+
+
+def _read_hitter_decision_log_rows():
+    rows = []
+    if not os.path.isdir(HITTER_DECISIONS_DIR):
+        return rows
+    for fn in sorted(os.listdir(HITTER_DECISIONS_DIR)):
+        if not fn.endswith('.jsonl'):
+            continue
+        path = os.path.join(HITTER_DECISIONS_DIR, fn)
+        try:
+            with open(path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        rows.append(json.loads(line))
+                    except Exception:
+                        continue
+        except Exception:
+            continue
+    return rows
+
+
+def audit_hitter_decision_log():
+    rows = _read_hitter_decision_log_rows()
+    print("\nHITTER DECISION LOG AUDIT")
+    print("=" * 60)
+    print("Read-only: summarizes generated hitter decision logs; no recommendations are changed.")
+    if not rows:
+        print("No hitter decision logs found yet.")
+        print(f"Log folder: {HITTER_DECISIONS_DIR}")
+        print("Run a normal report or preview to create today's generated hitter decision log.")
+        return {'rows': 0}
+    dates = sorted({row.get('date') for row in rows if row.get('date')})
+    kind_counts = Counter(row.get('kind') or 'UNKNOWN' for row in rows)
+    confidence_counts = Counter(row.get('context_confidence') or 'No label' for row in rows)
+    print(f"Log folder: {HITTER_DECISIONS_DIR}")
+    print(f"Dates logged: {dates[0]} through {dates[-1]} ({len(dates)} date(s))")
+    print(f"Action rows: {len(rows)}")
+    print("Action types: " + ", ".join(f"{kind} {count}" for kind, count in sorted(kind_counts.items())))
+    print("Context confidence: " + ", ".join(f"{label} {confidence_counts[label]}" for label in sorted(confidence_counts)))
+    latest = [row for row in rows if row.get('date') == dates[-1]]
+    print(f"\nLatest date: {dates[-1]}")
+    for row in latest[:8]:
+        print(
+            f"  - {row.get('kind')}: {row.get('name')} "
+            f"({row.get('team') or '?'}, {row.get('context_confidence') or 'No label'})"
+        )
+    print("\nThis is an evaluation foundation only. It does not use hitter outcomes yet.")
+    return {'rows': len(rows), 'dates': len(dates)}
+
+
 def print_hitter_context(context, limit=12):
     print("\nHITTER DAILY CONTEXT")
     print("=" * 60)
@@ -7695,6 +7795,9 @@ def hitter_decisions():
             prediction_records=None,
             allow_live_snapshot=True,
         )
+        path = write_hitter_decision_log(summary, source='hitter-decisions-cli')
+        if path:
+            print(f"Generated hitter decision log: {path}")
         print_hitter_decisions(summary)
         return summary
     finally:
@@ -8335,6 +8438,10 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                 'notes': [f'Hitter decisions unavailable: {type(e).__name__}: {e}'],
                 'data_available': {'ros_values': bool(players_list), 'espn_roster': False, 'team_game_schedule': False},
             }
+    try:
+        write_hitter_decision_log(hitter_decision_summary, source='html-report')
+    except Exception as e:
+        print(f"  Hitter decision log skipped: {type(e).__name__}: {e}")
     if matchup_edge_summary is None:
         try:
             matchup_edge_summary = build_matchup_edge_summary(
@@ -14008,6 +14115,7 @@ def main():
     parser.add_argument('--hitter-context', action='store_true', help='Read-only logged hitter daily context coverage')
     parser.add_argument('--analyze-hitter-decision-context', action='store_true', help='Read-only hitter decision context reliability analysis')
     parser.add_argument('--analyze-hitter-context-coverage', action='store_true', help='Read-only hitter context coverage and confidence audit')
+    parser.add_argument('--audit-hitter-decision-log', action='store_true', help='Read-only audit of generated hitter decision logs')
     parser.add_argument('--refresh-hitter-lineups', action='store_true', help='Refresh local MLB posted-lineup cache for hitter decisions')
     parser.add_argument('--debug-matchup-payload', action='store_true', help='Read-only compact ESPN matchup payload diagnostic')
     parser.add_argument('--explain-pitcher-schedule', metavar='PITCHER', help='Read-only probable-date diagnostic for one pitcher')
@@ -14125,6 +14233,10 @@ def main():
 
     if args.analyze_hitter_context_coverage:
         analyze_hitter_context_coverage()
+        return
+
+    if args.audit_hitter_decision_log:
+        audit_hitter_decision_log()
         return
 
     if args.refresh_hitter_lineups:

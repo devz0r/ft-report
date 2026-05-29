@@ -30,6 +30,8 @@ scripts/daily_report.sh --lineups
 
 The daily script prints the local report path and live GitHub Pages URL when it finishes. Warehouse backfills and audits only run when `--audit` is passed. The lineup helper only refreshes local hitter lineup context and writes a local preview.
 
+Generated hitter decision logs are written under `engine/hitter_decisions/` for future evaluation and are not committed. Use `python3.11 -B engine/fantasy_tracker.py --audit-hitter-decision-log` to summarize them.
+
 ## Warehouse Foundation
 
 DuckDB + Parquet warehouse support is being added in parallel under `engine/warehouse/`.

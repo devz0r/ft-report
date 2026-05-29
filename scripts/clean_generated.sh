@@ -28,6 +28,9 @@ find engine/warehouse/predictions -type f -name '*.parquet' -delete 2>/dev/null 
 find engine/warehouse/outcomes -type f -name '*.parquet' -delete 2>/dev/null || true
 find engine/warehouse/features -type f -name '*.parquet' -delete 2>/dev/null || true
 
+echo "Removing local hitter decision logs..."
+find engine/hitter_decisions -type f -name '*.jsonl' -delete 2>/dev/null || true
+
 echo "Removing local generated IL snapshot files..."
 if [[ -d engine/streaming_cache/il_snapshots ]]; then
   untracked_il_snapshots="$(git ls-files --others --exclude-standard -- 'engine/streaming_cache/il_snapshots/*.json')"
