@@ -9023,6 +9023,14 @@ function renderHitterDecisions() {
   var hitterAdds = items.filter(function(item) {
     return ['ADD', 'START', 'WATCH'].indexOf(item.kind || '') !== -1;
   });
+  var contextCounts = { high: 0, medium: 0, low: 0, unlabeled: 0 };
+  items.forEach(function(item) {
+    var label = item.context_confidence || '';
+    if (label === 'High context') contextCounts.high += 1;
+    else if (label === 'Medium context') contextCounts.medium += 1;
+    else if (label === 'Low context') contextCounts.low += 1;
+    else contextCounts.unlabeled += 1;
+  });
   var data = HITTER_DECISIONS.data_available || {};
   var context = HITTER_DECISIONS.daily_context || {};
   var coverage = context.coverage || {};
@@ -9046,6 +9054,17 @@ function renderHitterDecisions() {
   if (context.notes && context.notes.length) {
     h += '<div class="matchup-small">' + context.notes.map(escHtml).join(' ') + '</div>';
   }
+  h += '<div class="matchup-small">Hitter context confidence: ';
+  h += '<b>' + contextCounts.high + '</b> high, ';
+  h += '<b>' + contextCounts.medium + '</b> medium, ';
+  h += '<b>' + contextCounts.low + '</b> low';
+  if (contextCounts.unlabeled) h += ', <b>' + contextCounts.unlabeled + '</b> unlabeled';
+  if (coverage.total_rows !== undefined && !(coverage.with_lineup_spot || 0)) {
+    h += '. Lineups not posted yet, so hitter advice is context-limited.';
+  } else if (coverage.total_rows !== undefined && (coverage.with_lineup_spot || 0) < (coverage.total_rows || 0)) {
+    h += '. Some lineups are still missing.';
+  }
+  h += '</div>';
   h += '<div class="matchup-grid">';
   h += renderHitterActionSection(
     'Hitter Lineup Alerts',
