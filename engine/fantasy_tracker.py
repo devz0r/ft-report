@@ -6579,12 +6579,12 @@ def _hitter_batting_order_spot(value):
     return max(1, order // 100)
 
 
-def _fetch_hitter_lineup_context(records, base_date=None):
+def _fetch_hitter_lineup_context(records, base_date=None, force_refresh=False):
     """Read posted MLB boxscore lineups for today's games when available."""
     base_date = base_date or date.today().isoformat()
     cache_name = f"hitter_lineup_context_{base_date}.json"
     cached, _age = _load_streaming_cache(cache_name, max_age_hours=1)
-    if isinstance(cached, dict):
+    if isinstance(cached, dict) and not force_refresh:
         return cached
 
     game_pks = sorted({
@@ -6647,6 +6647,7 @@ def _fetch_hitter_lineup_context(records, base_date=None):
     payload = {
         'date': base_date,
         'source': 'MLB StatsAPI boxscore battingOrder',
+        'refreshed_at': datetime.now().isoformat(timespec='seconds'),
         'players': players,
         'teams_with_posted_lineups': sorted(teams_with_posted),
         'game_pks': game_pks,
@@ -7784,6 +7785,45 @@ def analyze_hitter_context_coverage():
         return summary
     finally:
         PREVIEW_LOCAL = old_preview
+
+
+def refresh_hitter_lineups(target_date=None):
+    """Refresh today's posted MLB lineup cache only; no projection changes."""
+    target_date = target_date or date.today().isoformat()
+    records, source_kind, source_label = _matchup_prediction_records_for_actions(target_date, days=0)
+    if not any(rec.get('game_pk') for rec in records or []):
+        try:
+            records = fetch_weekly_schedule(target_date, target_date)
+            source_kind = 'mlb_schedule'
+            source_label = 'MLB schedule'
+        except Exception as e:
+            print(f"Unable to fetch MLB schedule for lineup refresh: {type(e).__name__}: {e}")
+            records = []
+    context = _fetch_hitter_lineup_context(records or [], target_date, force_refresh=True)
+    players = context.get('players') or {}
+    teams = context.get('teams_with_posted_lineups') or []
+    game_pks = context.get('game_pks') or []
+    confirmed = [
+        player for player in players.values()
+        if player.get('lineup_status') == 'confirmed_starting'
+    ]
+    print("\nHITTER LINEUP REFRESH")
+    print("=" * 60)
+    print("Updated local hitter lineup cache only. Scoring, predictions, learned corrections, and recommendations are unchanged.")
+    print(f"Date: {target_date}")
+    print(f"Schedule source: {source_label or source_kind or 'unknown'}")
+    print(f"Games checked: {len(game_pks)}")
+    print(f"Teams with posted lineups: {len(teams)}")
+    if teams:
+        print("  " + ", ".join(teams))
+    else:
+        print("  None yet")
+    print(f"Confirmed starting hitters cached: {len(confirmed)}")
+    print(f"Cache source: {context.get('source') or 'unknown'}")
+    print(f"Refreshed at: {context.get('refreshed_at') or 'unknown'}")
+    if not teams:
+        print("Lineups may not be posted yet. Try again closer to first pitch.")
+    return context
 
 
 def _player_value_lookup(players_list):
@@ -13949,6 +13989,7 @@ def main():
     parser.add_argument('--hitter-context', action='store_true', help='Read-only logged hitter daily context coverage')
     parser.add_argument('--analyze-hitter-decision-context', action='store_true', help='Read-only hitter decision context reliability analysis')
     parser.add_argument('--analyze-hitter-context-coverage', action='store_true', help='Read-only hitter context coverage and confidence audit')
+    parser.add_argument('--refresh-hitter-lineups', action='store_true', help='Refresh local MLB posted-lineup cache for hitter decisions')
     parser.add_argument('--debug-matchup-payload', action='store_true', help='Read-only compact ESPN matchup payload diagnostic')
     parser.add_argument('--explain-pitcher-schedule', metavar='PITCHER', help='Read-only probable-date diagnostic for one pitcher')
     parser.add_argument('--preview-local', action='store_true', help='Write a local preview report without mutating tracked generated files')
@@ -14065,6 +14106,10 @@ def main():
 
     if args.analyze_hitter_context_coverage:
         analyze_hitter_context_coverage()
+        return
+
+    if args.refresh_hitter_lineups:
+        refresh_hitter_lineups()
         return
 
     if args.setup:
