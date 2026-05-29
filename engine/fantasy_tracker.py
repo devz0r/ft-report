@@ -6945,6 +6945,10 @@ def build_hitter_daily_context(base_date=None, players_list=None, matchup_snapsh
 def _hitter_action(kind, text, priority, row=None, value=None, source='espn_roster'):
     row = row or {}
     value = value or {}
+    confidence = _hitter_context_confidence(row)
+    meta = {'source': source}
+    if confidence:
+        meta['context'] = confidence
     return {
         'kind': kind,
         'text': _compact_decision_text(text, 180),
@@ -6956,7 +6960,24 @@ def _hitter_action(kind, text, priority, row=None, value=None, source='espn_rost
         'dollars': round(_safe_float(value.get('dollars')) or 0.0, 1),
         'rpts': round(_safe_float(value.get('rpts')) or 0.0, 1),
         'source': source,
+        'context_confidence': confidence,
+        'meta': meta,
     }
+
+
+def _hitter_context_confidence(row):
+    if not row or 'team_has_game_today' not in row:
+        return None
+    has_game = row.get('team_has_game_today') is True
+    has_bats = bool(row.get('hitter_bats'))
+    has_opp_hand = bool(row.get('opposing_pitcher_hand'))
+    has_lineup_spot = row.get('batting_order_spot') is not None
+    has_platoon = row.get('hitter_platoon_context') not in (None, '', 'unknown')
+    if has_game and has_bats and has_opp_hand and has_lineup_spot:
+        return 'High context'
+    if has_game and has_platoon:
+        return 'Medium context'
+    return 'Low context'
 
 
 def _hitter_context_action_value(row):
@@ -7104,6 +7125,7 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
     )
     context_rows = daily_context.get('rows') or []
     active_context = [row for row in context_rows if row.get('roster_state') == 'active']
+    active_context_by_name = {normalize_name(row.get('name') or ''): row for row in active_context}
     bench_context = [row for row in context_rows if row.get('roster_state') == 'bench']
     available_context = [row for row in context_rows if row.get('roster_state') == 'available']
     best_bench_context = _best_hitter_context_replacement(bench_context)
@@ -7116,6 +7138,8 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
     bench_usable.sort(key=lambda r: _hitter_value(r, lookup)['dollars'], reverse=True)
 
     for row in active_hurt:
+        context_row = dict(active_context_by_name.get(normalize_name(row.get('name') or '')) or {})
+        action_row = {**context_row, **{k: v for k, v in row.items() if v not in (None, '')}}
         value = _hitter_value(row, lookup)
         repl_text = (
             _hitter_context_replacement_text(best_bench_context, 'Best bench')
@@ -7125,7 +7149,7 @@ def build_hitter_decision_summary(base_date=None, players_list=None, matchup_sna
             'INJURY CHECK',
             f"Check {row.get('name')} in active {row.get('slot')}: ESPN status {row.get('injury')}.{repl_text}",
             5,
-            row,
+            action_row,
             value,
         ))
 
@@ -7272,6 +7296,8 @@ def print_hitter_decisions(summary):
             meta.append(action.get('team'))
         if action.get('slot'):
             meta.append(action.get('slot'))
+        if action.get('context_confidence'):
+            meta.append(action.get('context_confidence'))
         meta.append(f"${(_safe_float(action.get('dollars')) or 0.0):.1f} RoS")
         suffix = f" [{' | '.join(meta)}]" if meta else ""
         print(f"{idx:>2}. {action.get('kind')}: {action.get('text')}{suffix}")
@@ -8735,6 +8761,7 @@ function renderActionRows(items, limit) {
     var metaParts = [];
     if (item.meta) {
       if (item.meta.source) metaParts.push(item.meta.source);
+      if (item.meta.context) metaParts.push(item.meta.context);
       if (item.meta.game_date) metaParts.push(item.meta.game_date);
       if (item.meta.opponent) metaParts.push('vs ' + item.meta.opponent);
       if (item.meta.snapshot_date) metaParts.push('snapshot ' + item.meta.snapshot_date);
@@ -8748,6 +8775,17 @@ function renderActionRows(items, limit) {
     h += '<div class="action-meta">' + metaParts.map(escHtml).join(' &bull; ') + '</div>';
     h += '</div>';
   });
+  h += '</div>';
+  return h;
+}
+
+function renderHitterActionSection(title, items, emptyText, limit) {
+  var h = '<div class="decision-section"><div class="decision-section-title">' + escHtml(title) + '</div>';
+  if (!items || !items.length) {
+    h += '<div class="decision-empty">' + escHtml(emptyText || 'No hitter actions available.') + '</div></div>';
+    return h;
+  }
+  h += renderActionRows(items, limit || 6);
   h += '</div>';
   return h;
 }
@@ -8824,6 +8862,12 @@ function renderHitterDecisions() {
   if (!container || !HITTER_DECISIONS) return;
   var h = '<div class="day-card decision-card">';
   var items = HITTER_DECISIONS.items || [];
+  var lineupAlerts = items.filter(function(item) {
+    return ['INJURY CHECK', 'NO GAME', 'BENCH'].indexOf(item.kind || '') !== -1;
+  });
+  var hitterAdds = items.filter(function(item) {
+    return ['ADD', 'START', 'WATCH'].indexOf(item.kind || '') !== -1;
+  });
   var data = HITTER_DECISIONS.data_available || {};
   var context = HITTER_DECISIONS.daily_context || {};
   var coverage = context.coverage || {};
@@ -8847,7 +8891,20 @@ function renderHitterDecisions() {
   if (context.notes && context.notes.length) {
     h += '<div class="matchup-small">' + context.notes.map(escHtml).join(' ') + '</div>';
   }
-  h += renderActionRows(items, 10);
+  h += '<div class="matchup-grid">';
+  h += renderHitterActionSection(
+    'Hitter Lineup Alerts',
+    lineupAlerts,
+    'No active hitter injury, no-game, or posted-lineup alerts.',
+    6
+  );
+  h += renderHitterActionSection(
+    'Hitter Adds',
+    hitterAdds,
+    'No FA/bench hitter add notes available from current context.',
+    6
+  );
+  h += '</div>';
   if (HITTER_DECISIONS.notes && HITTER_DECISIONS.notes.length) {
     h += '<div class="decision-warning">' + HITTER_DECISIONS.notes.map(escHtml).join(' ') + '</div>';
   }
