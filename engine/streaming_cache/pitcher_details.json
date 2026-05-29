@@ -10570,5 +10570,37 @@
     "fb_velo": 92.9,
     "pitch_count": 5,
     "pitcher_hand": "L"
+  },
+  "671936": {
+    "mlb_id": 671936,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 94.68284710714285,
+        "pct": 0.35897437
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 85.51309890000002,
+        "pct": 0.12820514
+      },
+      {
+        "code": "KC",
+        "desc": "Knuckle Curve",
+        "velo": 78.88813422222222,
+        "pct": 0.115384616
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 85.86641032258063,
+        "pct": 0.3974359
+      }
+    ],
+    "fb_velo": 94.7,
+    "pitch_count": 4,
+    "pitcher_hand": "L"
   }
 }
