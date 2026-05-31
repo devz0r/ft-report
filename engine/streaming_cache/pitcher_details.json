@@ -10744,5 +10744,107 @@
     },
     "splits_window_years": 3,
     "pitcher_hand": "L"
+  },
+  "679883": {
+    "mlb_id": 679883,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 96.27781049038461,
+        "pct": 0.24586289
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 82.55348545714286,
+        "pct": 0.08274232
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 89.50779502631579,
+        "pct": 0.08983452
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 96.40162539199996,
+        "pct": 0.29550827
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 87.71301204132232,
+        "pct": 0.28605202
+      }
+    ],
+    "fb_velo": 96.3,
+    "pitch_count": 5,
+    "career_vs_l": {
+      "ops": "0.722",
+      "whip": "1.47",
+      "k9": "8.24",
+      "ip": "19.7"
+    },
+    "career_vs_r": {
+      "ops": "0.706",
+      "whip": "1.50",
+      "k9": "10.57",
+      "ip": "15.3"
+    },
+    "splits_window_years": 2,
+    "pitcher_hand": "R"
+  },
+  "675660": {
+    "mlb_id": 675660,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 94.90215160176987,
+        "pct": 0.26340327
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 80.2430362745098,
+        "pct": 0.11888112
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 84.96730732,
+        "pct": 0.05827506
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 94.8256661851852,
+        "pct": 0.18881118
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 86.14937506756756,
+        "pct": 0.17249417
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 90.37285835294118,
+        "pct": 0.1981352
+      }
+    ],
+    "fb_velo": 94.9,
+    "pitch_count": 6,
+    "career_vs_r": {
+      "ops": "0.514",
+      "whip": "1.15",
+      "k9": "9.77",
+      "ip": "15.7"
+    },
+    "splits_window_years": 1,
+    "pitcher_hand": "L"
   }
 }
