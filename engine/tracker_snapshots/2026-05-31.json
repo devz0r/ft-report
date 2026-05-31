@@ -1,6 +1,6 @@
 {
   "date": "2026-05-31",
-  "timestamp": "2026-05-31T18:41:56.295825",
+  "timestamp": "2026-05-31T20:01:24.155626",
   "players": [
     {
       "rank": 1,
@@ -8027,13 +8027,13 @@
       "positions": [
         "P"
       ],
-      "displayPos": "RP",
+      "displayPos": "SP",
       "team": "STL",
       "dollars": -25.3,
       "rpts": 83.0,
       "type": "pitcher",
       "fg_id": "31910",
-      "pitcherRole": "RP",
+      "pitcherRole": "SP",
       "espn_id": 5067321
     },
     {
@@ -8620,13 +8620,13 @@
       "positions": [
         "P"
       ],
-      "displayPos": "RP",
+      "displayPos": "SP",
       "team": "PIT",
       "dollars": -26.7,
       "rpts": 78.0,
       "type": "pitcher",
       "fg_id": "33174",
-      "pitcherRole": "RP",
+      "pitcherRole": "SP",
       "espn_id": 4621029
     },
     {
