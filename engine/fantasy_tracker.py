@@ -9722,6 +9722,12 @@ function renderAccuracy() {
     h2 += '<span class="decision-pill">Changed <b>' + escHtml(diff.changed || 0) + '</b></span>';
     h2 += '<span class="decision-pill">Helped/Hurt/Neutral <b>' + escHtml((diff.helped || 0) + '/' + (diff.hurt || 0) + '/' + (diff.neutral || 0)) + '</b></span>';
     h2 += '</div>';
+    h2 += '<div class="stream-note" style="margin:0 0 8px;color:#777">';
+    h2 += 'Shadow policy tracking is analysis-only: future prediction logs store what the risk guard would have recommended, but the live Streaming recommendations stay unchanged.';
+    if (p.source) {
+      h2 += ' Backtest source: ' + escHtml(p.source) + '.';
+    }
+    h2 += '</div>';
     h2 += '<div class="accuracy-table-wrap"><table class="accuracy-table">';
     h2 += '<tr style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:4px 16px">Metric</td><td style="padding:4px 16px;text-align:right">Current</td><td style="padding:4px 16px;text-align:right">Best</td><td style="padding:4px 16px;text-align:right">Change</td></tr>';
     var rows = [
@@ -12339,6 +12345,30 @@ def _start_sit_policy_advice(row, policy_key):
     return current
 
 
+def _shadow_risk_guard_decision(entry, features=None):
+    """Analysis-only risk guard advice for logging/backtesting.
+
+    This intentionally does not feed scoring, tiers, or report filtering.
+    """
+    features = features or {}
+    row = dict(features)
+    row.update({
+        'predicted_pts': entry.get('pts'),
+        'tier': entry.get('tier'),
+        'status': entry.get('status'),
+    })
+    row['predicted_advice'] = _start_sit_predicted_advice(entry.get('tier'), entry.get('pts'))
+    row['status_group'] = _start_sit_status_group(entry.get('status'))
+    risk_score, reasons = _decision_policy_risk_score(row)
+    shadow_advice = _start_sit_policy_advice(row, 'risk_guard')
+    return {
+        'shadow_risk_guard_advice': shadow_advice,
+        'shadow_risk_guard_changed': shadow_advice != row['predicted_advice'],
+        'shadow_risk_guard_score': risk_score,
+        'shadow_risk_guard_reasons': reasons,
+    }
+
+
 def _decision_policy_metrics(df, advice_col):
     total = len(df)
     start = df[df[advice_col] == 'START']
@@ -12773,6 +12803,13 @@ _register_features(WORKLOAD_FEATURES, 'workload', ['learned_bias_scan', 'predict
 
 _register_features(WEATHER_VENUE_FEATURES, 'weather_roof_environment', ['prediction_log', 'feature_audit', 'future_model'])
 
+_register_features([
+    'shadow_risk_guard_advice',
+    'shadow_risk_guard_changed',
+    'shadow_risk_guard_score',
+    'shadow_risk_guard_reasons',
+], 'decision_shadow_policy', ['prediction_log', 'feature_audit', 'future_policy_audit'])
+
 
 def _recent_prediction_files(limit=5):
     if not os.path.isdir(PREDICTIONS_DIR):
@@ -12929,6 +12966,102 @@ def log_prediction(entry):
         pitcher_norm = normalize_name(entry.get('name', ''))
         if not game_date or not pitcher_norm:
             return
+        logged_features = {
+            # Core projection
+            'proj_era': entry.get('era'),
+            'proj_whip': entry.get('whip'),
+            'proj_k9': entry.get('k9'),
+            # Matchup
+            'opp_ops': entry.get('opp_ops'),
+            'opp_ops_raw': entry.get('opp_ops_raw'),
+            'opp_rank': entry.get('opp_rank'),
+            'opp_k_pct': entry.get('opp_k_pct'),
+            'park_factor': entry.get('park_factor'),
+            'park': entry.get('park'),
+            'platoon': entry.get('platoon'),
+            'opp_hand': entry.get('opp_hand'),
+            'pitcher_hand': entry.get('pitcher_hand'),
+            'vs_l_ops': entry.get('vs_l_ops'),
+            'vs_r_ops': entry.get('vs_r_ops'),
+            # Numeric versions so the auto-bucketing engine can quartile
+            # and test for residual signal on platoon splits
+            'vs_l_ops_num': _safe_float(entry.get('vs_l_ops')),
+            'vs_r_ops_num': _safe_float(entry.get('vs_r_ops')),
+            'splits_window_years': entry.get('splits_window_years'),
+            'splits_l_r_diff': (
+                (_safe_float(entry.get('vs_l_ops')) or 0)
+                - (_safe_float(entry.get('vs_r_ops')) or 0)
+            ) if entry.get('vs_l_ops') and entry.get('vs_r_ops') else None,
+            'tag': entry.get('tag'),
+            'trend': entry.get('trend'),
+            'recent_era': entry.get('recent_era'),
+            'fb_velo': entry.get('fb_velo'),
+            'pitch_count': entry.get('pitch_count'),
+            'emerging': entry.get('emerging'),
+            'opp_il_count': len(entry.get('opp_il', []) or []),
+            'opp_il_returns_count': len(entry.get('opp_il_returns', []) or []),
+            # Statcast advanced (Phase 2)
+            'xera': entry.get('xera'),
+            'xwoba': entry.get('xwoba'),
+            'xba': entry.get('xba'),
+            'xslg': entry.get('xslg'),
+            'barrel_pct': entry.get('barrel_pct'),
+            'hard_hit_pct': entry.get('hard_hit_pct'),
+            'whiff_pct': entry.get('whiff_pct'),
+            'k_pct_savant': entry.get('k_pct_savant'),
+            'bb_pct_savant': entry.get('bb_pct_savant'),
+            'chase_pct': entry.get('chase_pct'),
+            'gb_pct': entry.get('gb_pct'),
+            'fb_pct': entry.get('fb_pct'),
+            'ld_pct': entry.get('ld_pct'),
+            # FG advanced (Phase 2)
+            'stuff_plus': entry.get('stuff_plus'),
+            'location_plus': entry.get('location_plus'),
+            'pitching_plus': entry.get('pitching_plus'),
+            'fip': entry.get('fip'),
+            'xfip': entry.get('xfip'),
+            'siera': entry.get('siera'),
+            # Bullpen + workload (Phase 2)
+            'opp_bullpen_era': entry.get('opp_bullpen_era'),
+            'opp_bullpen_whip': entry.get('opp_bullpen_whip'),
+            'days_rest': entry.get('days_rest'),
+            'last_pitch_count': entry.get('last_pitch_count'),
+            'last_start_ip': entry.get('last_start_ip'),
+            'last_start_pitch_count': entry.get('last_start_pitch_count'),
+            'avg_ip_last_3_starts': entry.get('avg_ip_last_3_starts'),
+            'avg_pitch_count_last_3_starts': entry.get('avg_pitch_count_last_3_starts'),
+            'max_pitch_count_last_5_starts': entry.get('max_pitch_count_last_5_starts'),
+            'season_avg_ip_per_start': entry.get('season_avg_ip_per_start'),
+            'season_avg_pitches_per_start': entry.get('season_avg_pitches_per_start'),
+            'short_rest_flag': entry.get('short_rest_flag'),
+            'extra_rest_flag': entry.get('extra_rest_flag'),
+            'workload_risk_score': entry.get('workload_risk_score'),
+            'workload_note': entry.get('workload_note'),
+            # Logged-only weather/venue context. These are for audit and
+            # later analysis only; they do not alter projected points.
+            'game_datetime': entry.get('game_datetime'),
+            'venue_name': entry.get('venue_name'),
+            'venue_lat': entry.get('venue_lat'),
+            'venue_lon': entry.get('venue_lon'),
+            'roof_type': entry.get('roof_type'),
+            'roof_status': entry.get('roof_status'),
+            'is_indoor_or_dome': entry.get('is_indoor_or_dome'),
+            'weather_source': entry.get('weather_source'),
+            'weather_snapshot_time': entry.get('weather_snapshot_time'),
+            'weather_temp_f': entry.get('weather_temp_f'),
+            'weather_wind_speed_mph': entry.get('weather_wind_speed_mph'),
+            'weather_wind_direction': entry.get('weather_wind_direction'),
+            'wind_out_to_cf_score': entry.get('wind_out_to_cf_score'),
+            'wind_in_from_cf_score': entry.get('wind_in_from_cf_score'),
+            'wind_cross_score': entry.get('wind_cross_score'),
+            'weather_precip_prob': entry.get('weather_precip_prob'),
+            'weather_humidity': entry.get('weather_humidity'),
+            'weather_pressure': entry.get('weather_pressure'),
+            'weather_run_boost': entry.get('weather_run_boost'),
+            'weather_hr_boost': entry.get('weather_hr_boost'),
+            'weather_note': entry.get('weather_note'),
+        }
+        logged_features.update(_shadow_risk_guard_decision(entry, logged_features))
         record = {
             'logged_at': datetime.now().isoformat(timespec='seconds'),
             'date': game_date,
@@ -12950,101 +13083,7 @@ def log_prediction(entry):
             'base_pts': entry.get('base_pts'),
             'tier': entry.get('tier'),
             'status': entry.get('status'),
-            'features': {
-                # Core projection
-                'proj_era': entry.get('era'),
-                'proj_whip': entry.get('whip'),
-                'proj_k9': entry.get('k9'),
-                # Matchup
-                'opp_ops': entry.get('opp_ops'),
-                'opp_ops_raw': entry.get('opp_ops_raw'),
-                'opp_rank': entry.get('opp_rank'),
-                'opp_k_pct': entry.get('opp_k_pct'),
-                'park_factor': entry.get('park_factor'),
-                'park': entry.get('park'),
-                'platoon': entry.get('platoon'),
-                'opp_hand': entry.get('opp_hand'),
-                'pitcher_hand': entry.get('pitcher_hand'),
-                'vs_l_ops': entry.get('vs_l_ops'),
-                'vs_r_ops': entry.get('vs_r_ops'),
-                # Numeric versions so the auto-bucketing engine can quartile
-                # and test for residual signal on platoon splits
-                'vs_l_ops_num': _safe_float(entry.get('vs_l_ops')),
-                'vs_r_ops_num': _safe_float(entry.get('vs_r_ops')),
-                'splits_window_years': entry.get('splits_window_years'),
-                'splits_l_r_diff': (
-                    (_safe_float(entry.get('vs_l_ops')) or 0)
-                    - (_safe_float(entry.get('vs_r_ops')) or 0)
-                ) if entry.get('vs_l_ops') and entry.get('vs_r_ops') else None,
-                'tag': entry.get('tag'),
-                'trend': entry.get('trend'),
-                'recent_era': entry.get('recent_era'),
-                'fb_velo': entry.get('fb_velo'),
-                'pitch_count': entry.get('pitch_count'),
-                'emerging': entry.get('emerging'),
-                'opp_il_count': len(entry.get('opp_il', []) or []),
-                'opp_il_returns_count': len(entry.get('opp_il_returns', []) or []),
-                # Statcast advanced (Phase 2)
-                'xera': entry.get('xera'),
-                'xwoba': entry.get('xwoba'),
-                'xba': entry.get('xba'),
-                'xslg': entry.get('xslg'),
-                'barrel_pct': entry.get('barrel_pct'),
-                'hard_hit_pct': entry.get('hard_hit_pct'),
-                'whiff_pct': entry.get('whiff_pct'),
-                'k_pct_savant': entry.get('k_pct_savant'),
-                'bb_pct_savant': entry.get('bb_pct_savant'),
-                'chase_pct': entry.get('chase_pct'),
-                'gb_pct': entry.get('gb_pct'),
-                'fb_pct': entry.get('fb_pct'),
-                'ld_pct': entry.get('ld_pct'),
-                # FG advanced (Phase 2)
-                'stuff_plus': entry.get('stuff_plus'),
-                'location_plus': entry.get('location_plus'),
-                'pitching_plus': entry.get('pitching_plus'),
-                'fip': entry.get('fip'),
-                'xfip': entry.get('xfip'),
-                'siera': entry.get('siera'),
-                # Bullpen + workload (Phase 2)
-                'opp_bullpen_era': entry.get('opp_bullpen_era'),
-                'opp_bullpen_whip': entry.get('opp_bullpen_whip'),
-                'days_rest': entry.get('days_rest'),
-                'last_pitch_count': entry.get('last_pitch_count'),
-                'last_start_ip': entry.get('last_start_ip'),
-                'last_start_pitch_count': entry.get('last_start_pitch_count'),
-                'avg_ip_last_3_starts': entry.get('avg_ip_last_3_starts'),
-                'avg_pitch_count_last_3_starts': entry.get('avg_pitch_count_last_3_starts'),
-                'max_pitch_count_last_5_starts': entry.get('max_pitch_count_last_5_starts'),
-                'season_avg_ip_per_start': entry.get('season_avg_ip_per_start'),
-                'season_avg_pitches_per_start': entry.get('season_avg_pitches_per_start'),
-                'short_rest_flag': entry.get('short_rest_flag'),
-                'extra_rest_flag': entry.get('extra_rest_flag'),
-                'workload_risk_score': entry.get('workload_risk_score'),
-                'workload_note': entry.get('workload_note'),
-                # Logged-only weather/venue context. These are for audit and
-                # later analysis only; they do not alter projected points.
-                'game_datetime': entry.get('game_datetime'),
-                'venue_name': entry.get('venue_name'),
-                'venue_lat': entry.get('venue_lat'),
-                'venue_lon': entry.get('venue_lon'),
-                'roof_type': entry.get('roof_type'),
-                'roof_status': entry.get('roof_status'),
-                'is_indoor_or_dome': entry.get('is_indoor_or_dome'),
-                'weather_source': entry.get('weather_source'),
-                'weather_snapshot_time': entry.get('weather_snapshot_time'),
-                'weather_temp_f': entry.get('weather_temp_f'),
-                'weather_wind_speed_mph': entry.get('weather_wind_speed_mph'),
-                'weather_wind_direction': entry.get('weather_wind_direction'),
-                'wind_out_to_cf_score': entry.get('wind_out_to_cf_score'),
-                'wind_in_from_cf_score': entry.get('wind_in_from_cf_score'),
-                'wind_cross_score': entry.get('wind_cross_score'),
-                'weather_precip_prob': entry.get('weather_precip_prob'),
-                'weather_humidity': entry.get('weather_humidity'),
-                'weather_pressure': entry.get('weather_pressure'),
-                'weather_run_boost': entry.get('weather_run_boost'),
-                'weather_hr_boost': entry.get('weather_hr_boost'),
-                'weather_note': entry.get('weather_note'),
-            },
+            'features': logged_features,
         }
         record['features'] = _features_with_venue_metadata(record.get('features'), record)
         _runtime_prediction_records.append(dict(record))
