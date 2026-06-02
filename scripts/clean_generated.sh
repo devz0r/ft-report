@@ -8,6 +8,7 @@ paths=(
   "engine/espn_players.json"
   "engine/learned_biases.json"
   "engine/predictions/*.jsonl"
+  "engine/predictions_outcomes.jsonl"
   "engine/tracker_snapshots/*.json"
   "engine/streaming_cache/*.json"
   "engine/streaming_cache/**/*.json"
@@ -21,6 +22,14 @@ if [[ -n "$tracked" ]]; then
   while IFS= read -r path; do
     git restore -- "$path"
   done <<< "$tracked"
+fi
+
+echo "Removing untracked generated/cache/report files..."
+untracked_generated="$(git ls-files --others --exclude-standard -- "${paths[@]}")"
+if [[ -n "$untracked_generated" ]]; then
+  while IFS= read -r path; do
+    rm -f -- "$path"
+  done <<< "$untracked_generated"
 fi
 
 echo "Removing local warehouse Parquet files..."

@@ -11750,28 +11750,30 @@ def _start_sit_rows_from_warehouse():
 
 
 def _start_sit_rows_from_outcome_jsonl():
-    """Fallback labeled start/sit evaluation rows from predictions_outcomes.jsonl."""
-    records = []
-    seen_exact = set()
-    for _, rec in _read_outcome_log_records():
-        if rec.get('no_start'):
-            continue
-        if rec.get('actual_pts') is None:
-            continue
-        exact_key = _outcome_exact_duplicate_key(rec)
-        if exact_key in seen_exact:
-            continue
-        seen_exact.add(exact_key)
-        records.append(rec)
+    """Labeled start/sit rows from the full outcome history.
+
+    This reuses the learned-bias sample selector so repeated prediction
+    snapshots do not cause one real pitcher start to count multiple times.
+    """
+    raw_records = [rec for _, rec in _read_outcome_log_records()]
+    records, stats = select_learning_outcome_samples(raw_records)
+    records = [
+        rec for rec in records
+        if not rec.get('no_start') and rec.get('actual_pts') is not None
+    ]
     if not records:
-        return pd.DataFrame(), 'prediction/outcome JSONL fallback'
+        return pd.DataFrame(), 'prediction/outcome JSONL selected sample'
     rows = []
     for rec in records:
         row = dict(rec)
         row['game_date'] = rec.get('date') or rec.get('game_date')
         row['pitcher_name'] = rec.get('name') or rec.get('pitcher_name')
         rows.append(row)
-    return pd.DataFrame(rows), 'prediction/outcome JSONL fallback'
+    source = (
+        "prediction/outcome JSONL selected sample "
+        f"({stats['raw_rows']} raw rows -> {stats['unique_actual_starts']} unique starts)"
+    )
+    return pd.DataFrame(rows), source
 
 
 def _start_sit_predicted_advice(tier, predicted_pts):
@@ -11948,15 +11950,28 @@ def _print_start_sit_examples(title, rows):
 
 def _load_start_sit_analysis_rows():
     """Load the labeled rows used by start/sit decision analysis."""
-    df, source = _start_sit_rows_from_warehouse()
+    warehouse_df, warehouse_source = _start_sit_rows_from_warehouse()
+    outcome_df, outcome_source = _start_sit_rows_from_outcome_jsonl()
+
+    prepared = []
+    for df, source in ((warehouse_df, warehouse_source), (outcome_df, outcome_source)):
+        if df is None or df.empty:
+            continue
+        work = _start_sit_prepare_dataframe(df)
+        work = work[work['predicted_advice'] != 'UNKNOWN']
+        if not work.empty:
+            prepared.append((work, source))
+
+    if not prepared:
+        return pd.DataFrame(), outcome_source or warehouse_source or 'none', warehouse_source
+
+    prepared.sort(key=lambda item: len(item[0]), reverse=True)
+    work, source = prepared[0]
     skipped_source = None
-    if df is None or df.empty:
-        skipped_source = source
-        df, source = _start_sit_rows_from_outcome_jsonl()
-    if df is None or df.empty:
-        return pd.DataFrame(), source or 'none', skipped_source
-    work = _start_sit_prepare_dataframe(df)
-    work = work[work['predicted_advice'] != 'UNKNOWN']
+    if len(prepared) > 1:
+        skipped_source = f"{prepared[1][1]} ({len(prepared[1][0])} usable rows; smaller sample)"
+    elif warehouse_df is None or getattr(warehouse_df, 'empty', True):
+        skipped_source = warehouse_source
     return work, source, skipped_source
 
 
