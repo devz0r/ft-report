@@ -10943,5 +10943,56 @@
     },
     "splits_window_years": 3,
     "pitcher_hand": "R"
+  },
+  "669199": {
+    "mlb_id": 669199,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 94.87627409999999,
+        "pct": 0.32397407
+      },
+      {
+        "code": "ST",
+        "desc": "Sweeper",
+        "velo": 86.25970420000002,
+        "pct": 0.19438446
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 85.65193414893618,
+        "pct": 0.10151188
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 90.30676523076926,
+        "pct": 0.2526998
+      },
+      {
+        "code": "FS",
+        "desc": "Splitter",
+        "velo": 83.61326727118647,
+        "pct": 0.1274298
+      }
+    ],
+    "fb_velo": 94.9,
+    "pitch_count": 5,
+    "career_vs_l": {
+      "ops": "0.648",
+      "whip": "1.26",
+      "k9": "9.28",
+      "ip": "53.3"
+    },
+    "career_vs_r": {
+      "ops": "0.712",
+      "whip": "1.09",
+      "k9": "10.19",
+      "ip": "55.7"
+    },
+    "splits_window_years": 3,
+    "pitcher_hand": "R"
   }
 }
