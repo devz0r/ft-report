@@ -4463,6 +4463,11 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         # learning engine has full league-wide ground truth to calibrate against.
         log_prediction(entry)
 
+        # Recommendation layer: make the visible start/sit tier more
+        # conservative when the backtested risk guard fires. This does not
+        # alter points, learned corrections, or stored prediction logs.
+        entry = apply_visible_risk_guard_overlay(entry)
+
         # Streaming UI only shows FA + MY ROSTER (the only ones you'd act on)
         if status in ('FA', 'MY ROSTER'):
             streaming.append(entry)
@@ -4550,7 +4555,7 @@ def _fast_preview_streaming_entry(record):
         day_label = ''
     pts = _fast_preview_float(record.get('predicted_pts') or record.get('final_pts'), 0.0)
     recent_era = features.get('recent_era')
-    return {
+    entry = {
         'date': game_date,
         'day': day_label,
         'name': record.get('name') or record.get('pitcher_name') or '',
@@ -4586,6 +4591,7 @@ def _fast_preview_streaming_entry(record):
         'opp_il_returns': [],
         'pitch_analysis': None,
     }
+    return apply_visible_risk_guard_overlay(entry)
 
 
 def load_prediction_logs_for_fast_preview():
@@ -4759,7 +4765,83 @@ def _risky_borderline_streamer_reasons(record, risks=None):
 
 
 def _decision_points(record):
-    return _fast_preview_float(record.get('predicted_pts') or record.get('final_pts'), 0.0)
+    return _fast_preview_float(record.get('predicted_pts') or record.get('final_pts') or record.get('pts'), 0.0)
+
+
+RISK_GUARD_ADVICE_TO_TIER = {
+    'START': 'start',
+    'BORDERLINE': 'borderline',
+    'SIT': 'avoid',
+}
+
+
+def _risk_guard_policy_features(record):
+    """Feature subset used by the visible recommendation risk guard."""
+    features = dict((record or {}).get('features') or {})
+    defaults = {
+        'opp_rank': record.get('opp_rank'),
+        'park_factor': record.get('park_factor'),
+        'recent_era': record.get('recent_era'),
+        'proj_k9': record.get('proj_k9') or record.get('k9'),
+        'k9': record.get('k9'),
+        'workload_risk_score': record.get('workload_risk_score'),
+        'platoon': record.get('platoon'),
+        'trend': record.get('trend'),
+    }
+    pitch_analysis = record.get('pitch_analysis') or {}
+    if isinstance(pitch_analysis, dict):
+        defaults['pitch_matchup_score'] = pitch_analysis.get('pitch_matchup_score')
+    for key, value in defaults.items():
+        if features.get(key) in (None, '') and value not in (None, ''):
+            features[key] = value
+    return features
+
+
+def apply_visible_risk_guard_overlay(record):
+    """Apply the backtested risk guard to display recommendations only.
+
+    The model's original tier remains available as model_tier; points and
+    learned corrections are untouched.
+    """
+    if not isinstance(record, dict) or record.get('tbd'):
+        return record
+    out = dict(record)
+    original_tier = out.get('model_tier') or out.get('tier') or 'borderline'
+    points = _decision_points(out)
+    features = _risk_guard_policy_features(out)
+    decision_entry = {
+        'pts': points,
+        'tier': original_tier,
+        'status': out.get('status'),
+    }
+    shadow = _shadow_risk_guard_decision(decision_entry, features)
+    shadow_advice = shadow.get('shadow_risk_guard_advice')
+    display_tier = RISK_GUARD_ADVICE_TO_TIER.get(shadow_advice, original_tier)
+    changed = bool(shadow.get('shadow_risk_guard_changed') and display_tier != original_tier)
+
+    out.setdefault('model_tier', original_tier)
+    out.setdefault('model_tier_label', TIER_LABELS.get(original_tier, original_tier))
+    out['shadow_risk_guard_advice'] = shadow_advice
+    out['shadow_risk_guard_score'] = shadow.get('shadow_risk_guard_score')
+    out['shadow_risk_guard_reasons'] = shadow.get('shadow_risk_guard_reasons') or []
+    out['shadow_risk_guard_policy'] = shadow.get('shadow_risk_guard_policy')
+    out['risk_guard_applied'] = changed
+    out['risk_guard_original_tier'] = original_tier
+    out['risk_guard_display_tier'] = display_tier
+    out['risk_guard_reasons'] = shadow.get('shadow_risk_guard_reasons') or []
+    out['risk_guard_policy'] = shadow.get('shadow_risk_guard_policy')
+    if changed:
+        out['tier'] = display_tier
+        out['tier_label'] = TIER_LABELS.get(display_tier, display_tier)
+        reason_text = ', '.join(out['risk_guard_reasons'][:3]) or 'multiple risk flags'
+        policy_label = RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(
+            out.get('risk_guard_policy') or '', {}
+        ).get('label', 'Risk guard')
+        out['risk_guard_note'] = (
+            f"{policy_label} downgraded {TIER_LABELS.get(original_tier, original_tier)} "
+            f"to {TIER_LABELS.get(display_tier, display_tier)}: {reason_text}"
+        )
+    return out
 
 
 def _decision_status_key(record):
@@ -4955,6 +5037,16 @@ def _decision_record_from_streaming_entry(entry):
         'adj_total': entry.get('adj_total'),
         'adjustments': entry.get('adjustments') or [],
         'tier': entry.get('tier'),
+        'model_tier': entry.get('model_tier'),
+        'model_tier_label': entry.get('model_tier_label'),
+        'risk_guard_applied': entry.get('risk_guard_applied'),
+        'risk_guard_original_tier': entry.get('risk_guard_original_tier'),
+        'risk_guard_display_tier': entry.get('risk_guard_display_tier'),
+        'risk_guard_reasons': entry.get('risk_guard_reasons') or [],
+        'risk_guard_note': entry.get('risk_guard_note'),
+        'shadow_risk_guard_advice': entry.get('shadow_risk_guard_advice'),
+        'shadow_risk_guard_score': entry.get('shadow_risk_guard_score'),
+        'shadow_risk_guard_policy': entry.get('shadow_risk_guard_policy'),
         'status': entry.get('status'),
         'tbd': entry.get('tbd'),
         'probable_note': entry.get('probable_note'),
@@ -4978,6 +5070,7 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
             if (r.get('date') or r.get('game_date') or target_date) == target_date
         ]
     records, probable_report = validate_probable_prediction_records(records, source=source or path)
+    records = [apply_visible_risk_guard_overlay(dict(r)) for r in records]
     summary = {
         'date': target_date,
         'source': path,
@@ -5093,6 +5186,13 @@ def _decision_plain_reasons(record, risks=None, boosts=None, confidence=None):
     }.get(tier, 'Borderline')
     risks = risks if risks is not None else _decision_risk_boost_flags(record)[0]
     boosts = boosts if boosts is not None else _decision_risk_boost_flags(record)[1]
+    if record.get('risk_guard_applied'):
+        reasons = record.get('risk_guard_reasons') or []
+        from_label = TIER_LABELS.get(record.get('risk_guard_original_tier'), record.get('risk_guard_original_tier') or 'Start')
+        to_label = TIER_LABELS.get(record.get('risk_guard_display_tier'), record.get('risk_guard_display_tier') or tier)
+        main = f"Risk guard downgraded {from_label} to {to_label}"
+        risk = f"Multiple bust flags: {', '.join(reasons[:3])}" if reasons else "Multiple logged bust-risk flags"
+        return _compact_decision_text(main), _compact_decision_text(risk)
 
     opp_rank = _feature_float(features, 'opp_rank')
     opp_ops = features.get('opp_ops') or features.get('opp_ops_raw')
@@ -5198,7 +5298,10 @@ def _decision_report_item(record):
         'risks': risks[:3],
         'boosts': boosts[:3],
         'risk_guard_candidate': bool(risky_borderline),
-        'risk_guard_reasons': risky_borderline,
+        'risk_guard_reasons': (record.get('risk_guard_reasons') or risky_borderline),
+        'risk_guard_applied': bool(record.get('risk_guard_applied')),
+        'risk_guard_note': record.get('risk_guard_note'),
+        'model_tier': record.get('model_tier'),
         '_matchup_source': record.get('_matchup_source'),
         '_matchup_snapshot_date': record.get('_matchup_snapshot_date') or _matchup_record_snapshot_date(record),
     }
@@ -5840,6 +5943,7 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
         if (r.get('date') or r.get('game_date')) in set(watch_dates)
     ]
     records, probable_report = validate_probable_prediction_records(records, source=source or 'prediction records')
+    records = [apply_visible_risk_guard_overlay(dict(r)) for r in records]
     summary = {
         'base_date': base_date,
         'date_range': f"{watch_dates[0]} to {watch_dates[-1]}" if watch_dates else '',
@@ -6153,7 +6257,7 @@ def _matchup_projection_records(base_date=None, days=3):
             rec = dict(rec)
             rec['_matchup_source'] = 'prediction_log_cache'
             rec['_matchup_snapshot_date'] = _matchup_record_snapshot_date(rec)
-            records.append(rec)
+            records.append(apply_visible_risk_guard_overlay(rec))
     return records
 
 
@@ -6170,7 +6274,7 @@ def _matchup_prediction_records_for_actions(base_date=None, days=3, records=None
                 continue
             rec['_matchup_source'] = source_kind
             rec['_matchup_snapshot_date'] = _matchup_record_snapshot_date(rec) or base_date
-            out.append(rec)
+            out.append(apply_visible_risk_guard_overlay(rec))
         if out:
             return out, source_kind, source or 'current_run'
     return _matchup_projection_records(base_date, days), 'prediction_log_cache', 'prediction_log_cache'
@@ -9432,6 +9536,15 @@ function streamingRiskGuardSignals(s) {
 
 function streamingRiskGuardWarning(s) {
   var tier = s.tier || '';
+  if (s.risk_guard_applied) {
+    var original = tierLabel(s.risk_guard_original_tier || s.model_tier || '');
+    var display = tierLabel(s.risk_guard_display_tier || s.tier || '');
+    var reasons = s.risk_guard_reasons || s.shadow_risk_guard_reasons || [];
+    var reasonText = reasons.length ? reasons.slice(0, 3).join(', ') : 'multiple risk flags';
+    return '<div class="stream-caution"><b>Risk guard:</b> downgraded from ' +
+      escHtml(original) + ' to ' + escHtml(display) + ' because ' + escHtml(reasonText) +
+      '. Points are unchanged; recommendation is more conservative.</div>';
+  }
   if (tier !== 'must_start' && tier !== 'start' && tier !== 'borderline') return '';
   var risk = streamingRiskGuardSignals(s);
   if (!(s.trend === 'cold' || risk.signals.indexOf('recent ERA >= 5.14') !== -1 || risk.score >= 2)) {
@@ -9441,11 +9554,19 @@ function streamingRiskGuardWarning(s) {
     ? 'Borderline only'
     : 'Start with caution';
   var signals = risk.signals.slice(0, 3).join(', ');
-  var note = 'Backtest caution: ' + signals + ' has been linked to more bust risk. This does not change the projection or tier.';
+  var note = 'Backtest caution: ' + signals + ' has been linked to more bust risk.';
   return '<div class="stream-caution"><b>' + escHtml(lead) + ':</b> ' + escHtml(note) + '</div>';
 }
 
 function streamingExplanation(s) {
+  if (s.risk_guard_applied) {
+    var original = tierLabel(s.risk_guard_original_tier || s.model_tier || '');
+    var display = tierLabel(s.risk_guard_display_tier || s.tier || '');
+    var guardReasons = (s.risk_guard_reasons || []).slice(0, 3).map(function(x) { return shortReason(x, 58); }).join('; ');
+    return '<div class="stream-explain"><b class="why-borderline">Why downgraded:</b> ' +
+      escHtml('Model tier was ' + original + ', but risk guard shows ' + display + ' because ' + (guardReasons || 'multiple risk flags')) +
+      '. <b>Upside:</b> ' + escHtml('projection remains ' + Number(s.pts || 0).toFixed(1) + ' points.') + '</div>';
+  }
   var reasons = [];
   var risks = [];
   var pts = Number(s.pts || 0);
@@ -9520,6 +9641,7 @@ function renderPitcherEntry(s, allReal) {
   else if (s.tag === 'UPSIDE') tagHtml = '<span class="chip chip-upside">UPSIDE</span>';
   if (isMine) tagHtml += '<span class="chip chip-mine">ROSTER</span>';
   if (s.emerging) tagHtml += '<span class="chip chip-emerging" title="Based on L14D stats through $HOLD_ASOF">HOLD</span>';
+  if (s.risk_guard_applied) tagHtml += '<span class="chip chip-upside" title="Visible recommendation downgraded by the risk guard; points unchanged.">RISK GUARD</span>';
 
   var matchup = s.home_away === 'H' ? 'vs ' + s.opponent : '@' + s.opponent;
 
@@ -9718,12 +9840,13 @@ function renderAccuracy() {
     var diff = p.diff_summary || {};
     h2 += '<div class="decision-summary">';
     h2 += '<span class="decision-pill">Best policy <b>' + escHtml(best.label || 'n/a') + '</b></span>';
+    h2 += '<span class="decision-pill">Active overlay <b>' + escHtml(p.active_policy_label || 'n/a') + '</b></span>';
     h2 += '<span class="decision-pill">Rows <b>' + escHtml(p.labeled_rows || 0) + '</b></span>';
     h2 += '<span class="decision-pill">Changed <b>' + escHtml(diff.changed || 0) + '</b></span>';
     h2 += '<span class="decision-pill">Helped/Hurt/Neutral <b>' + escHtml((diff.helped || 0) + '/' + (diff.hurt || 0) + '/' + (diff.neutral || 0)) + '</b></span>';
     h2 += '</div>';
     h2 += '<div class="stream-note" style="margin:0 0 8px;color:#777">';
-    h2 += 'Shadow policy tracking is analysis-only: future prediction logs store what the risk guard would have recommended, but the live Streaming recommendations stay unchanged.';
+    h2 += 'Risk guard overlay is active in visible Streaming recommendations when enough bust-risk flags stack up. Projected points and learned corrections are unchanged.';
     if (p.source) {
       h2 += ' Backtest source: ' + escHtml(p.source) + '.';
     }
@@ -9759,7 +9882,7 @@ function renderAccuracy() {
       });
       h2 += '</div>';
     }
-    h2 += '<div class="stream-note" style="margin:0;color:#777">' + escHtml(p.note || 'Analysis only. Current recommendations are unchanged.') + '</div>';
+    h2 += '<div class="stream-note" style="margin:0;color:#777">' + escHtml(p.note || 'Analysis only. Projected points and scoring are unchanged; visible recommendations may use the active risk guard overlay.') + '</div>';
     h2 += '</div>';
     return h2;
   }
@@ -12256,10 +12379,9 @@ def analyze_start_sit_misses():
     return {'labeled_rows': len(work), 'groups': summaries}
 
 
-def _decision_policy_risk_score(row):
-    """Small read-only risk count used by policy backtests; not prediction scoring."""
-    score = 0
-    reasons = []
+def _decision_policy_risk_signals(row):
+    """Pregame bust-risk signals used by decision-policy overlays."""
+    signals = {}
     opp_rank = _safe_float(row.get('opp_rank'))
     park_factor = _safe_float(row.get('park_factor'))
     recent_era = _safe_float(row.get('recent_era'))
@@ -12269,30 +12391,133 @@ def _decision_policy_risk_score(row):
     platoon = str(row.get('platoon') or '').lower()
     trend = str(row.get('trend') or '').lower()
     if trend == 'cold':
+        signals['cold'] = True
+    if recent_era is not None and recent_era >= 5.14:
+        signals['recent_era>=5.14'] = True
+    if opp_rank is not None and opp_rank <= 10:
+        signals['top-10 offense'] = True
+    if park_factor is not None and park_factor >= 1.05:
+        signals['hitter park'] = True
+    if platoon == 'risk':
+        signals['platoon risk'] = True
+    if proj_k9 is not None and proj_k9 < 7.5:
+        signals['low K/9'] = True
+    if workload is not None and workload >= 0.4:
+        signals['workload risk'] = True
+    if pitch_matchup is not None and pitch_matchup <= -0.05:
+        signals['negative pitch matchup'] = True
+    return signals
+
+
+def _decision_policy_risk_score(row):
+    """Legacy risk score used by the first visible risk guard."""
+    signals = _decision_policy_risk_signals(row)
+    score = 0
+    reasons = []
+    if signals.get('cold'):
         score += 2
         reasons.append('cold')
-    if recent_era is not None and recent_era >= 5.14:
-        score += 1
-        reasons.append('recent_era>=5.14')
-    if opp_rank is not None and opp_rank <= 10:
-        score += 1
-        reasons.append('top-10 offense')
-    if park_factor is not None and park_factor >= 1.05:
-        score += 1
-        reasons.append('hitter park')
-    if platoon == 'risk':
-        score += 1
-        reasons.append('platoon risk')
-    if proj_k9 is not None and proj_k9 < 7.5:
-        score += 1
-        reasons.append('low K/9')
-    if workload is not None and workload >= 0.4:
-        score += 1
-        reasons.append('workload risk')
-    if pitch_matchup is not None and pitch_matchup <= -0.05:
-        score += 1
-        reasons.append('negative pitch matchup')
+    for reason in (
+        'recent_era>=5.14', 'top-10 offense', 'hitter park', 'platoon risk',
+        'low K/9', 'workload risk', 'negative pitch matchup',
+    ):
+        if signals.get(reason):
+            score += 1
+            reasons.append(reason)
     return score, reasons
+
+
+RISK_GUARD_WEIGHT_PRESETS = [
+    {
+        'key': 'risk_guard',
+        'label': 'Current 2-flag risk guard',
+        'description': 'Demote when legacy risk score reaches 2.',
+        'threshold': 2.0,
+        'weights': {
+            'cold': 2.0,
+            'recent_era>=5.14': 1.0,
+            'top-10 offense': 1.0,
+            'hitter park': 1.0,
+            'platoon risk': 1.0,
+            'low K/9': 1.0,
+            'workload risk': 1.0,
+            'negative pitch matchup': 1.0,
+        },
+    },
+    {
+        'key': 'weighted_risk_guard_v2',
+        'label': 'Weighted risk guard v2',
+        'description': 'Emphasize cold/recent ERA; demote at weighted score 3.',
+        'threshold': 3.0,
+        'weights': {
+            'cold': 2.0,
+            'recent_era>=5.14': 2.0,
+            'top-10 offense': 1.0,
+            'hitter park': 1.0,
+            'platoon risk': 1.0,
+            'low K/9': 1.0,
+            'workload risk': 1.0,
+            'negative pitch matchup': 1.0,
+        },
+    },
+    {
+        'key': 'weighted_risk_guard_v2_strict',
+        'label': 'Weighted risk guard v2 strict',
+        'description': 'Same weights as v2, but demote only at weighted score 4.',
+        'threshold': 4.0,
+        'weights': {
+            'cold': 2.0,
+            'recent_era>=5.14': 2.0,
+            'top-10 offense': 1.0,
+            'hitter park': 1.0,
+            'platoon risk': 1.0,
+            'low K/9': 1.0,
+            'workload risk': 1.0,
+            'negative pitch matchup': 1.0,
+        },
+    },
+    {
+        'key': 'form_first_risk_guard',
+        'label': 'Form-first risk guard',
+        'description': 'Make cold/recent ERA dominant; matchup-only stacks need more evidence.',
+        'threshold': 3.0,
+        'weights': {
+            'cold': 2.5,
+            'recent_era>=5.14': 2.0,
+            'top-10 offense': 0.75,
+            'hitter park': 0.75,
+            'platoon risk': 0.75,
+            'low K/9': 0.75,
+            'workload risk': 1.0,
+            'negative pitch matchup': 1.0,
+        },
+    },
+]
+
+RISK_GUARD_WEIGHT_PRESETS_BY_KEY = {
+    preset['key']: preset for preset in RISK_GUARD_WEIGHT_PRESETS
+}
+VISIBLE_RISK_GUARD_POLICY_KEY = 'weighted_risk_guard_v2'
+
+
+def _weighted_risk_guard_score(row, preset_or_key):
+    preset = (
+        RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(preset_or_key)
+        if isinstance(preset_or_key, str) else preset_or_key
+    )
+    preset = preset or RISK_GUARD_WEIGHT_PRESETS_BY_KEY['risk_guard']
+    signals = _decision_policy_risk_signals(row)
+    score = 0.0
+    reasons = []
+    for reason, active in signals.items():
+        if not active:
+            continue
+        weight = float(preset.get('weights', {}).get(reason, 0.0) or 0.0)
+        if weight <= 0:
+            continue
+        score += weight
+        reasons.append(reason)
+    return round(score, 2), reasons
 
 
 def _policy_from_points(row, start_threshold, borderline_threshold):
@@ -12336,6 +12561,12 @@ def _start_sit_policy_advice(row, policy_key):
         if current in ('START', 'BORDERLINE') and risk_score >= 2:
             return _demote_advice(current)
         return current
+    if policy_key in RISK_GUARD_WEIGHT_PRESETS_BY_KEY:
+        preset = RISK_GUARD_WEIGHT_PRESETS_BY_KEY[policy_key]
+        weighted_score, _weighted_reasons = _weighted_risk_guard_score(row, preset)
+        if current in ('START', 'BORDERLINE') and weighted_score >= preset['threshold']:
+            return _demote_advice(current)
+        return current
     if policy_key == 'streamer_conservative':
         advice = current
         if status_group == 'FA/WAIVER' and advice in ('START', 'BORDERLINE'):
@@ -12345,7 +12576,7 @@ def _start_sit_policy_advice(row, policy_key):
     return current
 
 
-def _shadow_risk_guard_decision(entry, features=None):
+def _shadow_risk_guard_decision(entry, features=None, policy_key=VISIBLE_RISK_GUARD_POLICY_KEY):
     """Analysis-only risk guard advice for logging/backtesting.
 
     This intentionally does not feed scoring, tiers, or report filtering.
@@ -12359,13 +12590,17 @@ def _shadow_risk_guard_decision(entry, features=None):
     })
     row['predicted_advice'] = _start_sit_predicted_advice(entry.get('tier'), entry.get('pts'))
     row['status_group'] = _start_sit_status_group(entry.get('status'))
-    risk_score, reasons = _decision_policy_risk_score(row)
-    shadow_advice = _start_sit_policy_advice(row, 'risk_guard')
+    if policy_key in RISK_GUARD_WEIGHT_PRESETS_BY_KEY:
+        risk_score, reasons = _weighted_risk_guard_score(row, policy_key)
+    else:
+        risk_score, reasons = _decision_policy_risk_score(row)
+    shadow_advice = _start_sit_policy_advice(row, policy_key)
     return {
         'shadow_risk_guard_advice': shadow_advice,
         'shadow_risk_guard_changed': shadow_advice != row['predicted_advice'],
         'shadow_risk_guard_score': risk_score,
         'shadow_risk_guard_reasons': reasons,
+        'shadow_risk_guard_policy': policy_key,
     }
 
 
@@ -12568,6 +12803,11 @@ def build_start_sit_policy_backtest_summary():
         ('strict_start_12_9', 'Very strict START 12/9', 'START at 12+ pts, BORDERLINE at 9-11.9, SIT below 9.'),
         ('cold_overlay', 'Cold/recent ERA overlay', 'Demote START/BORDERLINE one step when COLD or recent ERA >= 5.14.'),
         ('risk_guard', 'Risk guard overlay', 'Demote one step when two or more logged risk flags are present.'),
+        (
+            'weighted_risk_guard_v2',
+            'Weighted risk guard v2',
+            'Demote when weighted risk score reaches 3, emphasizing cold/recent ERA.',
+        ),
         ('streamer_conservative', 'FA/waiver conservative', 'Demote FA/WAIVER streams with any risk flag or projection below 10.'),
     ]
 
@@ -12646,10 +12886,14 @@ def build_start_sit_policy_backtest_summary():
         'labeled_rows': int(len(work)),
         'current': current,
         'best': best,
+        'active_policy_key': VISIBLE_RISK_GUARD_POLICY_KEY,
+        'active_policy_label': RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(
+            VISIBLE_RISK_GUARD_POLICY_KEY, {}
+        ).get('label', VISIBLE_RISK_GUARD_POLICY_KEY),
         'deltas': deltas,
         'diff_summary': diff_summary,
         'policies': rows_sorted,
-        'note': 'Analysis only. Current recommendations are unchanged.',
+        'note': 'Analysis only. Projected points and scoring are unchanged; visible recommendations may use the active risk guard overlay.',
     }
 
 
@@ -12734,6 +12978,190 @@ def analyze_start_sit_policy_backtest():
     return {'labeled_rows': len(work), 'policies': rows_sorted}
 
 
+def _weighted_candidate_advice(row, weights, threshold):
+    current = row.get('predicted_advice') or 'UNKNOWN'
+    if current not in ('START', 'BORDERLINE'):
+        return current
+    signals = _decision_policy_risk_signals(row)
+    score = sum(float(weights.get(reason, 0.0) or 0.0) for reason, active in signals.items() if active)
+    return _demote_advice(current) if score >= threshold else current
+
+
+def _weighted_candidate_diff(work, advice_col, weights):
+    current_col = '_policy_current'
+    if current_col not in work.columns:
+        work[current_col] = [_start_sit_policy_advice(row, 'current') for _, row in work.iterrows()]
+    diffs = work[work[current_col] != work[advice_col]].copy()
+    if diffs.empty:
+        return {'changed': 0, 'helped': 0, 'hurt': 0, 'neutral': 0, 'reason_summary': []}
+    outcomes = []
+    reason_summary = []
+    from collections import Counter
+    reason_counter = Counter()
+    reason_help = Counter()
+    reason_hurt = Counter()
+    for _, row in diffs.iterrows():
+        current = row[current_col]
+        new_advice = row[advice_col]
+        outcome = _policy_diff_outcome(row, current, new_advice)
+        outcomes.append(outcome)
+        signals = _decision_policy_risk_signals(row)
+        reasons = [
+            reason for reason, active in signals.items()
+            if active and float(weights.get(reason, 0.0) or 0.0) > 0
+        ] or ['no logged risk reason']
+        for reason in reasons:
+            reason_counter[reason] += 1
+            if outcome == 'helped':
+                reason_help[reason] += 1
+            elif outcome == 'hurt':
+                reason_hurt[reason] += 1
+    for reason, count in reason_counter.most_common(8):
+        reason_summary.append({
+            'reason': reason,
+            'demotions': int(count),
+            'helped': int(reason_help[reason]),
+            'hurt': int(reason_hurt[reason]),
+        })
+    return {
+        'changed': int(len(diffs)),
+        'helped': int(sum(1 for outcome in outcomes if outcome == 'helped')),
+        'hurt': int(sum(1 for outcome in outcomes if outcome == 'hurt')),
+        'neutral': int(sum(1 for outcome in outcomes if outcome == 'neutral')),
+        'reason_summary': reason_summary,
+    }
+
+
+def analyze_risk_guard_weights():
+    """Read-only comparison of weighted risk-guard recommendation overlays."""
+    print("RISK GUARD WEIGHT ANALYSIS")
+    print("=" * 60)
+    print("Analysis only: this does not change scoring, projections, learned corrections, or roster moves.")
+
+    work, source, skipped_source = _load_start_sit_analysis_rows()
+    if skipped_source:
+        print(f"Warehouse source skipped: {skipped_source}")
+    print(f"Source: {source}")
+    if work.empty:
+        print("No labeled starts with actual fantasy points are available yet.")
+        return {'labeled_rows': 0, 'policies': []}
+
+    candidates = [
+        {
+            'key': 'current',
+            'label': 'Current visible tiers',
+            'threshold': None,
+            'weights': {},
+            'description': 'No risk-guard overlay.',
+        }
+    ]
+    candidates.extend(RISK_GUARD_WEIGHT_PRESETS)
+    v2_weights = RISK_GUARD_WEIGHT_PRESETS_BY_KEY['weighted_risk_guard_v2']['weights']
+    form_weights = RISK_GUARD_WEIGHT_PRESETS_BY_KEY['form_first_risk_guard']['weights']
+    for threshold in (2.5, 3.5, 4.5):
+        candidates.append({
+            'key': f'weighted_risk_guard_v2_t{str(threshold).replace(".", "_")}',
+            'label': f'Weighted v2 threshold {threshold:g}',
+            'description': f'Weighted v2 with demotion threshold {threshold:g}.',
+            'threshold': threshold,
+            'weights': v2_weights,
+        })
+    for threshold in (3.5, 4.0):
+        candidates.append({
+            'key': f'form_first_risk_guard_t{str(threshold).replace(".", "_")}',
+            'label': f'Form-first threshold {threshold:g}',
+            'description': f'Form-first weights with demotion threshold {threshold:g}.',
+            'threshold': threshold,
+            'weights': form_weights,
+        })
+
+    rows = []
+    for candidate in candidates:
+        key = candidate['key']
+        col = f'_risk_weight_{key}'
+        if key == 'current':
+            work[col] = [_start_sit_policy_advice(row, 'current') for _, row in work.iterrows()]
+        elif key in ('risk_guard', 'weighted_risk_guard_v2', 'weighted_risk_guard_v2_strict', 'form_first_risk_guard'):
+            work[col] = [_start_sit_policy_advice(row, key) for _, row in work.iterrows()]
+        else:
+            weights = candidate.get('weights') or {}
+            threshold = float(candidate.get('threshold') or 0)
+            work[col] = [_weighted_candidate_advice(row, weights, threshold) for _, row in work.iterrows()]
+        metrics = _decision_policy_metrics(work, col)
+        diff = _weighted_candidate_diff(work, col, candidate.get('weights') or {})
+        rows.append({
+            **candidate,
+            **metrics,
+            'diff': diff,
+        })
+
+    rows_sorted = sorted(rows, key=lambda r: (-r['utility_score'], r['start_bust_rate'], r['good_starts_missed']))
+    current = next((row for row in rows if row['key'] == 'current'), None)
+    active = next((row for row in rows if row['key'] == VISIBLE_RISK_GUARD_POLICY_KEY), None)
+    best = rows_sorted[0] if rows_sorted else None
+
+    print(f"\nLabeled starts analyzed: {len(work)}")
+    if len(work) < 100:
+        print("Small-sample warning: fewer than 100 labeled decisions are available.")
+    print(f"Active visible overlay: {VISIBLE_RISK_GUARD_POLICY_KEY}")
+    print("\nRisk guard comparison")
+    print(
+        f"{'Policy':<31s} {'Thr':>5s} {'Changed':>7s} {'H/H/N':>9s} "
+        f"{'Start bust':>10s} {'Neg rec':>7s} {'Good miss':>9s} {'Score':>8s}"
+    )
+    for row in rows_sorted:
+        threshold = row.get('threshold')
+        threshold_text = '-' if threshold is None else f"{float(threshold):.1f}"
+        diff = row.get('diff') or {}
+        hhn = f"{diff.get('helped', 0)}/{diff.get('hurt', 0)}/{diff.get('neutral', 0)}"
+        print(
+            f"{row['label']:<31s} {threshold_text:>5s} {diff.get('changed', 0):>7d} "
+            f"{hhn:>9s} {row['start_bust_rate']:>9.1f}% {row['negative_recommended']:>7d} "
+            f"{row['good_starts_missed']:>9d} {row['utility_score']:>8.1f}"
+        )
+
+    if best:
+        print("\nBest by conservative utility score")
+        print(f"  {best['label']}")
+        print(f"  {best.get('description')}")
+        if current and best['key'] != 'current':
+            print(
+                "  Compared with current tiers: "
+                f"START bust {best['start_bust_rate'] - current['start_bust_rate']:+.1f} pts, "
+                f"negative recommended {best['negative_recommended'] - current['negative_recommended']:+d}, "
+                f"good starts missed {best['good_starts_missed'] - current['good_starts_missed']:+d}."
+            )
+    if active:
+        print("\nActive overlay tradeoff")
+        print(
+            f"  {active['label']}: changed {active['diff']['changed']} starts; "
+            f"helped/hurt/neutral {active['diff']['helped']}/{active['diff']['hurt']}/{active['diff']['neutral']}."
+        )
+        if current:
+            print(
+                f"  vs current tiers: negative recommended {current['negative_recommended']} -> "
+                f"{active['negative_recommended']}; good starts missed {current['good_starts_missed']} -> "
+                f"{active['good_starts_missed']}."
+            )
+
+    print("\nTop risk reasons for active overlay")
+    active_reasons = (active or {}).get('diff', {}).get('reason_summary') or []
+    if not active_reasons:
+        print("  None")
+    for reason in active_reasons[:8]:
+        print(
+            f"  - {reason['reason']}: {reason['demotions']} demotions, "
+            f"helped {reason['helped']}, hurt {reason['hurt']}"
+        )
+    print("\nRecommendation")
+    if best and active and best['key'] == active['key']:
+        print("  Active weighted overlay is best among tested variants by this conservative score.")
+    elif best and active:
+        print(f"  Best tested variant is {best['label']}; active overlay is {active['label']}.")
+    print("  This command is diagnostic; only the existing visible overlay uses the active policy key.")
+    return {'labeled_rows': len(work), 'policies': rows_sorted}
+
+
 FEATURE_REGISTRY = {}
 WEATHER_VENUE_FEATURES = [
     'game_datetime', 'venue_name', 'venue_lat', 'venue_lon',
@@ -12808,6 +13236,7 @@ _register_features([
     'shadow_risk_guard_changed',
     'shadow_risk_guard_score',
     'shadow_risk_guard_reasons',
+    'shadow_risk_guard_policy',
 ], 'decision_shadow_policy', ['prediction_log', 'feature_audit', 'future_policy_audit'])
 
 
@@ -14184,6 +14613,7 @@ def main():
     parser.add_argument('--analyze-start-sit-quality', action='store_true', help='Read-only start/sit decision-quality analysis from labeled starts')
     parser.add_argument('--analyze-start-sit-misses', action='store_true', help='Read-only explanation analysis for start/sit decision misses')
     parser.add_argument('--analyze-start-sit-policy-backtest', action='store_true', help='Read-only comparison of alternate start/sit decision policies')
+    parser.add_argument('--analyze-risk-guard-weights', action='store_true', help='Read-only comparison of weighted risk-guard overlays')
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--matchup-snapshot', action='store_true', help='Read-only ESPN head-to-head matchup snapshot')
     parser.add_argument('--matchup-actions', action='store_true', help='Read-only matchup action recommendations from existing data')
@@ -14274,6 +14704,10 @@ def main():
 
     if args.analyze_start_sit_policy_backtest:
         analyze_start_sit_policy_backtest()
+        return
+
+    if args.analyze_risk_guard_weights:
+        analyze_risk_guard_weights()
         return
 
     if args.daily_decision_audit:
