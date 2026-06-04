@@ -7580,6 +7580,131 @@ def audit_hitter_decision_log():
     return {'rows': len(rows), 'dates': len(dates)}
 
 
+def _hitter_actual_points_from_row(row):
+    for key in ('actual_pts', 'actual_fpts', 'actual_points', 'fantasy_points'):
+        val = _safe_float((row or {}).get(key))
+        if val is not None:
+            return val
+    return None
+
+
+def build_hitter_decision_quality_audit_summary(current_summary=None):
+    """Read-only hitter decision quality foundation from generated logs."""
+    rows = _read_hitter_decision_log_rows()
+    dates = sorted({row.get('date') for row in rows if row.get('date')})
+    kind_counts = Counter(row.get('kind') or 'UNKNOWN' for row in rows)
+    confidence_counts = Counter(row.get('context_confidence') or 'No label' for row in rows)
+    labeled = []
+    for row in rows:
+        actual = _hitter_actual_points_from_row(row)
+        if actual is None:
+            continue
+        labeled.append({**row, 'actual_points': actual})
+
+    kind_metrics = []
+    for kind in sorted({row.get('kind') or 'UNKNOWN' for row in labeled}):
+        subset = [row for row in labeled if (row.get('kind') or 'UNKNOWN') == kind]
+        if not subset:
+            continue
+        actuals = [_hitter_actual_points_from_row(row) for row in subset]
+        actuals = [v for v in actuals if v is not None]
+        if not actuals:
+            continue
+        kind_metrics.append({
+            'kind': kind,
+            'n': len(actuals),
+            'mean_actual': round(sum(actuals) / len(actuals), 2),
+            'positive_rate': round(100.0 * sum(1 for v in actuals if v > 0) / len(actuals), 1),
+            'useful_rate': round(100.0 * sum(1 for v in actuals if v >= 3) / len(actuals), 1),
+            'zero_or_worse_rate': round(100.0 * sum(1 for v in actuals if v <= 0) / len(actuals), 1),
+        })
+
+    coverage = ((current_summary or {}).get('daily_context') or {}).get('coverage') or {}
+    items = (current_summary or {}).get('items') or []
+    gaps = []
+    if not rows:
+        gaps.append('No hitter decision logs have been generated yet.')
+    if rows and not labeled:
+        gaps.append('Generated hitter decisions do not yet have actual fantasy point labels.')
+    if coverage:
+        total = coverage.get('total_rows') or 0
+        if total and not coverage.get('with_lineup_spot'):
+            gaps.append('Lineup spots are not available yet, so hitter advice is context-limited.')
+        if total and coverage.get('with_opposing_pitcher_hand', 0) < total:
+            gaps.append('Opposing pitcher handedness is incomplete for hitter platoon evaluation.')
+        if total and coverage.get('with_hitter_bats', 0) < total:
+            gaps.append('Hitter batting side is incomplete for platoon evaluation.')
+    else:
+        gaps.append('Current hitter context coverage is unavailable in this report run.')
+
+    if labeled:
+        interpretation = 'Hitter decisions have actual-point labels and can start being evaluated by action type.'
+    elif rows:
+        interpretation = 'Hitter decisions are being logged, but they are not outcome-labeled yet; treat hitter advice as unvalidated reminders.'
+    else:
+        interpretation = 'Hitter decision accuracy is not measurable yet because no hitter decision log rows exist.'
+
+    return {
+        'available': True,
+        'log_rows': len(rows),
+        'dates_logged': len(dates),
+        'date_range': f"{dates[0]} through {dates[-1]}" if dates else '',
+        'labeled_rows': len(labeled),
+        'kind_counts': dict(sorted(kind_counts.items())),
+        'confidence_counts': dict(sorted(confidence_counts.items())),
+        'kind_metrics': kind_metrics,
+        'current_action_count': len(items),
+        'current_context_coverage': coverage,
+        'gaps': gaps[:6],
+        'interpretation': interpretation,
+        'note': 'Analysis only. Hitter values, recommendations, scoring, and roster moves are unchanged.',
+    }
+
+
+def print_hitter_decision_quality_audit(summary):
+    print("\nHITTER DECISION QUALITY AUDIT")
+    print("=" * 60)
+    print("Read-only: measures hitter decision logging and actual-point labels when available.")
+    print(f"Logged decision rows: {summary.get('log_rows', 0)}")
+    if summary.get('date_range'):
+        print(f"Dates logged: {summary.get('date_range')} ({summary.get('dates_logged', 0)} date(s))")
+    print(f"Rows with actual fantasy points: {summary.get('labeled_rows', 0)}")
+    kinds = summary.get('kind_counts') or {}
+    if kinds:
+        print("Action types: " + ", ".join(f"{k} {v}" for k, v in kinds.items()))
+    confidence = summary.get('confidence_counts') or {}
+    if confidence:
+        print("Context confidence: " + ", ".join(f"{k} {v}" for k, v in confidence.items()))
+    coverage = summary.get('current_context_coverage') or {}
+    if coverage:
+        print(
+            "Current context coverage: "
+            f"{coverage.get('total_rows', 0)} rows, "
+            f"{coverage.get('with_game_today', 0)} with game today, "
+            f"{coverage.get('with_lineup_spot', 0)} with lineup spot, "
+            f"{coverage.get('with_opposing_pitcher_hand', 0)} with opposing pitcher hand, "
+            f"{coverage.get('with_hitter_bats', 0)} with hitter bats"
+        )
+    if summary.get('kind_metrics'):
+        print("\nActual-point results by action type")
+        for row in summary['kind_metrics']:
+            print(
+                f"  - {row['kind']}: n={row['n']}, avg {row['mean_actual']:+.2f}, "
+                f"useful {row['useful_rate']:.1f}%, zero/worse {row['zero_or_worse_rate']:.1f}%"
+            )
+    else:
+        print("\nActual-point results by action type: not available yet.")
+    gaps = summary.get('gaps') or []
+    if gaps:
+        print("\nGaps before this is reliable")
+        for gap in gaps:
+            print(f"  - {gap}")
+    print("\nInterpretation")
+    print(f"  {summary.get('interpretation')}")
+    print(f"  {summary.get('note')}")
+    return summary
+
+
 def print_hitter_context(context, limit=12):
     print("\nHITTER DAILY CONTEXT")
     print("=" * 60)
@@ -8061,6 +8186,12 @@ def analyze_hitter_context_coverage():
         PREVIEW_LOCAL = old_preview
 
 
+def analyze_hitter_decision_quality():
+    summary = build_hitter_decision_quality_audit_summary()
+    print_hitter_decision_quality_audit(summary)
+    return summary
+
+
 def refresh_hitter_lineups(target_date=None):
     """Refresh today's posted MLB lineup cache only; no projection changes."""
     target_date = target_date or date.today().isoformat()
@@ -8522,6 +8653,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           matchup_snapshot_summary=None,
                           matchup_action_summary=None,
                           hitter_decision_summary=None,
+                          hitter_decision_audit_summary=None,
                           matchup_edge_summary=None,
                           decision_policy_summary=None,
                           risk_guard_results_summary=None,
@@ -8698,6 +8830,14 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
         write_hitter_decision_log(hitter_decision_summary, source='html-report')
     except Exception as e:
         print(f"  Hitter decision log skipped: {type(e).__name__}: {e}")
+    if hitter_decision_audit_summary is None:
+        try:
+            hitter_decision_audit_summary = build_hitter_decision_quality_audit_summary(hitter_decision_summary)
+        except Exception as e:
+            hitter_decision_audit_summary = {
+                'available': False,
+                'note': f'Hitter decision quality audit unavailable: {type(e).__name__}: {e}',
+            }
     prev_label = f"vs {prev_date}" if prev_date else "first snapshot"
     oldest_label = oldest_date or prev_date or "N/A"
 
@@ -9035,6 +9175,7 @@ var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
 var MATCHUP_SNAPSHOT = $MATCHUP_SNAPSHOT_JSON;
 var MATCHUP_ACTIONS = $MATCHUP_ACTIONS_JSON;
 var HITTER_DECISIONS = $HITTER_DECISIONS_JSON;
+var HITTER_DECISION_AUDIT = $HITTER_DECISION_AUDIT_JSON;
 var MATCHUP_EDGE = $MATCHUP_EDGE_JSON;
 
 /* ===== RoS Tracker logic ===== */
@@ -9429,6 +9570,44 @@ function renderHitterDecisions() {
   h += '</div>';
   if (HITTER_DECISIONS.notes && HITTER_DECISIONS.notes.length) {
     h += '<div class="decision-warning">' + HITTER_DECISIONS.notes.map(escHtml).join(' ') + '</div>';
+  }
+  h += '</div>';
+
+  var audit = HITTER_DECISION_AUDIT || {};
+  h += '<div class="day-card decision-card">';
+  h += '<div class="day-header"><span class="day-date">Hitter Decision Audit</span><span class="day-count">analysis only</span></div>';
+  if (!audit.available) {
+    h += '<div class="decision-warning">' + escHtml(audit.note || 'Hitter decision audit unavailable.') + '</div>';
+  } else {
+    h += '<div class="decision-summary">';
+    h += '<span class="decision-pill">Logged rows <b>' + (audit.log_rows || 0) + '</b></span>';
+    h += '<span class="decision-pill">Dates <b>' + (audit.dates_logged || 0) + '</b></span>';
+    h += '<span class="decision-pill">Actual labels <b>' + (audit.labeled_rows || 0) + '</b></span>';
+    h += '<span class="decision-pill">Current actions <b>' + (audit.current_action_count || 0) + '</b></span>';
+    h += '</div>';
+    h += '<div class="matchup-small">' + escHtml(audit.interpretation || 'Hitter decision reliability is still being measured.') + '</div>';
+    var auditCoverage = audit.current_context_coverage || {};
+    if (auditCoverage.total_rows !== undefined) {
+      h += '<div class="matchup-small">Current context: ';
+      h += '<b>' + (auditCoverage.total_rows || 0) + '</b> rows, ';
+      h += '<b>' + (auditCoverage.with_game_today || 0) + '</b> with game today, ';
+      h += '<b>' + (auditCoverage.with_lineup_spot || 0) + '</b> with lineup spot, ';
+      h += '<b>' + (auditCoverage.with_opposing_pitcher_hand || 0) + '</b> with opposing pitcher hand, ';
+      h += '<b>' + (auditCoverage.with_hitter_bats || 0) + '</b> with hitter bats.</div>';
+    }
+    if (audit.kind_metrics && audit.kind_metrics.length) {
+      h += '<div class="action-list">';
+      audit.kind_metrics.slice(0, 6).forEach(function(row) {
+        h += '<div class="action-row"><span class="action-kind watch">' + escHtml(row.kind || 'ACTION') + '</span>';
+        h += '<div class="action-text">n=' + escHtml(row.n || 0) + ', avg actual ' + escHtml(row.mean_actual || 0) + ', useful ' + escHtml(row.useful_rate || 0) + '%</div>';
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+    if (audit.gaps && audit.gaps.length) {
+      h += '<div class="decision-warning">' + audit.gaps.map(escHtml).join(' ') + '</div>';
+    }
+    h += '<div class="matchup-small">' + escHtml(audit.note || 'Analysis only. Hitter values and recommendations are unchanged.') + '</div>';
   }
   h += '</div>';
   container.innerHTML = h;
@@ -10250,6 +10429,7 @@ renderAccuracy();
         MATCHUP_SNAPSHOT_JSON=json.dumps(matchup_snapshot_summary) if matchup_snapshot_summary else 'null',
         MATCHUP_ACTIONS_JSON=json.dumps(matchup_action_summary) if matchup_action_summary else 'null',
         HITTER_DECISIONS_JSON=json.dumps(hitter_decision_summary) if hitter_decision_summary else 'null',
+        HITTER_DECISION_AUDIT_JSON=json.dumps(hitter_decision_audit_summary) if hitter_decision_audit_summary else 'null',
         MATCHUP_EDGE_JSON=json.dumps(matchup_edge_summary) if matchup_edge_summary else 'null',
         FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
         TOP_BANNER_HTML=top_banner_html or '',
@@ -15320,6 +15500,7 @@ def main():
     parser.add_argument('--hitter-context', action='store_true', help='Read-only logged hitter daily context coverage')
     parser.add_argument('--analyze-hitter-decision-context', action='store_true', help='Read-only hitter decision context reliability analysis')
     parser.add_argument('--analyze-hitter-context-coverage', action='store_true', help='Read-only hitter context coverage and confidence audit')
+    parser.add_argument('--analyze-hitter-decision-quality', action='store_true', help='Read-only hitter decision quality audit from generated logs')
     parser.add_argument('--audit-hitter-decision-log', action='store_true', help='Read-only audit of generated hitter decision logs')
     parser.add_argument('--refresh-hitter-lineups', action='store_true', help='Refresh local MLB posted-lineup cache for hitter decisions')
     parser.add_argument('--debug-matchup-payload', action='store_true', help='Read-only compact ESPN matchup payload diagnostic')
@@ -15446,6 +15627,10 @@ def main():
 
     if args.analyze_hitter_context_coverage:
         analyze_hitter_context_coverage()
+        return
+
+    if args.analyze_hitter_decision_quality:
+        analyze_hitter_decision_quality()
         return
 
     if args.audit_hitter_decision_log:
