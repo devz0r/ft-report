@@ -466,9 +466,20 @@ def fetch_espn_players():
             }
         }),
     }
-    resp = requests.get(ESPN_PLAYERS_URL, headers=espn_headers, timeout=60)
-    resp.raise_for_status()
-    data = resp.json()
+    try:
+        resp = requests.get(ESPN_PLAYERS_URL, headers=espn_headers, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        if os.path.exists(cache_file):
+            age_hours = (time.time() - os.path.getmtime(cache_file)) / 3600
+            print(
+                f"  ESPN player fetch failed: {type(e).__name__}: {e}. "
+                f"Using stale cached ESPN players ({age_hours:.1f}h old)."
+            )
+            with open(cache_file, 'r') as f:
+                return json.load(f)
+        raise
     active = [p for p in data if p.get('eligibleSlots')]
     print(f"  Retrieved {len(data)} total, {len(active)} with position eligibility")
     if PREVIEW_LOCAL:
@@ -3079,6 +3090,44 @@ def create_rankings(batters_df, pitchers_df):
     above_repl = sum(1 for _, r in all_players.iterrows() if r['dollars'] > 0)
     print(f"  Total: {len(all_players)}, Above replacement: {above_repl}")
     return all_players
+
+
+def rankings_from_snapshot(snapshot):
+    """Build a rankings dataframe from the latest local tracker snapshot."""
+    players = (snapshot or {}).get('players') or []
+    rows = []
+    for idx, player in enumerate(players, 1):
+        positions = player.get('positions') or []
+        if not isinstance(positions, list):
+            positions = parse_fg_positions(str(positions or ''))
+        display_pos = player.get('displayPos') or player.get('best_pos') or pick_display_pos(positions)
+        player_type = player.get('type') or ('pitcher' if display_pos in ('SP', 'RP') else 'hitter')
+        row = {
+            'rank': int(player.get('rank') or idx),
+            'name': player.get('name') or 'Unknown',
+            'team': player.get('team') or '',
+            'positions': positions,
+            'primary_pos': 'P' if player_type == 'pitcher' else pick_display_pos(positions),
+            'best_pos': display_pos,
+            'dollars': round(_safe_float(player.get('dollars')) or 0.0, 1),
+            'rpts': round(_safe_float(player.get('rpts')) or 0.0, 1),
+            'type': player_type,
+            'fg_id': str(player.get('fg_id') or ''),
+        }
+        pitcher_role = player.get('pitcherRole') or player.get('pitcher_role')
+        if pitcher_role:
+            row['pitcher_role'] = pitcher_role
+        rows.append(row)
+    df = pd.DataFrame(rows)
+    if df.empty:
+        raise RuntimeError("latest tracker snapshot has no players")
+    if 'rank' not in df.columns:
+        df['rank'] = range(1, len(df) + 1)
+    print(
+        f"  Using cached RoS rankings from tracker snapshot "
+        f"{(snapshot or {}).get('date') or 'unknown'} ({len(df)} players)"
+    )
+    return df
 
 
 # =============================================================================
@@ -15801,14 +15850,29 @@ def main():
     print("=" * 60)
     print("PHASE 1: FETCHING RoS PROJECTIONS")
     print("=" * 60)
-    batters_raw = timed("FanGraphs RoS fetch: batters", fetch_fg_ros_data, 'bat', 'rthebatx')
-    pitchers_raw = timed("FanGraphs RoS fetch: pitchers", fetch_fg_ros_data, 'pit', 'ratcdc')
+    ros_snapshot_fallback = None
+    try:
+        batters_raw = timed("FanGraphs RoS fetch: batters", fetch_fg_ros_data, 'bat', 'rthebatx')
+        pitchers_raw = timed("FanGraphs RoS fetch: pitchers", fetch_fg_ros_data, 'pit', 'ratcdc')
+    except Exception as e:
+        print(f"  FanGraphs RoS fetch failed: {type(e).__name__}: {e}")
+        latest_snapshot = load_latest_snapshot()
+        if not latest_snapshot:
+            print("  No local tracker snapshot is available for fallback.")
+            raise
+        print("  Continuing with latest local tracker snapshot for RoS rankings.")
+        ros_snapshot_fallback = latest_snapshot
+        batters_raw = []
+        pitchers_raw = []
 
     # Phase 2: Process and rank
     print("\n" + "=" * 60)
     print("PHASE 2: PROCESSING")
     print("=" * 60)
     def process_rankings_phase():
+        if ros_snapshot_fallback:
+            rankings = rankings_from_snapshot(ros_snapshot_fallback)
+            return pd.DataFrame(), pd.DataFrame(), rankings
         batters = process_fg_batters(batters_raw)
         pitchers = process_fg_pitchers(pitchers_raw)
         rankings = create_rankings(batters, pitchers)
@@ -15914,6 +15978,7 @@ def main():
     today_lines = {}
     yesterday_lines = {}
     recent_completed_sets = []
+    team_hand = {}
     try:
         print("\n" + "=" * 60)
         print("PHASE 5: STREAMING PITCHERS")
@@ -16029,8 +16094,20 @@ def main():
         print(f"  Streaming: {fa_count} FA options, {mine_count} of your starters, {tbd_count} TBD slots")
     except Exception as e:
         print(f"  Streaming data failed: {e}")
-        import traceback
-        traceback.print_exc()
+        try:
+            streaming_data, prediction_log_range = load_prediction_logs_for_fast_preview()
+            if streaming_data:
+                print(
+                    f"  Continuing with cached prediction logs for Streaming "
+                    f"({len(streaming_data)} rows; {prediction_log_range or 'date range unknown'})."
+                )
+            else:
+                print("  No cached prediction logs available for Streaming fallback.")
+        except Exception as fallback_error:
+            print(f"  Streaming fallback failed: {type(fallback_error).__name__}: {fallback_error}")
+        if not team_hand:
+            team_hand, _team_hand_age = _load_streaming_cache('team_handedness.json', max_age_hours=168)
+            team_hand = team_hand if isinstance(team_hand, dict) else {}
 
     # Phase 5.5: Calibration summary
     cal = None
