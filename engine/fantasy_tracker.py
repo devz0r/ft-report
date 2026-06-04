@@ -8439,6 +8439,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           hitter_decision_summary=None,
                           matchup_edge_summary=None,
                           decision_policy_summary=None,
+                          risk_guard_results_summary=None,
                           team_handedness_context=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
@@ -8477,6 +8478,14 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
             decision_policy_summary = {
                 'available': False,
                 'note': f'Decision policy backtest unavailable: {type(e).__name__}: {e}',
+            }
+    if risk_guard_results_summary is None:
+        try:
+            risk_guard_results_summary = build_risk_guard_results_summary()
+        except Exception as e:
+            risk_guard_results_summary = {
+                'available': False,
+                'note': f'Risk guard results unavailable: {type(e).__name__}: {e}',
             }
     matchup_snapshot_data = None
     if matchup_snapshot_summary is None or matchup_action_summary is None:
@@ -8915,6 +8924,7 @@ var LEARNED_BIASES = $LEARNED_BIASES_JSON;
 var LEARNED_CANDIDATES = $LEARNED_CANDIDATES_JSON;
 var LEARNING_SAMPLE_SUMMARY = $LEARNING_SAMPLE_SUMMARY_JSON;
 var DECISION_POLICY_BACKTEST = $DECISION_POLICY_BACKTEST_JSON;
+var RISK_GUARD_RESULTS = $RISK_GUARD_RESULTS_JSON;
 var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
 var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
 var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
@@ -9888,6 +9898,73 @@ function renderAccuracy() {
   }
   h += renderPolicyBacktest();
 
+  function renderRiskGuardWindow(w) {
+    if (!w) return '';
+    var h3 = '<div class="accuracy-row">';
+    h3 += '<div class="accuracy-row-main"><b>' + escHtml(w.label || 'Window') + '</b>';
+    if (w.since_date) h3 += ' <span style="color:#777">since ' + escHtml(w.since_date) + '</span>';
+    h3 += '</div>';
+    if (!w.available) {
+      h3 += '<div class="accuracy-row-detail">' + escHtml(w.note || 'No labeled outcomes yet.') + '</div></div>';
+      return h3;
+    }
+    var negDelta = Number(w.negative_recommended_delta || 0);
+    var missDelta = Number(w.good_missed_delta || 0);
+    var bustDelta = Number(w.start_bust_rate_delta || 0);
+    h3 += '<div class="decision-summary" style="margin:6px 0 0">';
+    h3 += '<span class="decision-pill">Rows <b>' + escHtml(w.rows || 0) + '</b></span>';
+    h3 += '<span class="decision-pill">Changed <b>' + escHtml(w.changed || 0) + '</b></span>';
+    h3 += '<span class="decision-pill">Helped/Hurt/Neutral <b>' + escHtml((w.helped || 0) + '/' + (w.hurt || 0) + '/' + (w.neutral || 0)) + '</b></span>';
+    h3 += '<span class="decision-pill">Negative starts <b>' + escHtml(w.negative_recommended_current || 0) + '→' + escHtml(w.negative_recommended_guard || 0) + '</b></span>';
+    h3 += '<span class="decision-pill">Good missed <b>' + escHtml(w.good_missed_current || 0) + '→' + escHtml(w.good_missed_guard || 0) + '</b></span>';
+    h3 += '</div>';
+    h3 += '<div class="accuracy-row-detail">';
+    h3 += 'START bust rate ' + escHtml(w.start_bust_rate_current || 0) + '%→' + escHtml(w.start_bust_rate_guard || 0) + '%';
+    h3 += ' · negative recommended ' + (negDelta >= 0 ? '+' : '') + escHtml(negDelta);
+    h3 += ' · good starts missed ' + (missDelta >= 0 ? '+' : '') + escHtml(missDelta);
+    h3 += ' · bust rate ' + (bustDelta >= 0 ? '+' : '') + escHtml(bustDelta) + ' pts';
+    h3 += '</div>';
+    h3 += '</div>';
+    return h3;
+  }
+
+  function renderRiskGuardResults() {
+    var r = RISK_GUARD_RESULTS || {};
+    var h2 = '<div class="day-card accuracy-card">';
+    h2 += '<div class="day-header"><span>Risk Guard Results</span><span style="color:#777;font-size:11px">visible overlay accountability</span></div>';
+    if (!r.available) {
+      h2 += '<div class="stream-note" style="color:#777">' + escHtml(r.note || 'Risk guard results are not available yet.') + '</div></div>';
+      return h2;
+    }
+    h2 += '<div class="stream-note" style="margin:0 0 8px;color:#777">';
+    h2 += escHtml(r.policy_label || 'Risk guard') + ' is measured against the original logged tiers. Projected points are unchanged.';
+    h2 += '</div>';
+    h2 += '<div class="accuracy-list">';
+    h2 += renderRiskGuardWindow(r.all_history);
+    h2 += renderRiskGuardWindow(r.fresh);
+    var examples = ((r.fresh && r.fresh.available && r.fresh.examples && r.fresh.examples.length) ? r.fresh.examples : ((r.all_history || {}).examples || []));
+    if (examples.length) {
+      h2 += '<div class="accuracy-row">';
+      h2 += '<div class="accuracy-row-main"><b>Examples</b></div>';
+      examples.slice(0, 6).forEach(function(ex) {
+        var cls = ex.outcome === 'helped' ? 'opp-easy' : (ex.outcome === 'hurt' ? 'opp-hard' : '');
+        h2 += '<div class="accuracy-row-detail">';
+        h2 += '<span class="' + cls + '">' + escHtml(ex.outcome || 'neutral') + '</span> · ';
+        h2 += escHtml(ex.date || '?') + ' · <b>' + escHtml(ex.pitcher || '?') + '</b> ';
+        h2 += escHtml((ex.from_advice || '?') + '→' + (ex.to_advice || '?'));
+        h2 += ' · pred ' + escHtml(ex.predicted_pts == null ? '--' : ex.predicted_pts) + ', actual ' + escHtml(ex.actual_pts == null ? '--' : ex.actual_pts);
+        if (ex.reasons) h2 += ' · ' + escHtml(ex.reasons);
+        h2 += '</div>';
+      });
+      h2 += '</div>';
+    }
+    h2 += '</div>';
+    h2 += '<div class="stream-note" style="margin:0;color:#777">' + escHtml(r.note || 'Projected points are unchanged; this measures the visible recommendation overlay.') + '</div>';
+    h2 += '</div>';
+    return h2;
+  }
+  h += renderRiskGuardResults();
+
   h += '<div class="stream-note" style="margin:8px 0;color:#777">';
   h += 'Learning uses one selected pregame snapshot per actual start, so duplicate logs and repeated snapshots do not overweight the model.';
   if (LEARNING_SAMPLE_SUMMARY && LEARNING_SAMPLE_SUMMARY.raw_rows !== undefined && LEARNING_SAMPLE_SUMMARY.unique_actual_starts !== undefined) {
@@ -9974,6 +10051,7 @@ renderAccuracy();
         LEARNED_CANDIDATES_JSON=json.dumps(learned_candidates or []),
         LEARNING_SAMPLE_SUMMARY_JSON=json.dumps(learning_sample_summary) if learning_sample_summary else 'null',
         DECISION_POLICY_BACKTEST_JSON=json.dumps(decision_policy_summary) if decision_policy_summary else 'null',
+        RISK_GUARD_RESULTS_JSON=json.dumps(risk_guard_results_summary) if risk_guard_results_summary else 'null',
         DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
         NEXT_WATCHLIST_JSON=json.dumps(next_watchlist_summary) if next_watchlist_summary else 'null',
         ADD_DROP_PRIORITY_JSON=json.dumps(add_drop_priority_summary) if add_drop_priority_summary else 'null',
@@ -12498,6 +12576,7 @@ RISK_GUARD_WEIGHT_PRESETS_BY_KEY = {
     preset['key']: preset for preset in RISK_GUARD_WEIGHT_PRESETS
 }
 VISIBLE_RISK_GUARD_POLICY_KEY = 'weighted_risk_guard_v2'
+RISK_GUARD_RESULTS_ACTIVATION_DATE = '2026-06-04'
 
 
 def _weighted_risk_guard_score(row, preset_or_key):
@@ -12694,7 +12773,10 @@ def _policy_diff_rows(work, policy_key):
         current = row[current_col]
         policy = row[policy_col]
         outcome = _policy_diff_outcome(row, current, policy)
-        risk_score, reasons = _decision_policy_risk_score(row)
+        if policy_key in RISK_GUARD_WEIGHT_PRESETS_BY_KEY:
+            risk_score, reasons = _weighted_risk_guard_score(row, policy_key)
+        else:
+            risk_score, reasons = _decision_policy_risk_score(row)
         outcomes.append(outcome)
         reason_texts.append('; '.join(reasons) if reasons else 'no logged risk reason')
         risk_scores.append(risk_score)
@@ -12894,6 +12976,115 @@ def build_start_sit_policy_backtest_summary():
         'diff_summary': diff_summary,
         'policies': rows_sorted,
         'note': 'Analysis only. Projected points and scoring are unchanged; visible recommendations may use the active risk guard overlay.',
+    }
+
+
+def _risk_guard_result_example(row, policy_key):
+    current = row.get('_policy_current') or _start_sit_policy_advice(row, 'current')
+    new_advice = row.get(f'_policy_{policy_key}') or _start_sit_policy_advice(row, policy_key)
+    pred = _safe_float(row.get('predicted_pts'))
+    actual = _safe_float(row.get('actual_pts'))
+    return {
+        'date': row.get('game_date') or row.get('date'),
+        'pitcher': row.get('pitcher_name') or row.get('name'),
+        'team': row.get('team'),
+        'opponent': row.get('opponent'),
+        'from_advice': current,
+        'to_advice': new_advice,
+        'predicted_pts': round(pred, 1) if pred is not None else None,
+        'actual_pts': round(actual, 1) if actual is not None else None,
+        'outcome': row.get('_policy_outcome'),
+        'reasons': row.get('_policy_reasons') or '',
+    }
+
+
+def _risk_guard_results_for_window(work, policy_key, label, since_date=None):
+    rows = work.copy()
+    if since_date:
+        rows = rows[rows['game_date'].astype(str) >= since_date]
+    if rows.empty:
+        return {
+            'label': label,
+            'since_date': since_date,
+            'rows': 0,
+            'available': False,
+            'note': 'No labeled outcomes in this window yet.',
+        }
+
+    current_col = '_policy_current'
+    active_col = f'_policy_{policy_key}'
+    rows[current_col] = [_start_sit_policy_advice(row, 'current') for _, row in rows.iterrows()]
+    rows[active_col] = [_start_sit_policy_advice(row, policy_key) for _, row in rows.iterrows()]
+    current_metrics = _decision_policy_metrics(rows, current_col)
+    active_metrics = _decision_policy_metrics(rows, active_col)
+    diffs = _policy_diff_rows(rows, policy_key)
+    helped = diffs[diffs['_policy_outcome'] == 'helped'] if not diffs.empty else diffs
+    hurt = diffs[diffs['_policy_outcome'] == 'hurt'] if not diffs.empty else diffs
+    neutral = diffs[diffs['_policy_outcome'] == 'neutral'] if not diffs.empty else diffs
+    examples = []
+    if not helped.empty:
+        for _, row in helped.sort_values('actual_pts', ascending=True).head(4).iterrows():
+            examples.append(_risk_guard_result_example(row, policy_key))
+    if not hurt.empty:
+        for _, row in hurt.sort_values('actual_pts', ascending=False).head(3).iterrows():
+            examples.append(_risk_guard_result_example(row, policy_key))
+
+    return {
+        'label': label,
+        'since_date': since_date,
+        'rows': int(len(rows)),
+        'available': True,
+        'changed': int(len(diffs)),
+        'helped': int(len(helped)),
+        'hurt': int(len(hurt)),
+        'neutral': int(len(neutral)),
+        'negative_recommended_current': int(current_metrics['negative_recommended']),
+        'negative_recommended_guard': int(active_metrics['negative_recommended']),
+        'negative_recommended_delta': int(active_metrics['negative_recommended'] - current_metrics['negative_recommended']),
+        'good_missed_current': int(current_metrics['good_starts_missed']),
+        'good_missed_guard': int(active_metrics['good_starts_missed']),
+        'good_missed_delta': int(active_metrics['good_starts_missed'] - current_metrics['good_starts_missed']),
+        'start_bust_rate_current': round(current_metrics['start_bust_rate'], 1),
+        'start_bust_rate_guard': round(active_metrics['start_bust_rate'], 1),
+        'start_bust_rate_delta': round(active_metrics['start_bust_rate'] - current_metrics['start_bust_rate'], 1),
+        'examples': examples,
+        'reason_summary': _weighted_candidate_diff(
+            rows,
+            active_col,
+            RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(policy_key, {}).get('weights', {}),
+        ).get('reason_summary', []),
+    }
+
+
+def build_risk_guard_results_summary(policy_key=VISIBLE_RISK_GUARD_POLICY_KEY):
+    """Summarize active risk-guard results for the Accuracy tab."""
+    work, source, skipped_source = _load_start_sit_analysis_rows()
+    policy = RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(policy_key, {})
+    if work.empty:
+        return {
+            'available': False,
+            'source': source,
+            'skipped_source': skipped_source,
+            'policy_key': policy_key,
+            'policy_label': policy.get('label', policy_key),
+            'activation_date': RISK_GUARD_RESULTS_ACTIVATION_DATE,
+            'note': 'No labeled starts with actual fantasy points are available yet.',
+        }
+    return {
+        'available': True,
+        'source': source,
+        'skipped_source': skipped_source,
+        'policy_key': policy_key,
+        'policy_label': policy.get('label', policy_key),
+        'activation_date': RISK_GUARD_RESULTS_ACTIVATION_DATE,
+        'all_history': _risk_guard_results_for_window(work, policy_key, 'Backtest all history'),
+        'fresh': _risk_guard_results_for_window(
+            work,
+            policy_key,
+            f'Fresh since {RISK_GUARD_RESULTS_ACTIVATION_DATE}',
+            since_date=RISK_GUARD_RESULTS_ACTIVATION_DATE,
+        ),
+        'note': 'Projected points are unchanged; this measures the visible recommendation overlay.',
     }
 
 
