@@ -8518,6 +8518,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           matchup_edge_summary=None,
                           decision_policy_summary=None,
                           risk_guard_results_summary=None,
+                          recommendation_policy_audit_summary=None,
                           team_handedness_context=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
@@ -8611,6 +8612,18 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
             risk_guard_results_summary = {
                 'available': False,
                 'note': f'Risk guard results unavailable: {type(e).__name__}: {e}',
+            }
+    if recommendation_policy_audit_summary is None:
+        try:
+            recommendation_policy_audit_summary = build_recommendation_policy_audit_summary(
+                snapshot_date,
+                records=report_decision_records,
+                source=report_decision_source,
+            )
+        except Exception as e:
+            recommendation_policy_audit_summary = {
+                'available': False,
+                'note': f'Recommendation policy audit unavailable: {type(e).__name__}: {e}',
             }
     # Build a lookup of emerging (HOLD) pitchers.
     # Prefer the global emerging map (assesses ALL FA + MY ROSTER SPs by recent form,
@@ -9007,6 +9020,7 @@ var LEARNED_CANDIDATES = $LEARNED_CANDIDATES_JSON;
 var LEARNING_SAMPLE_SUMMARY = $LEARNING_SAMPLE_SUMMARY_JSON;
 var DECISION_POLICY_BACKTEST = $DECISION_POLICY_BACKTEST_JSON;
 var RISK_GUARD_RESULTS = $RISK_GUARD_RESULTS_JSON;
+var RECOMMENDATION_POLICY_AUDIT = $RECOMMENDATION_POLICY_AUDIT_JSON;
 var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
 var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
 var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
@@ -9865,19 +9879,92 @@ renderStreaming();
 /* ===== Accuracy tab rendering ===== */
 function renderAccuracy() {
   var c = document.getElementById('accuracyContent');
+  function renderRecommendationPolicyAudit() {
+    var a = RECOMMENDATION_POLICY_AUDIT || {};
+    var h2 = '<div class="day-card accuracy-card">';
+    h2 += '<div class="day-header"><span>Recommendation Policy Audit</span><span style="color:#777;font-size:11px">visible report guidance</span></div>';
+    if (!a || !a.today) {
+      h2 += '<div class="stream-note" style="color:#777">' + escHtml((a && a.note) || 'Recommendation policy audit is not available yet.') + '</div></div>';
+      return h2;
+    }
+    var today = a.today || {};
+    var current = a.current || {};
+    var overlay = a.visible_overlay || {};
+    var deltas = a.deltas || {};
+    h2 += '<div class="decision-summary">';
+    h2 += '<span class="decision-pill">Active guard <b>' + escHtml(a.policy_label || 'Risk guard') + '</b></span>';
+    h2 += '<span class="decision-pill">Today changed <b>' + escHtml(today.affected_count || 0) + '</b></span>';
+    h2 += '<span class="decision-pill">Historical helped/hurt/neutral <b>' + escHtml((a.helped || 0) + '/' + (a.hurt || 0) + '/' + (a.neutral || 0)) + '</b></span>';
+    h2 += '<span class="decision-pill">Negative starts <b>' + escHtml((current.negative_recommended == null ? '--' : current.negative_recommended) + '→' + (overlay.negative_recommended == null ? '--' : overlay.negative_recommended)) + '</b></span>';
+    h2 += '<span class="decision-pill">Good missed <b>' + escHtml((current.good_starts_missed == null ? '--' : current.good_starts_missed) + '→' + (overlay.good_starts_missed == null ? '--' : overlay.good_starts_missed)) + '</b></span>';
+    h2 += '</div>';
+    h2 += '<div class="stream-note" style="margin:0 0 8px;color:#777">' + escHtml(a.interpretation || a.note || 'Projected points are unchanged; this is report guidance only.') + '</div>';
+    if (a.available) {
+      h2 += '<div class="accuracy-table-wrap"><table class="accuracy-table">';
+      h2 += '<tr style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:4px 16px">Metric</td><td style="padding:4px 16px;text-align:right">Raw model</td><td style="padding:4px 16px;text-align:right">Visible guard</td><td style="padding:4px 16px;text-align:right">Change</td></tr>';
+      [
+        ['START bust rate', current.start_bust_rate, overlay.start_bust_rate, deltas.start_bust_rate, '%'],
+        ['Negative recommended starts', current.negative_recommended, overlay.negative_recommended, deltas.negative_recommended, ''],
+        ['Good starts missed', current.good_starts_missed, overlay.good_starts_missed, deltas.good_starts_missed, '']
+      ].forEach(function(row) {
+        var isPct = row[4] === '%';
+        var cur = Number(row[1] || 0);
+        var vis = Number(row[2] || 0);
+        var delta = Number(row[3] || 0);
+        var lowerIsGood = row[0] !== 'Good starts missed';
+        var dCls = delta === 0 ? '' : ((lowerIsGood ? delta < 0 : delta <= 0) ? 'opp-easy' : 'opp-hard');
+        h2 += '<tr><td style="padding:6px 16px"><b>' + escHtml(row[0]) + '</b></td>';
+        h2 += '<td style="padding:6px 16px;text-align:right">' + (isPct ? cur.toFixed(1) + '%' : cur.toFixed(0)) + '</td>';
+        h2 += '<td style="padding:6px 16px;text-align:right">' + (isPct ? vis.toFixed(1) + '%' : vis.toFixed(0)) + '</td>';
+        h2 += '<td style="padding:6px 16px;text-align:right" class="' + dCls + '">' + (delta >= 0 ? '+' : '') + (isPct ? delta.toFixed(1) + ' pts' : delta.toFixed(0)) + '</td></tr>';
+      });
+      h2 += '</table></div>';
+    }
+    var affected = today.affected || [];
+    h2 += '<div class="accuracy-list">';
+    h2 += '<div class="accuracy-row">';
+    h2 += '<div class="accuracy-row-main"><b>Today</b></div>';
+    if (!affected.length) {
+      h2 += '<div class="accuracy-row-detail">No actionable pitchers are changed by the risk guard today.</div>';
+    } else {
+      affected.slice(0, 6).forEach(function(item) {
+        var matchup = item.home_away === 'A' ? 'at ' + (item.opponent || '?') : 'vs ' + (item.opponent || '?');
+        var reasons = (item.reasons || []).slice(0, 3).join(', ') || 'risk score threshold';
+        h2 += '<div class="accuracy-row-detail"><b>' + escHtml(item.name || '?') + '</b> ';
+        h2 += escHtml(matchup) + ' · ' + escHtml(item.points == null ? '--' : item.points) + ' pts · ';
+        h2 += escHtml(tierLabel(item.model_tier || '')) + '→' + escHtml(tierLabel(item.display_tier || ''));
+        h2 += ' · ' + escHtml(reasons) + '</div>';
+      });
+    }
+    h2 += '</div>';
+    var reasons = a.reason_summary || [];
+    if (reasons.length) {
+      h2 += '<div class="accuracy-row">';
+      h2 += '<div class="accuracy-row-main"><b>Why the guard usually fires</b></div>';
+      reasons.slice(0, 4).forEach(function(r) {
+        h2 += '<div class="accuracy-row-detail">' + escHtml(r.reason || '') + ': ' + escHtml(r.demotions || 0) + ' changes, helped ' + escHtml(r.helped || 0) + ', hurt ' + escHtml(r.hurt || 0) + '</div>';
+      });
+      h2 += '</div>';
+    }
+    h2 += '</div>';
+    h2 += '<div class="stream-note" style="margin:0;color:#777">' + escHtml(a.note || 'Projected points and learned corrections are unchanged.') + '</div>';
+    h2 += '</div>';
+    return h2;
+  }
+  var policyAuditHtml = renderRecommendationPolicyAudit();
   if (CALIBRATION && CALIBRATION.note) {
-    c.innerHTML = '<div class="stream-note" style="padding:40px;text-align:center;color:#555">' + CALIBRATION.note + '</div>';
+    c.innerHTML = policyAuditHtml + '<div class="stream-note" style="padding:40px;text-align:center;color:#555">' + CALIBRATION.note + '</div>';
     return;
   }
   if (!CALIBRATION || !CALIBRATION.n) {
-    c.innerHTML = '<div class="stream-note" style="padding:40px;text-align:center;color:#555">No outcomes joined yet. Predictions logged today; accuracy stats will populate after tomorrow’s outcomes are processed.</div>';
+    c.innerHTML = policyAuditHtml + '<div class="stream-note" style="padding:40px;text-align:center;color:#555">No outcomes joined yet. Predictions logged today; accuracy stats will populate after tomorrow’s outcomes are processed.</div>';
     return;
   }
   var cal = CALIBRATION;
   var biasDir = cal.bias > 0 ? 'underpredicting' : (cal.bias < 0 ? 'overpredicting' : 'on the nose');
   var biasCls = Math.abs(cal.bias) > 1 ? 'opp-hard' : 'opp-easy';
 
-  var h = '';
+  var h = policyAuditHtml;
   // Top stats row
   h += '<div class="day-card accuracy-card">';
   h += '<div class="day-header"><span>Last ' + cal.window_days + ' days &mdash; ' + cal.n + ' starts</span></div>';
@@ -10140,6 +10227,7 @@ renderAccuracy();
         LEARNING_SAMPLE_SUMMARY_JSON=json.dumps(learning_sample_summary) if learning_sample_summary else 'null',
         DECISION_POLICY_BACKTEST_JSON=json.dumps(decision_policy_summary) if decision_policy_summary else 'null',
         RISK_GUARD_RESULTS_JSON=json.dumps(risk_guard_results_summary) if risk_guard_results_summary else 'null',
+        RECOMMENDATION_POLICY_AUDIT_JSON=json.dumps(recommendation_policy_audit_summary) if recommendation_policy_audit_summary else 'null',
         DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
         NEXT_WATCHLIST_JSON=json.dumps(next_watchlist_summary) if next_watchlist_summary else 'null',
         ADD_DROP_PRIORITY_JSON=json.dumps(add_drop_priority_summary) if add_drop_priority_summary else 'null',
@@ -13333,6 +13421,68 @@ def _policy_metric_delta(active, current):
         'borderline_count': int(active.get('borderline_count', 0) - current.get('borderline_count', 0)),
         'sit_count': int(active.get('sit_count', 0) - current.get('sit_count', 0)),
     }
+
+
+def build_recommendation_policy_audit_summary(base_date=None, records=None, source=None):
+    """Compact report summary of raw model tiers vs visible risk-guard recommendations."""
+    policy_key = VISIBLE_RISK_GUARD_POLICY_KEY
+    policy_label = RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(policy_key, {}).get('label', policy_key)
+    today = _recommendation_audit_today(base_date=base_date, records=records, source=source)
+    work, hist_source, skipped_source = _load_start_sit_analysis_rows()
+    summary = {
+        'available': True,
+        'policy_key': policy_key,
+        'policy_label': policy_label,
+        'today': today,
+        'source': hist_source,
+        'skipped_source': skipped_source,
+        'note': 'Report display only. Projected points, scoring, and learned corrections are unchanged.',
+    }
+    if work.empty:
+        summary.update({
+            'available': False,
+            'labeled_rows': 0,
+            'historical_note': 'No labeled starts with actual fantasy points are available yet.',
+        })
+        return summary
+
+    current_col = '_policy_current'
+    active_col = f'_policy_{policy_key}'
+    work[current_col] = [_start_sit_policy_advice(row, 'current') for _, row in work.iterrows()]
+    work[active_col] = [_start_sit_policy_advice(row, policy_key) for _, row in work.iterrows()]
+    current_metrics = _decision_policy_metrics(work, current_col)
+    active_metrics = _decision_policy_metrics(work, active_col)
+    deltas = _policy_metric_delta(active_metrics, current_metrics)
+    diffs = _policy_diff_rows(work, policy_key)
+    helped = diffs[diffs['_policy_outcome'] == 'helped'] if not diffs.empty else diffs
+    hurt = diffs[diffs['_policy_outcome'] == 'hurt'] if not diffs.empty else diffs
+    neutral = diffs[diffs['_policy_outcome'] == 'neutral'] if not diffs.empty else diffs
+    reason_summary = _weighted_candidate_diff(
+        work,
+        active_col,
+        RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(policy_key, {}).get('weights', {}),
+    ).get('reason_summary', [])
+    if deltas['negative_recommended'] < 0 and deltas['good_starts_missed'] <= abs(deltas['negative_recommended']):
+        interpretation = 'The visible risk guard has reduced bad recommended starts so far, with a modest missed-upside cost.'
+    elif deltas['negative_recommended'] < 0:
+        interpretation = 'The visible risk guard reduces negative starts, but it also hides extra good starts. Treat it as a risk-tolerance tradeoff.'
+    elif len(diffs):
+        interpretation = 'The visible risk guard changes recommendations, but the current sample does not show a clear safety gain yet.'
+    else:
+        interpretation = 'The visible risk guard has not changed enough labeled starts to judge yet.'
+    summary.update({
+        'labeled_rows': int(len(work)),
+        'current': current_metrics,
+        'visible_overlay': active_metrics,
+        'deltas': deltas,
+        'changed': int(len(diffs)),
+        'helped': int(len(helped)),
+        'hurt': int(len(hurt)),
+        'neutral': int(len(neutral)),
+        'reason_summary': reason_summary[:8],
+        'interpretation': interpretation,
+    })
+    return summary
 
 
 def analyze_recommendation_policy_audit():
