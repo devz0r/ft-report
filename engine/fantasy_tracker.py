@@ -13257,6 +13257,220 @@ def analyze_start_sit_policy_backtest():
     return {'labeled_rows': len(work), 'policies': rows_sorted}
 
 
+def _display_advice_from_record(record):
+    tier = record.get('tier') or record.get('risk_guard_display_tier')
+    return _start_sit_predicted_advice(tier, _decision_points(record))
+
+
+def _model_advice_from_record(record):
+    tier = record.get('model_tier') or record.get('risk_guard_original_tier') or record.get('tier')
+    return _start_sit_predicted_advice(tier, _decision_points(record))
+
+
+def _recommendation_audit_today(base_date=None, records=None, source=None):
+    base_date = base_date or date.today().isoformat()
+    if records is None:
+        records, source_path = _latest_prediction_records_by_date(base_date)
+        source = source or source_path
+    records = [dict(r) for r in records or []]
+    records = [
+        r for r in records
+        if (r.get('date') or r.get('game_date') or base_date) == base_date
+    ]
+    records, probable_report = validate_probable_prediction_records(records, source=source or 'prediction records')
+    records, enrichment = _enrich_decision_statuses(records)
+    overlaid = [apply_visible_risk_guard_overlay(r) for r in records]
+    affected = []
+    actionable_statuses = {'MY ROSTER', 'FA', 'WAIVER'}
+    for rec in overlaid:
+        if rec.get('status') not in actionable_statuses:
+            continue
+        model_tier = rec.get('model_tier') or rec.get('risk_guard_original_tier') or rec.get('tier')
+        display_tier = rec.get('risk_guard_display_tier') or rec.get('tier')
+        if model_tier == display_tier and not rec.get('risk_guard_applied'):
+            continue
+        affected.append({
+            'name': rec.get('name') or rec.get('pitcher_name'),
+            'team': rec.get('team'),
+            'opponent': rec.get('opponent'),
+            'home_away': rec.get('home_away'),
+            'status': rec.get('status'),
+            'points': round(_decision_points(rec), 1),
+            'model_tier': model_tier,
+            'display_tier': display_tier,
+            'model_advice': _model_advice_from_record(rec),
+            'display_advice': _display_advice_from_record(rec),
+            'risk_score': rec.get('shadow_risk_guard_score'),
+            'reasons': rec.get('risk_guard_reasons') or rec.get('shadow_risk_guard_reasons') or [],
+            'note': rec.get('risk_guard_note'),
+        })
+    affected = sorted(
+        affected,
+        key=lambda r: (
+            TIER_ORDER.get(r.get('model_tier') or '', 9),
+            -float(r.get('points') or 0.0),
+            r.get('name') or '',
+        )
+    )
+    return {
+        'date': base_date,
+        'source': source,
+        'rows_scanned': len(records),
+        'actionable_rows': sum(1 for r in overlaid if r.get('status') in actionable_statuses),
+        'affected': affected,
+        'affected_count': len(affected),
+        'enrichment': enrichment,
+        'probable_sanity': probable_report,
+    }
+
+
+def _policy_metric_delta(active, current):
+    return {
+        'start_bust_rate': round(active.get('start_bust_rate', 0.0) - current.get('start_bust_rate', 0.0), 1),
+        'negative_recommended': int(active.get('negative_recommended', 0) - current.get('negative_recommended', 0)),
+        'good_starts_missed': int(active.get('good_starts_missed', 0) - current.get('good_starts_missed', 0)),
+        'start_count': int(active.get('start_count', 0) - current.get('start_count', 0)),
+        'borderline_count': int(active.get('borderline_count', 0) - current.get('borderline_count', 0)),
+        'sit_count': int(active.get('sit_count', 0) - current.get('sit_count', 0)),
+    }
+
+
+def analyze_recommendation_policy_audit():
+    """Read-only audit of raw model tier vs visible recommendation overlay."""
+    print("RECOMMENDATION POLICY AUDIT")
+    print("=" * 60)
+    print("Analysis only: projected points, learned corrections, and stored prediction logs are unchanged.")
+    policy_key = VISIBLE_RISK_GUARD_POLICY_KEY
+    policy_label = RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(policy_key, {}).get('label', policy_key)
+    print(f"Active visible overlay: {policy_label} ({policy_key})")
+
+    today = _recommendation_audit_today()
+    print("\nToday: raw model tier vs visible recommendation")
+    print(f"Date: {today['date']}")
+    print(f"Source: {today.get('source') or 'prediction records'}")
+    print(f"Rows scanned: {today['rows_scanned']}")
+    print(f"Actionable rows: {today['actionable_rows']}")
+    print(f"Visible recommendation changes today: {today['affected_count']}")
+    if today['affected']:
+        for item in today['affected'][:12]:
+            matchup = f"vs {item.get('opponent') or '?'}"
+            if item.get('home_away') == 'A':
+                matchup = f"at {item.get('opponent') or '?'}"
+            reasons = ', '.join((item.get('reasons') or [])[:3]) or 'risk score threshold'
+            print(
+                f"  - {item.get('name') or '?'} ({item.get('team') or '?'}, {item.get('status') or '?'}) "
+                f"{matchup}: {item.get('points'):.1f} pts | "
+                f"{TIER_LABELS.get(item.get('model_tier'), item.get('model_tier'))} -> "
+                f"{TIER_LABELS.get(item.get('display_tier'), item.get('display_tier'))} "
+                f"| risk {item.get('risk_score')} | {reasons}"
+            )
+    else:
+        print("  None. The visible overlay does not change any actionable pitchers today.")
+    probable = today.get('probable_sanity') or {}
+    if probable.get('suppressed_total'):
+        print(f"Low-confidence probable-date rows suppressed before audit: {probable['suppressed_total']}")
+
+    work, source, skipped_source = _load_start_sit_analysis_rows()
+    print("\nHistorical decision-policy result")
+    if skipped_source:
+        print(f"Warehouse source skipped: {skipped_source}")
+    print(f"Source: {source}")
+    if work.empty:
+        print("No labeled starts with actual fantasy points are available yet.")
+        return {'today': today, 'labeled_rows': 0}
+
+    current_col = '_policy_current'
+    active_col = f'_policy_{policy_key}'
+    work[current_col] = [_start_sit_policy_advice(row, 'current') for _, row in work.iterrows()]
+    work[active_col] = [_start_sit_policy_advice(row, policy_key) for _, row in work.iterrows()]
+    current_metrics = _decision_policy_metrics(work, current_col)
+    active_metrics = _decision_policy_metrics(work, active_col)
+    deltas = _policy_metric_delta(active_metrics, current_metrics)
+    diffs = _policy_diff_rows(work, policy_key)
+    helped = diffs[diffs['_policy_outcome'] == 'helped'] if not diffs.empty else diffs
+    hurt = diffs[diffs['_policy_outcome'] == 'hurt'] if not diffs.empty else diffs
+    neutral = diffs[diffs['_policy_outcome'] == 'neutral'] if not diffs.empty else diffs
+
+    print(f"Labeled starts analyzed: {len(work)}")
+    if len(work) < 100:
+        print("Small-sample warning: fewer than 100 labeled decisions are available.")
+    print(
+        f"Changed decisions: {len(diffs)} "
+        f"(helped {len(helped)}, hurt {len(hurt)}, neutral {len(neutral)})"
+    )
+    print("\nMetric comparison")
+    print(f"{'Metric':<30s} {'Raw model':>12s} {'Visible overlay':>16s} {'Change':>10s}")
+    print(
+        f"{'START bust rate':<30s} {current_metrics['start_bust_rate']:>11.1f}% "
+        f"{active_metrics['start_bust_rate']:>15.1f}% {deltas['start_bust_rate']:>+9.1f} pts"
+    )
+    print(
+        f"{'Negative recommended starts':<30s} {current_metrics['negative_recommended']:>12d} "
+        f"{active_metrics['negative_recommended']:>16d} {deltas['negative_recommended']:>+10d}"
+    )
+    print(
+        f"{'Good starts missed':<30s} {current_metrics['good_starts_missed']:>12d} "
+        f"{active_metrics['good_starts_missed']:>16d} {deltas['good_starts_missed']:>+10d}"
+    )
+    current_counts = f"{current_metrics['start_count']}/{current_metrics['borderline_count']}/{current_metrics['sit_count']}"
+    active_counts = f"{active_metrics['start_count']}/{active_metrics['borderline_count']}/{active_metrics['sit_count']}"
+    delta_counts = f"{deltas['start_count']:+d}/{deltas['borderline_count']:+d}/{deltas['sit_count']:+d}"
+    print(
+        f"{'START/BORDERLINE/SIT count':<30s} "
+        f"{current_counts:>12s} {active_counts:>16s} {delta_counts:>10s}"
+    )
+
+    reason_summary = _weighted_candidate_diff(
+        work,
+        active_col,
+        RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(policy_key, {}).get('weights', {}),
+    ).get('reason_summary', [])
+    print("\nTop risk reasons on changed decisions")
+    if reason_summary:
+        for row in reason_summary[:8]:
+            print(
+                f"  - {row['reason']}: {row['demotions']} changes, "
+                f"helped {row['helped']}, hurt {row['hurt']}"
+            )
+    else:
+        print("  None")
+
+    _print_policy_diff_examples(
+        "Changed decisions that helped",
+        helped.sort_values('actual_pts', ascending=True) if not helped.empty else helped,
+        policy_key,
+        limit=5,
+    )
+    _print_policy_diff_examples(
+        "Changed decisions that hurt",
+        hurt.sort_values('actual_pts', ascending=False) if not hurt.empty else hurt,
+        policy_key,
+        limit=5,
+    )
+
+    print("\nInterpretation")
+    if deltas['negative_recommended'] < 0 and deltas['good_starts_missed'] <= abs(deltas['negative_recommended']):
+        print("  The overlay is doing useful fantasy work: fewer negative recommended starts without an outsized missed-start cost.")
+    elif deltas['negative_recommended'] < 0:
+        print("  The overlay reduces negative starts, but it also misses extra good starts. This is a risk-tolerance tradeoff, not a free win.")
+    elif len(diffs):
+        print("  The overlay changes recommendations, but the current sample does not show a clear safety gain yet.")
+    else:
+        print("  The overlay has not changed enough labeled decisions to evaluate.")
+    print("  Use this audit to decide whether to keep, tighten, or relax the visible overlay later.")
+    return {
+        'today': today,
+        'labeled_rows': len(work),
+        'current': current_metrics,
+        'visible_overlay': active_metrics,
+        'deltas': deltas,
+        'changed': int(len(diffs)),
+        'helped': int(len(helped)),
+        'hurt': int(len(hurt)),
+        'neutral': int(len(neutral)),
+    }
+
+
 def _weighted_candidate_advice(row, weights, threshold):
     current = row.get('predicted_advice') or 'UNKNOWN'
     if current not in ('START', 'BORDERLINE'):
@@ -14893,6 +15107,7 @@ def main():
     parser.add_argument('--analyze-start-sit-misses', action='store_true', help='Read-only explanation analysis for start/sit decision misses')
     parser.add_argument('--analyze-start-sit-policy-backtest', action='store_true', help='Read-only comparison of alternate start/sit decision policies')
     parser.add_argument('--analyze-risk-guard-weights', action='store_true', help='Read-only comparison of weighted risk-guard overlays')
+    parser.add_argument('--audit-recommendation-policy', action='store_true', help='Read-only audit of raw model tiers vs visible recommendation overlay')
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--matchup-snapshot', action='store_true', help='Read-only ESPN head-to-head matchup snapshot')
     parser.add_argument('--matchup-actions', action='store_true', help='Read-only matchup action recommendations from existing data')
@@ -14987,6 +15202,10 @@ def main():
 
     if args.analyze_risk_guard_weights:
         analyze_risk_guard_weights()
+        return
+
+    if args.audit_recommendation_policy:
+        analyze_recommendation_policy_audit()
         return
 
     if args.daily_decision_audit:
