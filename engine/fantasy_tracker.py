@@ -4798,7 +4798,7 @@ def _risk_guard_policy_features(record):
 
 
 def apply_visible_risk_guard_overlay(record):
-    """Apply the backtested risk guard to display recommendations only.
+    """Apply the active recommendation policy to display recommendations only.
 
     The model's original tier remains available as model_tier; points and
     learned corrections are untouched.
@@ -4807,6 +4807,13 @@ def apply_visible_risk_guard_overlay(record):
         return record
     out = dict(record)
     original_tier = out.get('model_tier') or out.get('tier') or 'borderline'
+    out.setdefault('model_tier', original_tier)
+    out.setdefault('model_tier_label', TIER_LABELS.get(original_tier, original_tier))
+    policy = recommendation_policy_meta()
+    out['recommendation_policy_mode'] = policy.get('mode')
+    out['recommendation_policy_label'] = policy.get('label')
+    out['recommendation_policy_active'] = bool(policy.get('uses_risk_guard'))
+
     points = _decision_points(out)
     features = _risk_guard_policy_features(out)
     decision_entry = {
@@ -4817,10 +4824,8 @@ def apply_visible_risk_guard_overlay(record):
     shadow = _shadow_risk_guard_decision(decision_entry, features)
     shadow_advice = shadow.get('shadow_risk_guard_advice')
     display_tier = RISK_GUARD_ADVICE_TO_TIER.get(shadow_advice, original_tier)
-    changed = bool(shadow.get('shadow_risk_guard_changed') and display_tier != original_tier)
+    changed = bool(policy.get('uses_risk_guard') and shadow.get('shadow_risk_guard_changed') and display_tier != original_tier)
 
-    out.setdefault('model_tier', original_tier)
-    out.setdefault('model_tier_label', TIER_LABELS.get(original_tier, original_tier))
     out['shadow_risk_guard_advice'] = shadow_advice
     out['shadow_risk_guard_score'] = shadow.get('shadow_risk_guard_score')
     out['shadow_risk_guard_reasons'] = shadow.get('shadow_risk_guard_reasons') or []
@@ -4841,6 +4846,8 @@ def apply_visible_risk_guard_overlay(record):
             f"{policy_label} downgraded {TIER_LABELS.get(original_tier, original_tier)} "
             f"to {TIER_LABELS.get(display_tier, display_tier)}: {reason_text}"
         )
+    else:
+        out['risk_guard_display_tier'] = original_tier
     return out
 
 
@@ -9021,6 +9028,7 @@ var LEARNING_SAMPLE_SUMMARY = $LEARNING_SAMPLE_SUMMARY_JSON;
 var DECISION_POLICY_BACKTEST = $DECISION_POLICY_BACKTEST_JSON;
 var RISK_GUARD_RESULTS = $RISK_GUARD_RESULTS_JSON;
 var RECOMMENDATION_POLICY_AUDIT = $RECOMMENDATION_POLICY_AUDIT_JSON;
+var RECOMMENDATION_POLICY_META = $RECOMMENDATION_POLICY_META_JSON;
 var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
 var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
 var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
@@ -9528,6 +9536,12 @@ function renderStreaming() {
     days[s.date].entries.push(s);
   });
   var html = '';
+  if (RECOMMENDATION_POLICY_META) {
+    var policyNote = RECOMMENDATION_POLICY_META.note || 'Projected points are unchanged.';
+    html += '<div class="stream-note"><b>Recommendation policy:</b> ' +
+      escHtml(RECOMMENDATION_POLICY_META.label || 'Raw model tiers') +
+      ' &bull; ' + escHtml(policyNote) + '</div>';
+  }
   dayOrder.forEach(function(d) {
     var day = days[d];
     var dateObj = new Date(day.date + 'T12:00:00');
@@ -9647,6 +9661,7 @@ function streamingRiskGuardSignals(s) {
 }
 
 function streamingRiskGuardWarning(s) {
+  if (RECOMMENDATION_POLICY_META && !RECOMMENDATION_POLICY_META.uses_risk_guard) return '';
   var tier = s.tier || '';
   if (s.risk_guard_applied) {
     var original = tierLabel(s.risk_guard_original_tier || s.model_tier || '');
@@ -10228,6 +10243,7 @@ renderAccuracy();
         DECISION_POLICY_BACKTEST_JSON=json.dumps(decision_policy_summary) if decision_policy_summary else 'null',
         RISK_GUARD_RESULTS_JSON=json.dumps(risk_guard_results_summary) if risk_guard_results_summary else 'null',
         RECOMMENDATION_POLICY_AUDIT_JSON=json.dumps(recommendation_policy_audit_summary) if recommendation_policy_audit_summary else 'null',
+        RECOMMENDATION_POLICY_META_JSON=json.dumps(recommendation_policy_meta()),
         DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
         NEXT_WATCHLIST_JSON=json.dumps(next_watchlist_summary) if next_watchlist_summary else 'null',
         ADD_DROP_PRIORITY_JSON=json.dumps(add_drop_priority_summary) if add_drop_priority_summary else 'null',
@@ -12751,7 +12767,41 @@ RISK_GUARD_WEIGHT_PRESETS = [
 RISK_GUARD_WEIGHT_PRESETS_BY_KEY = {
     preset['key']: preset for preset in RISK_GUARD_WEIGHT_PRESETS
 }
-VISIBLE_RISK_GUARD_POLICY_KEY = 'weighted_risk_guard_v2'
+
+# Formal report recommendation policy. This affects visible START /
+# BORDERLINE / SIT guidance only; projected points and learned corrections
+# stay untouched. Set to "raw_model" to disable the risk-guard display layer.
+RECOMMENDATION_POLICY_MODE = 'risk_guard_v2'
+RECOMMENDATION_POLICY_MODES = {
+    'raw_model': {
+        'mode': 'raw_model',
+        'label': 'Raw model tiers',
+        'policy_key': 'current',
+        'uses_risk_guard': False,
+        'note': 'Raw model tiers are shown with no risk-guard downgrades.',
+    },
+    'risk_guard_v2': {
+        'mode': 'risk_guard_v2',
+        'label': 'Risk Guard v2',
+        'policy_key': 'weighted_risk_guard_v2',
+        'uses_risk_guard': True,
+        'note': 'Visible recommendations use the backtested risk guard; projected points are unchanged.',
+    },
+}
+
+
+def recommendation_policy_meta():
+    return RECOMMENDATION_POLICY_MODES.get(
+        RECOMMENDATION_POLICY_MODE,
+        RECOMMENDATION_POLICY_MODES['risk_guard_v2'],
+    )
+
+
+def active_recommendation_policy_key():
+    return recommendation_policy_meta().get('policy_key') or 'current'
+
+
+VISIBLE_RISK_GUARD_POLICY_KEY = active_recommendation_policy_key()
 RISK_GUARD_RESULTS_ACTIVATION_DATE = '2026-06-04'
 
 
@@ -13426,13 +13476,16 @@ def _policy_metric_delta(active, current):
 def build_recommendation_policy_audit_summary(base_date=None, records=None, source=None):
     """Compact report summary of raw model tiers vs visible risk-guard recommendations."""
     policy_key = VISIBLE_RISK_GUARD_POLICY_KEY
-    policy_label = RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(policy_key, {}).get('label', policy_key)
+    policy_meta = recommendation_policy_meta()
+    policy_label = policy_meta.get('label') or RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(policy_key, {}).get('label', policy_key)
     today = _recommendation_audit_today(base_date=base_date, records=records, source=source)
     work, hist_source, skipped_source = _load_start_sit_analysis_rows()
     summary = {
         'available': True,
+        'mode': policy_meta.get('mode'),
         'policy_key': policy_key,
         'policy_label': policy_label,
+        'uses_risk_guard': bool(policy_meta.get('uses_risk_guard')),
         'today': today,
         'source': hist_source,
         'skipped_source': skipped_source,
@@ -13491,8 +13544,9 @@ def analyze_recommendation_policy_audit():
     print("=" * 60)
     print("Analysis only: projected points, learned corrections, and stored prediction logs are unchanged.")
     policy_key = VISIBLE_RISK_GUARD_POLICY_KEY
-    policy_label = RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(policy_key, {}).get('label', policy_key)
-    print(f"Active visible overlay: {policy_label} ({policy_key})")
+    policy_meta = recommendation_policy_meta()
+    policy_label = policy_meta.get('label') or RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(policy_key, {}).get('label', policy_key)
+    print(f"Active recommendation policy: {policy_label} ({policy_meta.get('mode')})")
 
     today = _recommendation_audit_today()
     print("\nToday: raw model tier vs visible recommendation")
