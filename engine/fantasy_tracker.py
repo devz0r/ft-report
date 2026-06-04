@@ -5891,12 +5891,14 @@ def explain_pitcher_schedule(pitcher_name):
         PREVIEW_LOCAL = old_preview
 
 
-def decision_summary_for_report(summary):
+def decision_summary_for_report(summary, matchup_edge_summary=None):
     if not summary:
         return None
+    posture = matchup_posture_from_edge(matchup_edge_summary)
     return {
         'date': summary.get('date'),
         'source': summary.get('source'),
+        'matchup_posture': posture,
         'rows_scanned': summary.get('rows_scanned', 0),
         'original_actionable': summary.get('original_actionable', 0),
         'actionable_count': summary.get('actionable_count', 0),
@@ -6087,10 +6089,13 @@ def _action_item(kind, text, item, date_value, base_date, priority):
     }
 
 
-def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_summary=None):
+def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_summary=None,
+                                    matchup_edge_summary=None):
     """Create a short, conservative action list from existing report summaries."""
     actions = []
     seen = set()
+    posture = matchup_posture_from_edge(matchup_edge_summary)
+    posture_mode = posture.get('mode')
 
     def add_action(kind, text, item, date_value, priority):
         key = (
@@ -6110,10 +6115,21 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
         matchup = _action_matchup_text(item)
         pts = item.get('points') or 0
         if item.get('tier') in ('must_start', 'start'):
-            text = f"Add {item.get('name')} for today against {item.get('opponent')} ({pts:.1f} pts) if available."
-            add_action('ADD', text, item, (daily_summary or {}).get('date') or base_date, 10)
+            if posture_mode == 'protecting' and item.get('risk_guard_applied'):
+                text = f"Skip volatility unless desperate: {item.get('name')} has risk-guard flags today {matchup} ({pts:.1f} pts)."
+                add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 28)
+            else:
+                prefix = 'Add' if posture_mode != 'chasing' else 'Add for volume/upside'
+                text = f"{prefix} {item.get('name')} for today against {item.get('opponent')} ({pts:.1f} pts) if available."
+                add_action('ADD', text, item, (daily_summary or {}).get('date') or base_date, 10)
         elif item.get('tier') == 'borderline':
-            if item.get('risk_guard_candidate'):
+            if posture_mode == 'chasing' and not item.get('risk_guard_applied'):
+                text = f"Consider volume: {item.get('name')} today {matchup} ({pts:.1f} pts); chasing posture makes borderline innings more useful."
+                add_action('CONSIDER', text, item, (daily_summary or {}).get('date') or base_date, 24)
+            elif posture_mode == 'protecting':
+                text = f"Avoid extra volatility: {item.get('name')} is only borderline today {matchup} ({pts:.1f} pts)."
+                add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 32)
+            elif item.get('risk_guard_candidate') or item.get('risk_guard_applied'):
                 text = f"Avoid {item.get('name')} unless chasing volume today {matchup} ({pts:.1f} pts); backtest flags extra bust risk."
                 add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 35)
             else:
@@ -6136,14 +6152,27 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
                 text = f"Desperation only: {item.get('name')} {date_text} {matchup} ({pts:.1f} pts)."
                 add_action('DESPERATION', text, item, day_date, 85)
             elif item.get('tier') in ('must_start', 'start'):
-                text = f"Add or queue {item.get('name')} for {date_text} {matchup} ({pts:.1f} pts)."
+                if posture_mode == 'chasing':
+                    text = f"Queue upside/volume: {item.get('name')} for {date_text} {matchup} ({pts:.1f} pts)."
+                elif posture_mode == 'protecting':
+                    text = f"Queue only if clearly needed: {item.get('name')} for {date_text} {matchup} ({pts:.1f} pts)."
+                else:
+                    text = f"Add or queue {item.get('name')} for {date_text} {matchup} ({pts:.1f} pts)."
                 add_action('ADD', text, item, day_date, 20)
-            elif label == 'VOLUME ONLY' or item.get('risk_guard_candidate'):
-                text = f"Watch only as a volume fallback: {item.get('name')} {date_text} {matchup} ({pts:.1f} pts); risk-guard profile."
-                add_action('WATCH', text, item, day_date, 55)
+            elif label == 'VOLUME ONLY' or item.get('risk_guard_candidate') or item.get('risk_guard_applied'):
+                if posture_mode == 'chasing':
+                    text = f"Watch as risky volume: {item.get('name')} {date_text} {matchup} ({pts:.1f} pts); only if you need innings."
+                    add_action('WATCH', text, item, day_date, 48)
+                else:
+                    text = f"Watch only as a volume fallback: {item.get('name')} {date_text} {matchup} ({pts:.1f} pts); risk-guard profile."
+                    add_action('WATCH', text, item, day_date, 55)
             else:
-                text = f"Watch {item.get('name')} for {date_text}; borderline stream, not a priority add {matchup} ({pts:.1f} pts)."
-                add_action('WATCH', text, item, day_date, 45)
+                if posture_mode == 'chasing':
+                    text = f"Watch {item.get('name')} for {date_text}; borderline volume option {matchup} ({pts:.1f} pts)."
+                    add_action('WATCH', text, item, day_date, 40)
+                else:
+                    text = f"Watch {item.get('name')} for {date_text}; borderline stream, not a priority add {matchup} ({pts:.1f} pts)."
+                    add_action('WATCH', text, item, day_date, 45)
 
     for item in daily_sections.get('risky_roster', [])[:4]:
         pts = item.get('points') or 0
@@ -6152,8 +6181,15 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
             text = f"Bench {item.get('name')} unless desperate today {matchup} ({pts:.1f} pts)."
             add_action('BENCH', text, item, (daily_summary or {}).get('date') or base_date, 25)
         elif item.get('tier') == 'borderline':
-            text = f"Be careful with {item.get('name')} today {matchup}; playable but not safe ({pts:.1f} pts)."
-            add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 50)
+            if posture_mode == 'protecting':
+                text = f"Bench lean while protecting a lead: {item.get('name')} is borderline today {matchup} ({pts:.1f} pts)."
+                add_action('BENCH', text, item, (daily_summary or {}).get('date') or base_date, 24)
+            elif posture_mode == 'chasing':
+                text = f"Playable if chasing volume: {item.get('name')} today {matchup} ({pts:.1f} pts), but not safe."
+                add_action('CONSIDER', text, item, (daily_summary or {}).get('date') or base_date, 42)
+            else:
+                text = f"Be careful with {item.get('name')} today {matchup}; playable but not safe ({pts:.1f} pts)."
+                add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 50)
         elif item.get('risks'):
             text = f"Check risk on {item.get('name')} today {matchup} before locking him in ({pts:.1f} pts)."
             add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 55)
@@ -6168,6 +6204,7 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
         'date': base_date,
         'items': actions,
         'count': len(actions),
+        'matchup_posture': posture,
     }
 
 
@@ -8276,6 +8313,47 @@ def build_matchup_edge_summary(snapshot=None, base_date=None, players_list=None,
     }
 
 
+def matchup_posture_from_edge(summary):
+    """Compact display-only posture used by decision wording."""
+    label = (summary or {}).get('label') or 'High uncertainty'
+    confidence = (summary or {}).get('confidence') or 'low'
+    available = bool((summary or {}).get('available'))
+    if not available or label == 'High uncertainty' or confidence == 'low':
+        return {
+            'label': 'High uncertainty',
+            'mode': 'neutral',
+            'confidence': confidence,
+            'note': 'Matchup posture confidence is low; recommendations use the normal risk-guard posture.',
+        }
+    if label == 'Chasing':
+        return {
+            'label': label,
+            'mode': 'chasing',
+            'confidence': confidence,
+            'note': 'Chasing posture: volume and upside are more useful, but avoid clear risk-guard traps.',
+        }
+    if label == 'Protecting lead':
+        return {
+            'label': label,
+            'mode': 'protecting',
+            'confidence': confidence,
+            'note': 'Protecting-lead posture: avoid unnecessary pitcher volatility and prioritize floor.',
+        }
+    if label == 'Slight edge':
+        return {
+            'label': label,
+            'mode': 'slight_edge',
+            'confidence': confidence,
+            'note': 'Slight-edge posture: take clear positives, but skip desperation volatility.',
+        }
+    return {
+        'label': label,
+        'mode': 'neutral',
+        'confidence': confidence,
+        'note': 'Neutral posture: take clear positive starts/adds and avoid desperation plays.',
+    }
+
+
 def print_matchup_edge(summary):
     print("\nMATCHUP EDGE")
     print("=" * 60)
@@ -8449,44 +8527,6 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
     if cum_deltas is None:
         cum_deltas = {}
     report_decision_records, report_decision_source = _decision_records_for_report(snapshot_date, streaming_data)
-    if daily_decision_summary is None:
-        decision_records = [
-            rec for rec in report_decision_records
-            if (rec.get('date') or rec.get('game_date')) == snapshot_date
-        ]
-        if decision_records:
-            daily_decision_summary = decision_summary_for_report(
-                build_daily_decision_summary(snapshot_date, records=decision_records, source=report_decision_source)
-            )
-        else:
-            daily_decision_summary = decision_summary_for_report(build_daily_decision_summary(snapshot_date))
-    if next_watchlist_summary is None:
-        if report_decision_records:
-            next_watchlist_summary = build_next_watchlist_summary(
-                snapshot_date, records=report_decision_records, source=report_decision_source
-            )
-        else:
-            next_watchlist_summary = build_next_watchlist_summary(snapshot_date)
-    if add_drop_priority_summary is None:
-        add_drop_priority_summary = build_add_drop_priority_summary(
-            snapshot_date, daily_decision_summary, next_watchlist_summary
-        )
-    if decision_policy_summary is None:
-        try:
-            decision_policy_summary = build_start_sit_policy_backtest_summary()
-        except Exception as e:
-            decision_policy_summary = {
-                'available': False,
-                'note': f'Decision policy backtest unavailable: {type(e).__name__}: {e}',
-            }
-    if risk_guard_results_summary is None:
-        try:
-            risk_guard_results_summary = build_risk_guard_results_summary()
-        except Exception as e:
-            risk_guard_results_summary = {
-                'available': False,
-                'note': f'Risk guard results unavailable: {type(e).__name__}: {e}',
-            }
     matchup_snapshot_data = None
     if matchup_snapshot_summary is None or matchup_action_summary is None:
         try:
@@ -8511,7 +8551,67 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                 'count': 0,
                 'notes': [f'Matchup actions unavailable: {type(e).__name__}: {e}'],
             }
-
+    if matchup_edge_summary is None:
+        try:
+            matchup_edge_summary = build_matchup_edge_summary(
+                matchup_snapshot_data,
+                base_date=snapshot_date,
+                players_list=players_list,
+                prediction_records=report_decision_records,
+                allow_live_snapshot=matchup_snapshot_data is None and matchup_snapshot_summary is None,
+            )
+        except Exception as e:
+            matchup_edge_summary = {
+                'available': False,
+                'date': snapshot_date,
+                'label': 'High uncertainty',
+                'confidence': 'low',
+                'error': f'Matchup edge unavailable: {type(e).__name__}: {e}',
+                'recommendations': _matchup_edge_recommendations('High uncertainty', 0, 0),
+            }
+    if daily_decision_summary is None:
+        decision_records = [
+            rec for rec in report_decision_records
+            if (rec.get('date') or rec.get('game_date')) == snapshot_date
+        ]
+        if decision_records:
+            daily_decision_summary = decision_summary_for_report(
+                build_daily_decision_summary(snapshot_date, records=decision_records, source=report_decision_source),
+                matchup_edge_summary=matchup_edge_summary,
+            )
+        else:
+            daily_decision_summary = decision_summary_for_report(
+                build_daily_decision_summary(snapshot_date),
+                matchup_edge_summary=matchup_edge_summary,
+            )
+    if next_watchlist_summary is None:
+        if report_decision_records:
+            next_watchlist_summary = build_next_watchlist_summary(
+                snapshot_date, records=report_decision_records, source=report_decision_source
+            )
+        else:
+            next_watchlist_summary = build_next_watchlist_summary(snapshot_date)
+    if add_drop_priority_summary is None:
+        add_drop_priority_summary = build_add_drop_priority_summary(
+            snapshot_date, daily_decision_summary, next_watchlist_summary,
+            matchup_edge_summary=matchup_edge_summary,
+        )
+    if decision_policy_summary is None:
+        try:
+            decision_policy_summary = build_start_sit_policy_backtest_summary()
+        except Exception as e:
+            decision_policy_summary = {
+                'available': False,
+                'note': f'Decision policy backtest unavailable: {type(e).__name__}: {e}',
+            }
+    if risk_guard_results_summary is None:
+        try:
+            risk_guard_results_summary = build_risk_guard_results_summary()
+        except Exception as e:
+            risk_guard_results_summary = {
+                'available': False,
+                'note': f'Risk guard results unavailable: {type(e).__name__}: {e}',
+            }
     # Build a lookup of emerging (HOLD) pitchers.
     # Prefer the global emerging map (assesses ALL FA + MY ROSTER SPs by recent form,
     # whether or not they have an upcoming scheduled start). Fall back to deriving
@@ -8578,24 +8678,6 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
         write_hitter_decision_log(hitter_decision_summary, source='html-report')
     except Exception as e:
         print(f"  Hitter decision log skipped: {type(e).__name__}: {e}")
-    if matchup_edge_summary is None:
-        try:
-            matchup_edge_summary = build_matchup_edge_summary(
-                matchup_snapshot_data,
-                base_date=snapshot_date,
-                players_list=players_list,
-                prediction_records=report_decision_records,
-                allow_live_snapshot=matchup_snapshot_data is None and matchup_snapshot_summary is None,
-            )
-        except Exception as e:
-            matchup_edge_summary = {
-                'available': False,
-                'date': snapshot_date,
-                'label': 'High uncertainty',
-                'confidence': 'low',
-                'error': f'Matchup edge unavailable: {type(e).__name__}: {e}',
-                'recommendations': _matchup_edge_recommendations('High uncertainty', 0, 0),
-            }
     prev_label = f"vs {prev_date}" if prev_date else "first snapshot"
     oldest_label = oldest_date or prev_date or "N/A"
 
@@ -9338,6 +9420,9 @@ function renderDailyDecisions() {
   var h = '<div class="day-card decision-card">';
   h += '<div class="day-header"><span class="day-date">Today&rsquo;s Pitching Decisions</span><span class="day-count">' + escHtml(d.date || '') + '</span></div>';
   if (d.warning) h += '<div class="decision-warning">' + escHtml(d.warning) + '</div>';
+  if (d.matchup_posture && d.matchup_posture.note) {
+    h += '<div class="matchup-small"><b>Matchup posture:</b> ' + escHtml(d.matchup_posture.label || '') + ' &bull; ' + escHtml(d.matchup_posture.note || '') + '</div>';
+  }
   h += '<div class="decision-summary">';
   h += '<span class="decision-pill">Rows scanned <b>' + (d.rows_scanned || 0) + '</b></span>';
   h += '<span class="decision-pill">Actionable <b>' + (d.actionable_count || 0) + '</b></span>';
@@ -9363,6 +9448,9 @@ function renderAddDropPriority() {
   var items = ADD_DROP_PRIORITY.items || [];
   var h = '<div class="day-card decision-card">';
   h += '<div class="day-header"><span class="day-date">Add / Drop Priority</span><span class="day-count">' + items.length + ' action' + (items.length === 1 ? '' : 's') + '</span></div>';
+  if (ADD_DROP_PRIORITY.matchup_posture && ADD_DROP_PRIORITY.matchup_posture.note) {
+    h += '<div class="matchup-small"><b>Matchup posture:</b> ' + escHtml(ADD_DROP_PRIORITY.matchup_posture.label || '') + ' &bull; ' + escHtml(ADD_DROP_PRIORITY.matchup_posture.note || '') + '</div>';
+  }
   if (!items.length) {
     h += '<div class="decision-empty">No priority add/drop actions from the current prediction set.</div>';
   } else {
