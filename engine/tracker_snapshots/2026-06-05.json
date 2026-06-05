@@ -1,6 +1,6 @@
 {
   "date": "2026-06-05",
-  "timestamp": "2026-06-05T11:43:06.251449",
+  "timestamp": "2026-06-05T14:29:02.931371",
   "players": [
     {
       "rank": 1,
@@ -3000,7 +3000,7 @@
       ],
       "displayPos": "SS",
       "team": "CWS",
-      "dollars": -0.0,
+      "dollars": 0.0,
       "rpts": 175.8,
       "type": "hitter",
       "fg_id": "29712",
