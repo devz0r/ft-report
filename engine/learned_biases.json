@@ -1,54 +1,5 @@
 {
-  "biases": {
-    "auto_recent_era_-inf_2.65": {
-      "applied_delta": 3.31,
-      "basis": "auto:recent_era",
-      "eligible": true,
-      "key": "auto_recent_era_-inf_2.65",
-      "label": "when recent_era \u2264 2.65: +4.6 pts (n=151)",
-      "mean": 4.62,
-      "n": 151,
-      "se": 0.9373,
-      "std": 11.52,
-      "z": 4.93
-    },
-    "auto_recent_era_5.03_inf": {
-      "applied_delta": -4.45,
-      "basis": "auto:recent_era",
-      "eligible": true,
-      "key": "auto_recent_era_5.03_inf",
-      "label": "when recent_era \u2265 5.03: -6.2 pts (n=152)",
-      "mean": -6.21,
-      "n": 152,
-      "se": 0.9593,
-      "std": 11.83,
-      "z": -6.47
-    },
-    "trend_cold": {
-      "applied_delta": -4.86,
-      "basis": "trend",
-      "eligible": true,
-      "key": "trend_cold",
-      "label": "on cold streak: -7.7 pts (n=103)",
-      "mean": -7.69,
-      "n": 103,
-      "se": 1.1999,
-      "std": 12.18,
-      "z": -6.41
-    },
-    "trend_hot": {
-      "applied_delta": 3.43,
-      "basis": "trend",
-      "eligible": true,
-      "key": "trend_hot",
-      "label": "on hot streak: +4.3 pts (n=236)",
-      "mean": 4.3,
-      "n": 236,
-      "se": 0.6798,
-      "std": 10.44,
-      "z": 6.33
-    }
-  },
-  "count": 4,
-  "updated_at": "2026-06-05T23:44:14"
+  "biases": {},
+  "count": 0,
+  "updated_at": "2026-06-06T02:28:01"
 }
