@@ -1,6 +1,6 @@
 {
   "date": "2026-06-06",
-  "timestamp": "2026-06-06T09:06:31.124846",
+  "timestamp": "2026-06-06T11:02:20.612807",
   "players": [
     {
       "rank": 1,
@@ -11366,7 +11366,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "KC",
       "dollars": -34.6,
       "rpts": 50.0,
       "type": "pitcher",
@@ -14102,7 +14102,7 @@
         "3B"
       ],
       "displayPos": "3B",
-      "team": "",
+      "team": "AZ",
       "dollars": -40.6,
       "rpts": 37.8,
       "type": "hitter",
@@ -16573,7 +16573,7 @@
         "C"
       ],
       "displayPos": "C",
-      "team": "LAD",
+      "team": "",
       "dollars": -48.8,
       "rpts": 1.0,
       "type": "hitter",
