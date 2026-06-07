@@ -3306,6 +3306,38 @@ def _append_note(existing, note):
     return f"{existing}; {note}"
 
 
+BULK_ROLE_ALERTS = {
+    ('2026-06-07', 'sean manaea', 'NYM'): {
+        'opener': 'Huascar Brazoban',
+        'note': (
+            "bulk role warning: other current sources list Huascar Brazoban as opener "
+            "with Sean Manaea expected in bulk relief; ESPN fantasy may still show starter; "
+            "treat as volume-only and verify manually"
+        ),
+    },
+}
+
+
+def apply_probable_role_alert(row):
+    """Display-only role warnings for known opener/bulk conflicts."""
+    if not row:
+        return row
+    out = dict(row)
+    key = (
+        out.get('date') or out.get('game_date'),
+        normalize_name(out.get('name') or out.get('pitcher_name') or ''),
+        out.get('team'),
+    )
+    alert = BULK_ROLE_ALERTS.get(key)
+    if not alert:
+        return out
+    out['probable_role_status'] = 'bulk_relief_verify'
+    out['opener_pitcher'] = alert.get('opener')
+    out['probable_warning'] = _append_note(out.get('probable_warning'), alert.get('note'))
+    out['role_verify'] = True
+    return out
+
+
 def projection_sanity_status(proj, probable_source=None, roster_status=None):
     """Decide whether a probable starter's projection row is safe enough to score."""
     proj_gs = _safe_float((proj or {}).get('GS')) or 0.0
@@ -3742,7 +3774,7 @@ TIER_LABELS = {
 }
 
 TIER_ORDER = {'must_start': 0, 'start': 1, 'borderline': 2, 'avoid': 3}
-PROBABLE_SOURCE_RANK = {'mlb': 3, 'espn': 2, 'inferred_roster': 1, None: 0, '': 0}
+PROBABLE_SOURCE_RANK = {'mlb': 4, 'espn': 3, 'prediction_log_cache': 2, 'inferred_roster': 1, None: 0, '': 0}
 MIN_STARTER_REST_DAYS = 4
 HARD_START_EVIDENCE_SOURCES = {'completed_start', 'mlb_game_log', 'predictions_outcomes'}
 SOFT_START_EVIDENCE_SOURCES = {'prediction_log_recent_start', 'predictions_outcomes_recent_log'}
@@ -4066,7 +4098,7 @@ def _validate_probable_schedule(schedule, recent_completed_starts=None,
                     f"from {source}, projected again after {soft_days} day(s) "
                     f"with source={game.get('probable_source') or 'unknown'}; verify manually"
                 )
-                if game.get('probable_source') == 'mlb':
+                if game.get('probable_source') in ('mlb', 'espn', 'prediction_log_cache'):
                     warn(game, msg)
                 else:
                     mark(game, msg + "; converted to TBD/problem")
@@ -4207,6 +4239,67 @@ def _resolve_probable_schedule(schedule, espn_probables=None, my_sps_by_team=Non
     return resolved
 
 
+def _prediction_log_probables_for_schedule(schedule, same_day_only=True):
+    """Use existing prediction logs as a low-priority visible fallback.
+
+    This is deliberately weaker than MLB/ESPN probable data. It only fills a
+    blank slot so rostered starts do not disappear when public probable feeds
+    are flaky; the row is marked with a verify warning.
+    """
+    needed_dates = sorted({
+        game.get('date')
+        for game in schedule or []
+        if game.get('date') and (not same_day_only or game.get('date') == date.today().isoformat())
+    })
+    out = {}
+    for game_date in needed_dates:
+        rows, _path = _latest_prediction_records_by_date(game_date)
+        for rec in rows:
+            name = rec.get('name') or rec.get('pitcher_name')
+            team = rec.get('team')
+            if not name or not team:
+                continue
+            if rec.get('tbd'):
+                continue
+            if rec.get('status') not in ('MY ROSTER', 'FA', 'WAIVER'):
+                continue
+            key = (rec.get('date') or rec.get('game_date') or game_date, team)
+            prior = out.get(key)
+            if prior is None or str(rec.get('logged_at') or '') >= str(prior.get('logged_at') or ''):
+                out[key] = rec
+    return out
+
+
+def _resolve_cached_prediction_probables(schedule, prediction_probables=None):
+    """Fill remaining TBD slots from same-day prediction logs as verify-only."""
+    prediction_probables = prediction_probables or {}
+    if not prediction_probables:
+        return schedule
+    resolved = []
+    for game in schedule or []:
+        game = dict(game)
+        if game.get('pitcher_name'):
+            resolved.append(game)
+            continue
+        rec = prediction_probables.get((game.get('date'), game.get('pitcher_team')))
+        if not rec:
+            resolved.append(game)
+            continue
+        game['pitcher_name'] = rec.get('name') or rec.get('pitcher_name')
+        game['pitcher_mlb_id'] = rec.get('pitcher_id')
+        game['pitcher_hand'] = rec.get('pitcher_hand') or ((rec.get('features') or {}).get('pitcher_hand'))
+        game['probable_source'] = 'prediction_log_cache'
+        game['probable_warning'] = _append_note(
+            game.get('probable_warning'),
+            (
+                "cached same-day probable from prediction log; live MLB/ESPN probable feed "
+                "did not confirm it in this run; verify manually"
+            ),
+        )
+        resolved.append(game)
+    return resolved
+
+
 def _my_starting_pitchers_by_team(fg_proj, roster_map, espn_matches):
     my_sps_by_team = {}
     if not roster_map:
@@ -4265,6 +4358,10 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
     my_sps_by_team = _my_starting_pitchers_by_team(fg_proj, roster_map, espn_matches)
 
     schedule = _resolve_probable_schedule(schedule, espn_probables, my_sps_by_team)
+    schedule = _resolve_cached_prediction_probables(
+        schedule,
+        _prediction_log_probables_for_schedule(schedule),
+    )
     schedule, probable_sanity = _validate_probable_schedule(
         schedule,
         recent_completed_starts=recent_completed_starts,
@@ -4532,6 +4629,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         # Recommendation layer: make the visible start/sit tier more
         # conservative when the backtested risk guard fires. This does not
         # alter points, learned corrections, or stored prediction logs.
+        entry = apply_probable_role_alert(entry)
         entry = apply_visible_risk_guard_overlay(entry)
 
         # Streaming UI only shows FA + MY ROSTER (the only ones you'd act on)
@@ -4656,8 +4754,58 @@ def _fast_preview_streaming_entry(record):
         'opp_il': [],
         'opp_il_returns': [],
         'pitch_analysis': None,
+        'probable_source': record.get('probable_source'),
+        'probable_warning': record.get('probable_warning'),
+        'probable_source_conflict': record.get('probable_source_conflict'),
+        'mlb_probable_pitcher': record.get('mlb_probable_pitcher'),
+        'espn_probable_pitcher': record.get('espn_probable_pitcher'),
+        'game_pk': record.get('game_pk'),
+        'pitcher_id': record.get('pitcher_id'),
+        'pitcher_hand': record.get('pitcher_hand') or features.get('pitcher_hand'),
     }
+    entry = apply_probable_role_alert(entry)
     return apply_visible_risk_guard_overlay(entry)
+
+
+def _same_day_cached_rostered_streaming_fallbacks(snapshot_date, existing_rows):
+    """Report-only fallback for rostered starts missing from current-run stream."""
+    snapshot_date = snapshot_date or date.today().isoformat()
+    existing_keys = {
+        (snapshot_date, normalize_name(row.get('name') or row.get('pitcher_name') or ''))
+        for row in existing_rows or []
+        if (row.get('date') or row.get('game_date') or snapshot_date) == snapshot_date
+    }
+    rows, _path = _latest_prediction_records_by_date(snapshot_date)
+    out = []
+    for rec in rows:
+        name = rec.get('name') or rec.get('pitcher_name')
+        if not name or rec.get('status') != 'MY ROSTER' or rec.get('tbd'):
+            continue
+        key = (snapshot_date, normalize_name(name))
+        if key in existing_keys:
+            continue
+        entry = _fast_preview_streaming_entry(rec)
+        entry['probable_source'] = 'prediction_log_cache'
+        entry['probable_warning'] = _append_note(
+            entry.get('probable_warning'),
+            (
+                "report-only cached same-day rostered start; current live probable feed "
+                "did not include this pitcher in the streaming build; possible opener/bulk role; verify manually"
+            ),
+        )
+        entry['_cached_report_fallback'] = True
+        out.append(entry)
+        existing_keys.add(key)
+    return out
+
+
+def _merge_report_streaming_fallbacks(snapshot_date, streaming_data):
+    rows = [dict(row) for row in (streaming_data or [])]
+    fallbacks = _same_day_cached_rostered_streaming_fallbacks(snapshot_date, rows)
+    if fallbacks:
+        rows.extend(fallbacks)
+        rows.sort(key=lambda s: (s.get('date') or '', TIER_ORDER.get(s.get('tier', 'avoid'), 3), -(s.get('pts') or 0)))
+    return rows
 
 
 def load_prediction_logs_for_fast_preview():
@@ -5032,6 +5180,8 @@ def _format_decision_row(record):
         matchup = f"A @ {record.get('opponent') or '?'}"
     elif record.get('home_away') == 'H':
         matchup = f"H vs {record.get('opponent') or '?'}"
+    if record.get('role_verify') or record.get('probable_role_status'):
+        risks = [record.get('probable_warning') or 'role/start status needs manual verification'] + risks
     risk_text = '; '.join(risks[:4]) if risks else 'none'
     boost_text = '; '.join(boosts[:4]) if boosts else 'none'
     return (
@@ -5145,6 +5295,7 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
             dict(r) for r in records
             if (r.get('date') or r.get('game_date') or target_date) == target_date
         ]
+    records = [apply_probable_role_alert(dict(r)) for r in records]
     records, probable_report = validate_probable_prediction_records(records, source=source or path)
     records = [apply_visible_risk_guard_overlay(dict(r)) for r in records]
     summary = {
@@ -5186,6 +5337,7 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
     actionable_statuses = {'FA', 'MY ROSTER', 'WAIVER'}
     summary['original_actionable'] = sum(1 for r in records if r.get('status') in actionable_statuses)
     records, enrichment = _enrich_decision_statuses(records)
+    records = [apply_probable_role_alert(dict(r)) for r in records]
     summary['records'] = records
     summary['enrichment'] = enrichment
     actionable = [r for r in records if r.get('status') in actionable_statuses]
@@ -5261,6 +5413,19 @@ def _decision_plain_reasons(record, risks=None, boosts=None, confidence=None):
     """Summarize logged decision signals in plain English for the report UI."""
     features = record.get('features') or {}
     pts = _decision_points(record)
+    warning_text = str(record.get('probable_warning') or '').lower()
+    role_verify = (
+        record.get('probable_source') == 'prediction_log_cache'
+        or record.get('_cached_report_fallback')
+        or 'bulk' in warning_text
+        or 'opener' in warning_text
+        or 'verify manually' in warning_text
+    )
+    if role_verify:
+        return (
+            _compact_decision_text('Volume-only if confirmed; role/start status needs manual verification'),
+            _compact_decision_text(record.get('probable_warning') or 'Possible opener/bulk-relief setup; not a normal locked-in starter'),
+        )
     tier = record.get('tier') or 'borderline'
     confidence = confidence or {
         'must_start': 'Strong Start',
@@ -5361,12 +5526,22 @@ def _decision_plain_reasons(record, risks=None, boosts=None, confidence=None):
 def _decision_report_item(record):
     risks, boosts = _decision_risk_boost_flags(record)
     risky_borderline = _risky_borderline_streamer_reasons(record, risks)
+    warning_text = str(record.get('probable_warning') or '').lower()
+    role_verify = (
+        record.get('probable_source') == 'prediction_log_cache'
+        or record.get('_cached_report_fallback')
+        or 'bulk' in warning_text
+        or 'opener' in warning_text
+        or 'verify manually' in warning_text
+    )
     confidence = {
         'must_start': 'Strong Start',
         'start': 'Start',
         'borderline': 'Volume Only' if risky_borderline else 'Playable, Not Safe',
         'avoid': 'Avoid',
     }.get(record.get('tier'), 'Borderline')
+    if role_verify and record.get('tier') in ('must_start', 'start', 'borderline'):
+        confidence = 'Verify Role'
     main_reason, risk_reason = _decision_plain_reasons(record, risks, boosts, confidence)
     return {
         'name': record.get('name') or record.get('pitcher_name') or 'Unknown',
@@ -5385,6 +5560,9 @@ def _decision_report_item(record):
         'risk_guard_reasons': (record.get('risk_guard_reasons') or risky_borderline),
         'risk_guard_applied': bool(record.get('risk_guard_applied')),
         'risk_guard_note': record.get('risk_guard_note'),
+        'probable_source': record.get('probable_source'),
+        'probable_warning': record.get('probable_warning'),
+        'role_verify': bool(role_verify),
         'model_tier': record.get('model_tier'),
         '_matchup_source': record.get('_matchup_source'),
         '_matchup_snapshot_date': record.get('_matchup_snapshot_date') or _matchup_record_snapshot_date(record),
@@ -5419,15 +5597,15 @@ def _risky_roster_for_report(rows, limit=6):
 def _decision_records_for_report(snapshot_date, streaming_data):
     """Return current report prediction-shaped records without changing storage."""
     if _runtime_prediction_records:
-        records = [dict(rec) for rec in _runtime_prediction_records]
+        records = [apply_probable_role_alert(dict(rec)) for rec in _runtime_prediction_records]
         records.extend(
             _decision_record_from_streaming_entry(s)
             for s in (streaming_data or [])
-            if s.get('tbd') or s.get('probable_note')
+            if s.get('tbd') or s.get('probable_note') or s.get('probable_warning') or s.get('_cached_report_fallback')
         )
         return records, 'current run prediction records'
     if streaming_data:
-        return [_decision_record_from_streaming_entry(s) for s in streaming_data], 'current report streaming rows'
+        return [apply_probable_role_alert(_decision_record_from_streaming_entry(s)) for s in streaming_data], 'current report streaming rows'
     return [], 'prediction logs'
 
 
@@ -5804,6 +5982,10 @@ def explain_pitcher_schedule(pitcher_name):
 
         my_sps_by_team = _my_starting_pitchers_by_team(fg_proj, roster_map, espn_matches)
         resolved = _resolve_probable_schedule(schedule, espn_probables, my_sps_by_team)
+        resolved = _resolve_cached_prediction_probables(
+            resolved,
+            _prediction_log_probables_for_schedule(resolved),
+        )
 
         pitcher_ids_by_name = {}
         for game in resolved:
@@ -6028,6 +6210,7 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
         r for r in records
         if (r.get('date') or r.get('game_date')) in set(watch_dates)
     ]
+    records = [apply_probable_role_alert(dict(r)) for r in records]
     records, probable_report = validate_probable_prediction_records(records, source=source or 'prediction records')
     records = [apply_visible_risk_guard_overlay(dict(r)) for r in records]
     summary = {
@@ -8905,6 +9088,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
     from string import Template
     if streaming_data is None:
         streaming_data = []
+    streaming_data = _merge_report_streaming_fallbacks(snapshot_date, streaming_data)
     if cum_deltas is None:
         cum_deltas = {}
     report_decision_records, report_decision_source = _decision_records_for_report(snapshot_date, streaming_data)
@@ -10126,7 +10310,30 @@ function streamingRiskGuardWarning(s) {
   return '<div class="stream-caution"><b>' + escHtml(lead) + ':</b> ' + escHtml(note) + '</div>';
 }
 
+function probableRoleNeedsVerify(s) {
+  var warning = String((s && s.probable_warning) || '').toLowerCase();
+  return !!(
+    (s && (s.probable_source === 'prediction_log_cache' || s._cached_report_fallback)) ||
+    warning.indexOf('bulk') !== -1 ||
+    warning.indexOf('opener') !== -1 ||
+    warning.indexOf('verify manually') !== -1
+  );
+}
+
+function streamingRoleWarning(s) {
+  if (!probableRoleNeedsVerify(s)) return '';
+  var note = s.probable_warning || 'Possible opener/bulk-relief setup; verify role before locking lineup.';
+  return '<div class="stream-caution"><b>Role warning:</b> ' +
+    escHtml('Treat as volume-only until confirmed. ' + note) + '</div>';
+}
+
 function streamingExplanation(s) {
+  if (probableRoleNeedsVerify(s)) {
+    var note = s.probable_warning || 'possible opener/bulk-relief setup';
+    return '<div class="stream-explain"><b class="why-borderline">Why verify:</b> ' +
+      escHtml('Projection is useful, but role/start status is uncertain.') +
+      ' <b>Risk:</b> ' + escHtml(shortReason(note, 110)) + '</div>';
+  }
   if (s.risk_guard_applied) {
     var original = tierLabel(s.risk_guard_original_tier || s.model_tier || '');
     var display = tierLabel(s.risk_guard_display_tier || s.tier || '');
@@ -10210,6 +10417,7 @@ function renderPitcherEntry(s, allReal) {
   if (isMine) tagHtml += '<span class="chip chip-mine">ROSTER</span>';
   if (s.emerging) tagHtml += '<span class="chip chip-emerging" title="Based on L14D stats through $HOLD_ASOF">HOLD</span>';
   if (s.risk_guard_applied) tagHtml += '<span class="chip chip-upside" title="Visible recommendation downgraded by the risk guard; points unchanged.">RISK GUARD</span>';
+  if (probableRoleNeedsVerify(s)) tagHtml += '<span class="chip chip-upside" title="Role/start status needs manual verification.">VERIFY ROLE</span>';
 
   var matchup = s.home_away === 'H' ? 'vs ' + s.opponent : '@' + s.opponent;
 
@@ -10277,6 +10485,7 @@ function renderPitcherEntry(s, allReal) {
   }
   h += '</div>';
 
+  h += streamingRoleWarning(s);
   h += streamingRiskGuardWarning(s);
 
   // Row 3: pitch arsenal matchup
