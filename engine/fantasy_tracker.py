@@ -4161,18 +4161,29 @@ def _resolve_probable_schedule(schedule, espn_probables=None, my_sps_by_team=Non
     my_sps_by_team = my_sps_by_team or {}
     for game in schedule or []:
         game = dict(game)
+        team = game.get('pitcher_team')
+        esp_name = espn_probables.get((game.get('date'), team)) if espn_probables else None
         if game.get('pitcher_name'):
+            if esp_name and normalize_name(esp_name) != normalize_name(game.get('pitcher_name') or ''):
+                game['probable_source_conflict'] = True
+                game['mlb_probable_pitcher'] = game.get('pitcher_name')
+                game['espn_probable_pitcher'] = esp_name
+                game['probable_warning'] = _append_note(
+                    game.get('probable_warning'),
+                    (
+                        "probable source conflict: "
+                        f"MLB lists {game.get('pitcher_name')}; ESPN lists {esp_name}; verify manually"
+                    ),
+                )
             resolved.append(game)
             continue
-        team = game.get('pitcher_team')
         pitcher_name = None
-        if espn_probables:
-            esp_name = espn_probables.get((game.get('date'), team))
-            if esp_name:
-                pitcher_name = esp_name
-                game['pitcher_name'] = esp_name
-                game['probable_source'] = 'espn'
-                pitcher_start_dates[esp_name] = game.get('date')
+        if esp_name:
+            pitcher_name = esp_name
+            game['pitcher_name'] = esp_name
+            game['espn_probable_pitcher'] = esp_name
+            game['probable_source'] = 'espn'
+            pitcher_start_dates[esp_name] = game.get('date')
         if not pitcher_name and team in my_sps_by_team:
             candidates = my_sps_by_team[team]
             try:
@@ -4274,6 +4285,9 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
                 'probable_conflict_pitcher': game.get('probable_conflict_pitcher'),
                 'probable_source': game.get('probable_source'),
                 'probable_warning': game.get('probable_warning'),
+                'probable_source_conflict': game.get('probable_source_conflict'),
+                'mlb_probable_pitcher': game.get('mlb_probable_pitcher'),
+                'espn_probable_pitcher': game.get('espn_probable_pitcher'),
             })
             continue
 
@@ -4454,6 +4468,9 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'tier_label': TIER_LABELS.get(tier, ''),
             'probable_source': game.get('probable_source'),
             'probable_warning': probable_warning,
+            'probable_source_conflict': game.get('probable_source_conflict'),
+            'mlb_probable_pitcher': game.get('mlb_probable_pitcher'),
+            'espn_probable_pitcher': game.get('espn_probable_pitcher'),
             'projection_sanity_status': projection_sanity.get('status'),
             'projection_ip_per_gs': projection_sanity.get('original_ip_per_gs'),
             'projection_adjusted_ip_per_gs': projection_sanity.get('adjusted_ip_per_gs'),
@@ -5109,6 +5126,9 @@ def _decision_record_from_streaming_entry(entry):
         'probable_conflict_pitcher': entry.get('probable_conflict_pitcher'),
         'probable_source': entry.get('probable_source'),
         'probable_warning': entry.get('probable_warning'),
+        'probable_source_conflict': entry.get('probable_source_conflict'),
+        'mlb_probable_pitcher': entry.get('mlb_probable_pitcher'),
+        'espn_probable_pitcher': entry.get('espn_probable_pitcher'),
         'features': features,
     }
 
@@ -5199,6 +5219,14 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
         problems.append(f"{len(unknown_status)} prediction rows have blank roster/FA status and were hidden from decisions.")
     if hidden_other:
         problems.append(f"{len(hidden_other)} rows appear rostered by other teams/OTHER and were hidden from actionable recommendations.")
+    source_conflicts = [r for r in records if r.get('probable_source_conflict')]
+    for rec in source_conflicts[:4]:
+        problems.append(
+            "Probable source conflict: "
+            f"{rec.get('team') or '?'} {rec.get('home_away') or ''} {rec.get('opponent') or '?'} "
+            f"has MLB={rec.get('mlb_probable_pitcher') or rec.get('name') or '?'} "
+            f"and ESPN={rec.get('espn_probable_pitcher') or '?'}; verify manually."
+        )
     tbd_rows = [r for r in records if r.get('tbd') or (r.get('name') or r.get('pitcher_name') or '').upper() == 'TBD']
     if tbd_rows:
         for rec in tbd_rows:
@@ -6030,6 +6058,15 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
         summary['problems'].append(f"{len(hidden_unknown)} upcoming rows have blank roster/FA status and are hidden from the watchlist.")
     if hidden_other:
         summary['problems'].append(f"{len(hidden_other)} upcoming rows appear rostered by other teams/OTHER and are hidden.")
+    source_conflicts = [r for r in records if r.get('probable_source_conflict')]
+    for rec in source_conflicts[:4]:
+        summary['problems'].append(
+            "Probable source conflict: "
+            f"{rec.get('date') or '?'} {rec.get('team') or '?'} "
+            f"{'vs' if rec.get('home_away') == 'H' else '@'} {rec.get('opponent') or '?'} "
+            f"has MLB={rec.get('mlb_probable_pitcher') or rec.get('name') or '?'} "
+            f"and ESPN={rec.get('espn_probable_pitcher') or '?'}; verify manually."
+        )
     summary['roster_enriched_count'] = enrichment.get('roster_enriched_count', 0)
     summary['prediction_enriched_count'] = enrichment.get('prediction_enriched_count', 0)
 
@@ -6416,6 +6453,16 @@ def _matchup_action_meta(source_kind, game_date=None, opponent=None, snapshot_da
     }
 
 
+def _matchup_cached_record_stale(item, base_date):
+    """Treat older cached prediction-log rows as verify-only decision evidence."""
+    if (item or {}).get('_matchup_source') != 'prediction_log_cache':
+        return False
+    snapshot_date = (item or {}).get('_matchup_snapshot_date')
+    if not snapshot_date or not base_date:
+        return False
+    return str(snapshot_date) < str(base_date)
+
+
 def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10,
                                          prediction_records=None, prediction_source=None):
     """Read-only weekly matchup actions from ESPN snapshot + existing predictions."""
@@ -6450,6 +6497,16 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
             return
         if name_key and game_date:
             seen_pitcher_action_dates[name_key] = game_date
+        note = None
+        if _matchup_cached_record_stale(item, base_date):
+            note = 'cached projection; verify manually'
+            if kind in ('LOCK IN', 'ADD', 'CONSIDER', 'BENCH', 'AVOID'):
+                kind = 'WATCH'
+                priority = min(max(priority, 8), 58)
+                text = (
+                    "Verify cached projection before acting: "
+                    f"{text} Snapshot {item.get('_matchup_snapshot_date')} may be stale."
+                )
         add(
             kind,
             text,
@@ -6460,6 +6517,7 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
                 game_date=game_date,
                 opponent=item.get('opponent'),
                 snapshot_date=item.get('_matchup_snapshot_date'),
+                note=note,
             ),
         )
 
@@ -6492,6 +6550,22 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
         source=prediction_source_label,
     )
     projection_lookup = _matchup_projection_lookup(prediction_records)
+
+    for rec in [r for r in prediction_records if r.get('probable_source_conflict')][:4]:
+        add_prediction_action(
+            'WATCH',
+            (
+                f"Verify probable starter for {rec.get('team') or '?'} "
+                f"{'vs' if rec.get('home_away') == 'H' else '@'} {rec.get('opponent') or '?'}: "
+                f"MLB lists {rec.get('mlb_probable_pitcher') or rec.get('name') or '?'}; "
+                f"ESPN lists {rec.get('espn_probable_pitcher') or '?'}."
+            ),
+            rec,
+            _matchup_record_date(rec) or base_date,
+            6,
+            prediction_source_kind,
+            source='probable_source',
+        )
 
     for slot in (snapshot.get('empty_slots') or {}).get('mine') or []:
         add(
@@ -8425,6 +8499,35 @@ def _matchup_edge_recommendations(label, edge, coverage_ratio):
     return recs[:6]
 
 
+def _matchup_edge_available_pitcher_upside(records, base_date=None, limit=5):
+    """Compact FA/waiver pitcher options shown beside, not inside, matchup edge."""
+    allowed_dates = set(_matchup_window_dates(base_date, days=6))
+    candidates = []
+    seen = set()
+    for rec in records or []:
+        if (rec.get('date') or rec.get('game_date')) not in allowed_dates:
+            continue
+        if rec.get('status') not in ('FA', 'WAIVER'):
+            continue
+        name = rec.get('name') or rec.get('pitcher_name')
+        key = (normalize_name(name or ''), rec.get('date') or rec.get('game_date'))
+        if not name or key in seen:
+            continue
+        seen.add(key)
+        candidates.append({
+            'name': name,
+            'date': rec.get('date') or rec.get('game_date'),
+            'team': rec.get('team'),
+            'opponent': rec.get('opponent'),
+            'home_away': rec.get('home_away'),
+            'status': rec.get('status'),
+            'tier': rec.get('tier'),
+            'points': round(_decision_points(rec), 1),
+        })
+    candidates.sort(key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_safe_float(r.get('points'), 0)))
+    return candidates[:limit]
+
+
 def build_matchup_edge_summary(snapshot=None, base_date=None, players_list=None,
                                prediction_records=None, limit=6, allow_live_snapshot=True):
     """Read-only rough matchup edge from ESPN score/rosters + existing projections."""
@@ -8452,10 +8555,13 @@ def build_matchup_edge_summary(snapshot=None, base_date=None, players_list=None,
     players_lookup = _player_value_lookup(players_list)
     pitcher_lookup = _prediction_points_by_pitcher(prediction_records)
     games_by_team = _team_games_by_date(prediction_records, base_date, days=6)
-    my_rows = (snapshot.get('my_active') or []) + (snapshot.get('my_bench') or [])
-    opp_rows = (snapshot.get('opponent_active') or []) + (snapshot.get('opponent_bench') or [])
+    my_rows = snapshot.get('my_active') or []
+    opp_rows = snapshot.get('opponent_active') or []
     mine = _matchup_edge_side(my_rows, players_lookup, pitcher_lookup, games_by_team, base_date)
     opponent = _matchup_edge_side(opp_rows, players_lookup, pitcher_lookup, games_by_team, base_date)
+    my_bench = _matchup_edge_side(snapshot.get('my_bench') or [], players_lookup, pitcher_lookup, games_by_team, base_date)
+    opp_bench = _matchup_edge_side(snapshot.get('opponent_bench') or [], players_lookup, pitcher_lookup, games_by_team, base_date)
+    available_pitchers = _matchup_edge_available_pitcher_upside(prediction_records, base_date, limit=5)
     my_remaining = mine.get('remaining_points') or 0.0
     opp_remaining = opponent.get('remaining_points') or 0.0
     my_final = (my_score or 0.0) + my_remaining if score_available else None
@@ -8468,6 +8574,7 @@ def build_matchup_edge_summary(snapshot=None, base_date=None, players_list=None,
     confidence = 'medium' if coverage_ratio >= 0.7 and score_available else 'low'
     notes = [
         'Rough projection only; this is not a win probability.',
+        'Main edge uses active ESPN lineup slots only; bench and FA upside are shown separately.',
         'Hitter remaining points use current RoS rPTS as a simple daily approximation.',
     ]
     if not games_by_team:
@@ -8494,6 +8601,11 @@ def build_matchup_edge_summary(snapshot=None, base_date=None, players_list=None,
             'coverage_pct': round(coverage_ratio * 100, 0),
             'mine': mine,
             'opponent': opponent,
+        },
+        'bench_upside': {
+            'mine': my_bench,
+            'opponent': opp_bench,
+            'available_pitchers': available_pitchers,
         },
         'recommendations': _matchup_edge_recommendations(label, projected_edge or 0.0, coverage_ratio)[:limit],
         'notes': notes,
@@ -8564,6 +8676,19 @@ def print_matchup_edge(summary):
         f"{coverage.get('projected_players', 0)}/{coverage.get('total_players', 0)} players projected "
         f"({coverage.get('coverage_pct', 0):.0f}%)"
     )
+    bench = summary.get('bench_upside') or {}
+    mine_bench = (bench.get('mine') or {}).get('remaining_points', 0.0)
+    opp_bench = (bench.get('opponent') or {}).get('remaining_points', 0.0)
+    print(f"Bench upside not counted in edge: mine {mine_bench:.1f}, opponent {opp_bench:.1f}")
+    available = bench.get('available_pitchers') or []
+    if available:
+        print("Available pitcher upside")
+        for item in available[:5]:
+            where = 'vs' if item.get('home_away') == 'H' else '@'
+            print(
+                f"  - {item.get('name')} {item.get('date')} "
+                f"{where} {item.get('opponent')}: {item.get('points')} pts ({item.get('tier')}, {item.get('status')})"
+            )
     print("\nRecommendations")
     for rec in summary.get('recommendations') or []:
         print(f"  - {rec}")
@@ -9536,6 +9661,21 @@ function renderMatchupEdge() {
     h += '<span class="decision-pill">Confidence <b>' + escHtml(e.confidence || 'low') + '</b></span>';
     h += '</div>';
     h += '<div class="matchup-small">Coverage: ' + (cov.projected_players || 0) + '/' + (cov.total_players || 0) + ' players projected (' + (cov.coverage_pct || 0) + '%). Rough projection only, not a win probability.</div>';
+    var bench = e.bench_upside || {};
+    var myBench = (bench.mine && Number(bench.mine.remaining_points || 0)) || 0;
+    var oppBench = (bench.opponent && Number(bench.opponent.remaining_points || 0)) || 0;
+    h += '<div class="matchup-small">Main edge uses active ESPN lineup slots only. Bench upside not counted: mine ' + myBench.toFixed(1) + ', opponent ' + oppBench.toFixed(1) + '.</div>';
+    var availPitchers = bench.available_pitchers || [];
+    if (availPitchers.length) {
+      h += '<div class="decision-section"><div class="decision-section-title">Available Pitcher Upside</div><div class="action-list">';
+      availPitchers.slice(0, 5).forEach(function(p) {
+        var where = p.home_away === 'H' ? 'vs ' : '@ ';
+        h += '<div class="action-row"><span class="action-kind add">' + escHtml(p.status || 'FA') + '</span>';
+        h += '<div class="action-text">' + escHtml(p.name || 'Unknown') + ' ' + escHtml(p.date || '') + ' ' + where + escHtml(p.opponent || '?') + '</div>';
+        h += '<div class="action-meta">' + Number(p.points || 0).toFixed(1) + ' pts &bull; ' + escHtml(p.tier || 'unknown') + '</div></div>';
+      });
+      h += '</div></div>';
+    }
   }
   if (e.recommendations && e.recommendations.length) {
     h += '<div class="decision-section"><div class="decision-section-title">Posture Recommendations</div>';
