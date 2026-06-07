@@ -8477,7 +8477,8 @@
       "whip": "1.21",
       "k9": "6.96",
       "ip": "32.1"
-    }
+    },
+    "pitcher_hand": "R"
   },
   "678906": {
     "mlb_id": 678906,
@@ -9804,7 +9805,8 @@
       "k9": "10.40",
       "ip": "45.0"
     },
-    "splits_window_years": 2
+    "splits_window_years": 2,
+    "pitcher_hand": "L"
   },
   "694361": {
     "mlb_id": 694361,
