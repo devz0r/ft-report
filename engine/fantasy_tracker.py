@@ -3338,6 +3338,106 @@ def apply_probable_role_alert(row):
     return out
 
 
+PROBABLE_CONFIDENCE_META = {
+    'confirmed_starter': {
+        'label': 'Confirmed starter',
+        'note': 'MLB probable starter feed confirms this assignment.',
+        'severity': 'good',
+    },
+    'espn_only': {
+        'label': 'ESPN probable',
+        'note': 'ESPN lists this probable; MLB feed did not confirm it in this run.',
+        'severity': 'watch',
+    },
+    'mlb_only': {
+        'label': 'MLB probable',
+        'note': 'MLB lists this probable starter.',
+        'severity': 'good',
+    },
+    'source_conflict': {
+        'label': 'Source conflict',
+        'note': 'Probable starter sources disagree; verify manually.',
+        'severity': 'warn',
+    },
+    'opener_bulk_risk': {
+        'label': 'Opener/bulk risk',
+        'note': 'Possible opener or bulk-relief setup; not a normal locked-in starter.',
+        'severity': 'warn',
+    },
+    'cached_stale': {
+        'label': 'Cached probable',
+        'note': 'Shown from cached prediction-log evidence because live feeds did not confirm it.',
+        'severity': 'warn',
+    },
+    'inferred_roster': {
+        'label': 'Roster inference',
+        'note': 'Inferred from roster/team context, not confirmed by a probable feed.',
+        'severity': 'warn',
+    },
+    'tbd_problem': {
+        'label': 'TBD/problem',
+        'note': 'Probable starter is unresolved or failed date/rest validation.',
+        'severity': 'bad',
+    },
+}
+
+
+def classify_probable_confidence(row):
+    """Classify starter-role certainty without changing scores or storage."""
+    row = row or {}
+    warning = str(row.get('probable_warning') or row.get('probable_note') or '').lower()
+    source = row.get('probable_source') or ''
+    if row.get('tbd') or (row.get('name') or row.get('pitcher_name') or '').upper() == 'TBD':
+        code = 'tbd_problem'
+    elif row.get('probable_source_conflict'):
+        code = 'source_conflict'
+    elif row.get('probable_role_status') or 'bulk' in warning or 'opener' in warning:
+        code = 'opener_bulk_risk'
+    elif source == 'prediction_log_cache' or row.get('_cached_report_fallback') or 'cached' in warning:
+        code = 'cached_stale'
+    elif source == 'inferred_roster':
+        code = 'inferred_roster'
+    elif source == 'espn':
+        code = 'espn_only'
+    elif source == 'mlb':
+        code = 'confirmed_starter'
+    else:
+        code = 'cached_stale' if row.get('_matchup_source') == 'prediction_log_cache' else 'mlb_only'
+    meta = dict(PROBABLE_CONFIDENCE_META.get(code, PROBABLE_CONFIDENCE_META['mlb_only']))
+    note = row.get('probable_warning') or row.get('probable_note') or meta.get('note')
+    return {
+        'code': code,
+        'label': meta.get('label'),
+        'note': note,
+        'severity': meta.get('severity'),
+    }
+
+
+def apply_probable_confidence(row):
+    """Attach report-only probable confidence fields to a row."""
+    if not row:
+        return row
+    out = dict(row)
+    info = classify_probable_confidence(out)
+    out['probable_confidence'] = info.get('code')
+    out['probable_confidence_label'] = info.get('label')
+    out['probable_confidence_note'] = info.get('note')
+    out['probable_confidence_severity'] = info.get('severity')
+    if info.get('code') in ('source_conflict', 'opener_bulk_risk', 'cached_stale', 'inferred_roster', 'tbd_problem'):
+        out['role_verify'] = True
+    return out
+
+
+def probable_confidence_needs_verify(row):
+    return (row or {}).get('probable_confidence') in {
+        'source_conflict',
+        'opener_bulk_risk',
+        'cached_stale',
+        'inferred_roster',
+        'tbd_problem',
+    }
+
+
 def projection_sanity_status(proj, probable_source=None, roster_status=None):
     """Decide whether a probable starter's projection row is safe enough to score."""
     proj_gs = _safe_float((proj or {}).get('GS')) or 0.0
@@ -4630,6 +4730,7 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         # conservative when the backtested risk guard fires. This does not
         # alter points, learned corrections, or stored prediction logs.
         entry = apply_probable_role_alert(entry)
+        entry = apply_probable_confidence(entry)
         entry = apply_visible_risk_guard_overlay(entry)
 
         # Streaming UI only shows FA + MY ROSTER (the only ones you'd act on)
@@ -4764,6 +4865,7 @@ def _fast_preview_streaming_entry(record):
         'pitcher_hand': record.get('pitcher_hand') or features.get('pitcher_hand'),
     }
     entry = apply_probable_role_alert(entry)
+    entry = apply_probable_confidence(entry)
     return apply_visible_risk_guard_overlay(entry)
 
 
@@ -4794,6 +4896,7 @@ def _same_day_cached_rostered_streaming_fallbacks(snapshot_date, existing_rows):
             ),
         )
         entry['_cached_report_fallback'] = True
+        entry = apply_probable_confidence(entry)
         out.append(entry)
         existing_keys.add(key)
     return out
@@ -5174,6 +5277,7 @@ def _enrich_decision_statuses(records):
 
 
 def _format_decision_row(record):
+    record = apply_probable_confidence(apply_probable_role_alert(dict(record or {})))
     risks, boosts = _decision_risk_boost_flags(record)
     matchup = f"{record.get('home_away') or '?'} vs {record.get('opponent') or '?'}"
     if record.get('home_away') == 'A':
@@ -5184,11 +5288,15 @@ def _format_decision_row(record):
         risks = [record.get('probable_warning') or 'role/start status needs manual verification'] + risks
     risk_text = '; '.join(risks[:4]) if risks else 'none'
     boost_text = '; '.join(boosts[:4]) if boosts else 'none'
+    role_text = (
+        f" | role: {record.get('probable_confidence_label')}"
+        if record.get('probable_confidence_label') else ''
+    )
     return (
         f"  - {record.get('name') or record.get('pitcher_name') or 'Unknown'} "
         f"({record.get('team') or '?'}, {record.get('status') or 'UNKNOWN'}) "
         f"{_decision_points(record):.1f} pts | {record.get('tier') or 'unknown'} | "
-        f"{matchup} | risks: {risk_text} | boosts: {boost_text}"
+        f"{matchup}{role_text} | risks: {risk_text} | boosts: {boost_text}"
     )
 
 
@@ -5277,6 +5385,13 @@ def _decision_record_from_streaming_entry(entry):
         'probable_source': entry.get('probable_source'),
         'probable_warning': entry.get('probable_warning'),
         'probable_source_conflict': entry.get('probable_source_conflict'),
+        'probable_role_status': entry.get('probable_role_status'),
+        'opener_pitcher': entry.get('opener_pitcher'),
+        'role_verify': entry.get('role_verify'),
+        'probable_confidence': entry.get('probable_confidence'),
+        'probable_confidence_label': entry.get('probable_confidence_label'),
+        'probable_confidence_note': entry.get('probable_confidence_note'),
+        'probable_confidence_severity': entry.get('probable_confidence_severity'),
         'mlb_probable_pitcher': entry.get('mlb_probable_pitcher'),
         'espn_probable_pitcher': entry.get('espn_probable_pitcher'),
         'features': features,
@@ -5295,9 +5410,9 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
             dict(r) for r in records
             if (r.get('date') or r.get('game_date') or target_date) == target_date
         ]
-    records = [apply_probable_role_alert(dict(r)) for r in records]
+    records = [apply_probable_confidence(apply_probable_role_alert(dict(r))) for r in records]
     records, probable_report = validate_probable_prediction_records(records, source=source or path)
-    records = [apply_visible_risk_guard_overlay(dict(r)) for r in records]
+    records = [apply_visible_risk_guard_overlay(apply_probable_confidence(dict(r))) for r in records]
     summary = {
         'date': target_date,
         'source': path,
@@ -5337,7 +5452,7 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
     actionable_statuses = {'FA', 'MY ROSTER', 'WAIVER'}
     summary['original_actionable'] = sum(1 for r in records if r.get('status') in actionable_statuses)
     records, enrichment = _enrich_decision_statuses(records)
-    records = [apply_probable_role_alert(dict(r)) for r in records]
+    records = [apply_probable_confidence(apply_probable_role_alert(dict(r))) for r in records]
     summary['records'] = records
     summary['enrichment'] = enrichment
     actionable = [r for r in records if r.get('status') in actionable_statuses]
@@ -5411,11 +5526,14 @@ def build_daily_decision_summary(target_date=None, records=None, source=None):
 
 def _decision_plain_reasons(record, risks=None, boosts=None, confidence=None):
     """Summarize logged decision signals in plain English for the report UI."""
+    record = apply_probable_confidence(apply_probable_role_alert(dict(record or {})))
     features = record.get('features') or {}
     pts = _decision_points(record)
     warning_text = str(record.get('probable_warning') or '').lower()
     role_verify = (
-        record.get('probable_source') == 'prediction_log_cache'
+        record.get('role_verify')
+        or record.get('probable_confidence') in ('source_conflict', 'opener_bulk_risk', 'cached_stale', 'inferred_roster', 'tbd_problem')
+        or record.get('probable_source') == 'prediction_log_cache'
         or record.get('_cached_report_fallback')
         or 'bulk' in warning_text
         or 'opener' in warning_text
@@ -5524,11 +5642,14 @@ def _decision_plain_reasons(record, risks=None, boosts=None, confidence=None):
 
 
 def _decision_report_item(record):
+    record = apply_probable_confidence(apply_probable_role_alert(dict(record or {})))
     risks, boosts = _decision_risk_boost_flags(record)
     risky_borderline = _risky_borderline_streamer_reasons(record, risks)
     warning_text = str(record.get('probable_warning') or '').lower()
     role_verify = (
-        record.get('probable_source') == 'prediction_log_cache'
+        record.get('role_verify')
+        or record.get('probable_confidence') in ('source_conflict', 'opener_bulk_risk', 'cached_stale', 'inferred_roster', 'tbd_problem')
+        or record.get('probable_source') == 'prediction_log_cache'
         or record.get('_cached_report_fallback')
         or 'bulk' in warning_text
         or 'opener' in warning_text
@@ -5563,6 +5684,10 @@ def _decision_report_item(record):
         'probable_source': record.get('probable_source'),
         'probable_warning': record.get('probable_warning'),
         'role_verify': bool(role_verify),
+        'probable_confidence': record.get('probable_confidence'),
+        'probable_confidence_label': record.get('probable_confidence_label'),
+        'probable_confidence_note': record.get('probable_confidence_note'),
+        'probable_confidence_severity': record.get('probable_confidence_severity'),
         'model_tier': record.get('model_tier'),
         '_matchup_source': record.get('_matchup_source'),
         '_matchup_snapshot_date': record.get('_matchup_snapshot_date') or _matchup_record_snapshot_date(record),
@@ -5597,15 +5722,18 @@ def _risky_roster_for_report(rows, limit=6):
 def _decision_records_for_report(snapshot_date, streaming_data):
     """Return current report prediction-shaped records without changing storage."""
     if _runtime_prediction_records:
-        records = [apply_probable_role_alert(dict(rec)) for rec in _runtime_prediction_records]
+        records = [apply_probable_confidence(apply_probable_role_alert(dict(rec))) for rec in _runtime_prediction_records]
         records.extend(
-            _decision_record_from_streaming_entry(s)
+            apply_probable_confidence(_decision_record_from_streaming_entry(s))
             for s in (streaming_data or [])
             if s.get('tbd') or s.get('probable_note') or s.get('probable_warning') or s.get('_cached_report_fallback')
         )
         return records, 'current run prediction records'
     if streaming_data:
-        return [apply_probable_role_alert(_decision_record_from_streaming_entry(s)) for s in streaming_data], 'current report streaming rows'
+        return [
+            apply_probable_confidence(apply_probable_role_alert(_decision_record_from_streaming_entry(s)))
+            for s in streaming_data
+        ], 'current report streaming rows'
     return [], 'prediction logs'
 
 
@@ -6210,9 +6338,9 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
         r for r in records
         if (r.get('date') or r.get('game_date')) in set(watch_dates)
     ]
-    records = [apply_probable_role_alert(dict(r)) for r in records]
+    records = [apply_probable_confidence(apply_probable_role_alert(dict(r))) for r in records]
     records, probable_report = validate_probable_prediction_records(records, source=source or 'prediction records')
-    records = [apply_visible_risk_guard_overlay(dict(r)) for r in records]
+    records = [apply_visible_risk_guard_overlay(apply_probable_confidence(dict(r))) for r in records]
     summary = {
         'base_date': base_date,
         'date_range': f"{watch_dates[0]} to {watch_dates[-1]}" if watch_dates else '',
@@ -6231,6 +6359,7 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
 
     actionable_statuses = {'FA', 'MY ROSTER', 'WAIVER'}
     records, enrichment = _enrich_decision_statuses(records)
+    records = [apply_probable_confidence(dict(r)) for r in records]
     actionable = [r for r in records if r.get('status') in actionable_statuses]
     hidden_unknown = [r for r in records if not r.get('status')]
     hidden_other = [r for r in records if r.get('status') and r.get('status') not in actionable_statuses]
@@ -6349,6 +6478,7 @@ def _action_date_text(date_value, base_date):
 
 
 def _action_item(kind, text, item, date_value, base_date, priority):
+    item = item or {}
     return {
         'kind': kind,
         'text': _compact_decision_text(text, 120),
@@ -6361,6 +6491,10 @@ def _action_item(kind, text, item, date_value, base_date, priority):
         'status': item.get('status'),
         'points': item.get('points'),
         'confidence': item.get('confidence'),
+        'probable_confidence': item.get('probable_confidence'),
+        'probable_confidence_label': item.get('probable_confidence_label'),
+        'probable_confidence_note': item.get('probable_confidence_note'),
+        'probable_confidence_severity': item.get('probable_confidence_severity'),
         'priority': priority,
     }
 
@@ -6374,6 +6508,13 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
     posture_mode = posture.get('mode')
 
     def add_action(kind, text, item, date_value, priority):
+        item = dict(item or {})
+        role_verify = probable_confidence_needs_verify(item)
+        if role_verify and kind in ('ADD', 'CONSIDER', 'BENCH', 'AVOID'):
+            role_note = item.get('probable_confidence_note') or item.get('probable_warning') or 'starter role is not fully confirmed'
+            text = f"Verify role first: {text} {role_note}."
+            kind = 'WATCH'
+            priority = min(max(priority, 12), 58)
         key = (
             kind,
             date_value,
@@ -6570,7 +6711,7 @@ def _matchup_projection_records(base_date=None, days=3):
             rec = dict(rec)
             rec['_matchup_source'] = 'prediction_log_cache'
             rec['_matchup_snapshot_date'] = _matchup_record_snapshot_date(rec)
-            records.append(apply_visible_risk_guard_overlay(rec))
+            records.append(apply_visible_risk_guard_overlay(apply_probable_confidence(apply_probable_role_alert(rec))))
     return records
 
 
@@ -6587,7 +6728,7 @@ def _matchup_prediction_records_for_actions(base_date=None, days=3, records=None
                 continue
             rec['_matchup_source'] = source_kind
             rec['_matchup_snapshot_date'] = _matchup_record_snapshot_date(rec) or base_date
-            out.append(apply_visible_risk_guard_overlay(rec))
+            out.append(apply_visible_risk_guard_overlay(apply_probable_confidence(apply_probable_role_alert(rec))))
         if out:
             return out, source_kind, source or 'current_run'
     return _matchup_projection_records(base_date, days), 'prediction_log_cache', 'prediction_log_cache'
@@ -6626,13 +6767,16 @@ def _matchup_projection_context(record):
     return f"{game_date} {matchup}, {_decision_points(record):.1f} pts, {record.get('tier') or 'unknown'}"
 
 
-def _matchup_action_meta(source_kind, game_date=None, opponent=None, snapshot_date=None, note=None):
+def _matchup_action_meta(source_kind, game_date=None, opponent=None, snapshot_date=None,
+                         note=None, probable_confidence=None, probable_confidence_label=None):
     return {
         'source': source_kind or 'prediction_log_cache',
         'game_date': game_date,
         'opponent': opponent,
         'snapshot_date': snapshot_date,
         'note': note,
+        'probable_confidence': probable_confidence,
+        'probable_confidence_label': probable_confidence_label,
     }
 
 
@@ -6670,6 +6814,7 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
         ))
 
     def add_prediction_action(kind, text, item, game_date, priority, source_kind, source='prediction_log'):
+        item = apply_probable_confidence(apply_probable_role_alert(dict(item or {})))
         name_key = normalize_name(item.get('name') or item.get('pitcher_name') or '')
         prior_date = seen_pitcher_action_dates.get(name_key)
         if name_key and prior_date and game_date and prior_date != game_date:
@@ -6681,6 +6826,16 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
         if name_key and game_date:
             seen_pitcher_action_dates[name_key] = game_date
         note = None
+        role_note = None
+        if probable_confidence_needs_verify(item):
+            role_note = item.get('probable_confidence_label') or 'verify starter role'
+            if kind in ('LOCK IN', 'ADD', 'CONSIDER', 'BENCH', 'AVOID'):
+                kind = 'WATCH'
+                priority = min(max(priority, 8), 58)
+                text = (
+                    "Verify starter role before acting: "
+                    f"{text} {item.get('probable_confidence_note') or item.get('probable_warning') or role_note}."
+                )
         if _matchup_cached_record_stale(item, base_date):
             note = 'cached projection; verify manually'
             if kind in ('LOCK IN', 'ADD', 'CONSIDER', 'BENCH', 'AVOID'):
@@ -6700,7 +6855,9 @@ def build_matchup_action_recommendations(snapshot=None, base_date=None, limit=10
                 game_date=game_date,
                 opponent=item.get('opponent'),
                 snapshot_date=item.get('_matchup_snapshot_date'),
-                note=note,
+                note=note or role_note,
+                probable_confidence=item.get('probable_confidence'),
+                probable_confidence_label=item.get('probable_confidence_label'),
             ),
         )
 
@@ -6917,6 +7074,8 @@ def print_matchup_actions(action_summary):
             context.append(f"game_date={meta.get('game_date')}")
         if meta.get('opponent'):
             context.append(f"opp={meta.get('opponent')}")
+        if meta.get('probable_confidence_label'):
+            context.append(f"role={meta.get('probable_confidence_label')}")
         if meta.get('snapshot_date'):
             context.append(f"snapshot={meta.get('snapshot_date')}")
         if meta.get('note'):
@@ -9354,6 +9513,10 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .chip-safe { background: rgba(96, 165, 250, 0.2); color: #60a5fa; }
 .chip-upside { background: rgba(251, 146, 60, 0.2); color: #fb923c; }
 .chip-mine { background: rgba(251, 191, 36, 0.15); color: #fbbf24; font-size: 9px; }
+.chip-role-good { background: rgba(52, 211, 153, 0.14); color: #86efac; }
+.chip-role-watch { background: rgba(96, 165, 250, 0.15); color: #93c5fd; }
+.chip-role-warn { background: rgba(251, 191, 36, 0.16); color: #fcd34d; }
+.chip-role-bad { background: rgba(248, 113, 113, 0.16); color: #fca5a5; }
 .stream-row2 { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: 11px; color: #666; align-items: center; }
 .stream-row2 span { display: inline-flex; align-items: center; gap: 2px; }
 .opp-easy { color: #34d399; }
@@ -9398,6 +9561,11 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .decision-confidence.conf-start { color: #60a5fa; }
 .decision-confidence.conf-borderline { color: #fbbf24; }
 .decision-confidence.conf-avoid { color: #f87171; }
+.decision-role { color: #aaa; font-weight: 700; }
+.decision-role.role-good { color: #86efac; }
+.decision-role.role-watch { color: #93c5fd; }
+.decision-role.role-warn { color: #fcd34d; }
+.decision-role.role-bad { color: #fca5a5; }
 .decision-empty { padding: 10px 9px; color: #555; font-size: 12px; }
 .decision-compact-list { display: grid; }
 .decision-compact-row { padding: 7px 9px; border-top: 1px solid #1a1a24; display: grid; grid-template-columns: minmax(92px, 1.2fr) auto minmax(86px, 1fr); gap: 7px; align-items: center; }
@@ -9765,6 +9933,9 @@ function renderDecisionItem(item) {
   var matchup = item.home_away === 'H' ? 'vs ' + (item.opponent || '?') : '@ ' + (item.opponent || '?');
   var conf = item.confidence || tierLabel(item.tier);
   var confCls = conf === 'Strong Start' ? 'conf-strong' : conf === 'Start' ? 'conf-start' : conf === 'Avoid' ? 'conf-avoid' : 'conf-borderline';
+  var roleLabel = item.probable_confidence_label || '';
+  var roleSeverity = item.probable_confidence_severity || '';
+  var roleHtml = roleLabel ? ' &bull; <span class="decision-role role-' + escHtml(roleSeverity) + '" title="' + escHtml(item.probable_confidence_note || '') + '">' + escHtml(roleLabel) + '</span>' : '';
   var risks = (item.risks || []).slice(0, 2);
   var boosts = (item.boosts || []).slice(0, 2);
   var notes = [];
@@ -9775,7 +9946,7 @@ function renderDecisionItem(item) {
   var overlapHtml = item.also_listed ? '<span class="decision-overlap">Also listed above</span>' : '';
   return '<div class="decision-row">' +
     '<div class="decision-line1"><span class="decision-name">' + escHtml(item.name) + '</span><span class="decision-pts">' + pts.toFixed(1) + ' pts</span></div>' +
-    '<div class="decision-meta">' + labelHtml + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; <span class="decision-confidence ' + confCls + '">' + escHtml(conf) + '</span> &bull; ' + escHtml(matchup) + ' (' + escHtml(item.home_away || '?') + ')</div>' +
+    '<div class="decision-meta">' + labelHtml + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; <span class="decision-confidence ' + confCls + '">' + escHtml(conf) + '</span>' + roleHtml + ' &bull; ' + escHtml(matchup) + ' (' + escHtml(item.home_away || '?') + ')</div>' +
     '<div class="decision-reasons">' +
       '<div><span class="decision-reason-label">Why:</span> ' + escHtml(item.main_reason || 'Projection is the main signal') + '</div>' +
       '<div><span class="decision-reason-label">Risk:</span> ' + escHtml(item.risk_reason || 'No major red flag in logged signals') + '</div>' +
@@ -9833,10 +10004,12 @@ function renderActionRows(items, limit) {
       if (item.meta.context) metaParts.push(item.meta.context);
       if (item.meta.game_date) metaParts.push(item.meta.game_date);
       if (item.meta.opponent) metaParts.push('vs ' + item.meta.opponent);
+      if (item.meta.probable_confidence_label) metaParts.push(item.meta.probable_confidence_label);
       if (item.meta.snapshot_date) metaParts.push('snapshot ' + item.meta.snapshot_date);
       if (item.meta.note) metaParts.push(item.meta.note);
     }
     if (!metaParts.length && item.date_label) metaParts.push(item.date_label);
+    if (item.probable_confidence_label) metaParts.push(item.probable_confidence_label);
     if (!metaParts.length && item.source) metaParts.push(item.source);
     h += '<div class="action-row">';
     h += '<span class="action-kind ' + actionKindClass(kind) + '">' + escHtml(kind) + '</span>';
@@ -10312,7 +10485,14 @@ function streamingRiskGuardWarning(s) {
 
 function probableRoleNeedsVerify(s) {
   var warning = String((s && s.probable_warning) || '').toLowerCase();
+  var conf = String((s && s.probable_confidence) || '');
   return !!(
+    conf === 'source_conflict' ||
+    conf === 'opener_bulk_risk' ||
+    conf === 'cached_stale' ||
+    conf === 'inferred_roster' ||
+    conf === 'tbd_problem' ||
+    (s && s.role_verify) ||
     (s && (s.probable_source === 'prediction_log_cache' || s._cached_report_fallback)) ||
     warning.indexOf('bulk') !== -1 ||
     warning.indexOf('opener') !== -1 ||
@@ -10417,6 +10597,10 @@ function renderPitcherEntry(s, allReal) {
   if (isMine) tagHtml += '<span class="chip chip-mine">ROSTER</span>';
   if (s.emerging) tagHtml += '<span class="chip chip-emerging" title="Based on L14D stats through $HOLD_ASOF">HOLD</span>';
   if (s.risk_guard_applied) tagHtml += '<span class="chip chip-upside" title="Visible recommendation downgraded by the risk guard; points unchanged.">RISK GUARD</span>';
+  if (s.probable_confidence_label) {
+    var roleChipCls = 'chip-role-' + (s.probable_confidence_severity || 'watch');
+    tagHtml += '<span class="chip ' + roleChipCls + '" title="' + escHtml(s.probable_confidence_note || '') + '">' + escHtml(s.probable_confidence_label) + '</span>';
+  }
   if (probableRoleNeedsVerify(s)) tagHtml += '<span class="chip chip-upside" title="Role/start status needs manual verification.">VERIFY ROLE</span>';
 
   var matchup = s.home_away === 'H' ? 'vs ' + s.opponent : '@' + s.opponent;
