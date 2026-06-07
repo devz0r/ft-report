@@ -29,7 +29,7 @@ import math
 import argparse
 import fnmatch
 import subprocess
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import Counter, defaultdict
 
@@ -6874,12 +6874,62 @@ def _hitter_batting_order_spot(value):
     return max(1, order // 100)
 
 
+def _hitter_lineup_refresh_decision(records, base_date=None, cached=None, cache_age_hours=None):
+    """Decide whether posted hitter lineups are likely worth refreshing now."""
+    base_date = base_date or date.today().isoformat()
+    now = datetime.now(timezone.utc)
+    game_times = []
+    for rec in records or []:
+        if _matchup_record_date(rec) != base_date:
+            continue
+        game_dt = _parse_game_datetime_utc(
+            rec.get('game_datetime') or rec.get('game_time') or ((rec.get('features') or {}).get('game_datetime'))
+        )
+        if game_dt is not None:
+            if game_dt.tzinfo is None:
+                game_dt = game_dt.replace(tzinfo=timezone.utc)
+            game_times.append(game_dt.astimezone(timezone.utc))
+    if not game_times:
+        return {
+            'should_refresh': False,
+            'reason': 'no current-day game times available',
+            'earliest_game_utc': None,
+            'hours_to_first_game': None,
+        }
+    earliest = min(game_times)
+    hours_to_first = (earliest - now).total_seconds() / 3600
+    posted_teams = len((cached or {}).get('teams_with_posted_lineups') or []) if isinstance(cached, dict) else 0
+    cache_is_fresh = cache_age_hours is not None and cache_age_hours < 0.5
+    in_posting_window = hours_to_first <= 5.0
+    stale_or_sparse = not cache_is_fresh or posted_teams == 0
+    should_refresh = in_posting_window and stale_or_sparse
+    if not in_posting_window:
+        reason = f"too early for most posted lineups ({hours_to_first:.1f}h before first game)"
+    elif cache_is_fresh and posted_teams:
+        reason = f"fresh lineup cache already has {posted_teams} posted team(s)"
+    else:
+        reason = f"inside lineup window ({hours_to_first:.1f}h before first game), refreshing posted lineups"
+    return {
+        'should_refresh': should_refresh,
+        'reason': reason,
+        'earliest_game_utc': earliest.isoformat(),
+        'hours_to_first_game': round(hours_to_first, 2),
+        'cached_posted_teams': posted_teams,
+        'cache_age_hours': round(cache_age_hours, 2) if cache_age_hours is not None else None,
+    }
+
+
 def _fetch_hitter_lineup_context(records, base_date=None, force_refresh=False):
     """Read posted MLB boxscore lineups for today's games when available."""
     base_date = base_date or date.today().isoformat()
     cache_name = f"hitter_lineup_context_{base_date}.json"
-    cached, _age = _load_streaming_cache(cache_name, max_age_hours=1)
-    if isinstance(cached, dict) and not force_refresh:
+    cached, age = _load_streaming_cache(cache_name, max_age_hours=1)
+    decision = _hitter_lineup_refresh_decision(records, base_date, cached, age)
+    auto_refresh = decision.get('should_refresh') and base_date == date.today().isoformat()
+    if isinstance(cached, dict) and not force_refresh and not auto_refresh:
+        cached = dict(cached)
+        cached['refresh_decision'] = decision
+        cached['refresh_mode'] = 'cached'
         return cached
 
     game_pks = sorted({
@@ -6888,7 +6938,14 @@ def _fetch_hitter_lineup_context(records, base_date=None, force_refresh=False):
         if _matchup_record_date(rec) == base_date and rec.get('game_pk')
     })
     if not game_pks:
-        return {'date': base_date, 'players': {}, 'teams_with_posted_lineups': [], 'game_pks': []}
+        return {
+            'date': base_date,
+            'players': {},
+            'teams_with_posted_lineups': [],
+            'game_pks': [],
+            'refresh_decision': decision,
+            'refresh_mode': 'no_games',
+        }
 
     def fetch_box(pk):
         try:
@@ -6943,6 +7000,8 @@ def _fetch_hitter_lineup_context(records, base_date=None, force_refresh=False):
         'date': base_date,
         'source': 'MLB StatsAPI boxscore battingOrder',
         'refreshed_at': datetime.now().isoformat(timespec='seconds'),
+        'refresh_mode': 'manual' if force_refresh else 'automatic' if auto_refresh else 'cache_miss',
+        'refresh_decision': decision,
         'players': players,
         'teams_with_posted_lineups': sorted(teams_with_posted),
         'game_pks': game_pks,
@@ -7228,11 +7287,19 @@ def build_hitter_daily_context(base_date=None, players_list=None, matchup_snapsh
             'injury_status_rows': injured,
             'team_game_context_teams': len(game_context),
             'teams_with_posted_lineups': len((lineup_context or {}).get('teams_with_posted_lineups') or []),
+            'lineup_refresh_mode': (lineup_context or {}).get('refresh_mode'),
+            'lineup_refresh_reason': ((lineup_context or {}).get('refresh_decision') or {}).get('reason'),
+            'lineup_cache_age_hours': ((lineup_context or {}).get('refresh_decision') or {}).get('cache_age_hours'),
+            'hours_to_first_game': ((lineup_context or {}).get('refresh_decision') or {}).get('hours_to_first_game'),
         },
         'notes': [
             'Logged-only context for future hitter modeling; not used in scoring or recommendations.',
             'Opposing pitcher quality, park, venue, roof, and weather context come from existing prediction records when available.',
             'Hitter handedness comes from MLB active-roster metadata when available; lineup status comes from posted MLB boxscore batting orders.',
+            (
+                f"Lineup refresh: {(lineup_context or {}).get('refresh_mode') or 'unknown'}"
+                f" — {((lineup_context or {}).get('refresh_decision') or {}).get('reason') or 'no refresh decision available'}."
+            ),
             'Opposing pitcher handedness remains null when current probable data does not expose pitchHand.',
         ],
     }
@@ -9727,6 +9794,9 @@ function renderHitterDecisions() {
     h += '<span class="decision-pill">Platoon context <b>' + (coverage.with_hitter_platoon_context || 0) + '</b></span>';
     h += '<span class="decision-pill">Lineup spot <b>' + (coverage.with_lineup_spot || 0) + '</b></span>';
     h += '<span class="decision-pill">Posted lineups <b>' + (coverage.teams_with_posted_lineups || 0) + '</b></span>';
+    if (coverage.lineup_refresh_mode) {
+      h += '<span class="decision-pill">Lineup refresh <b>' + escHtml(coverage.lineup_refresh_mode) + '</b></span>';
+    }
   }
   h += '</div>';
   if (context.notes && context.notes.length) {
@@ -9741,6 +9811,9 @@ function renderHitterDecisions() {
     h += '. Lineups not posted yet, so hitter advice is context-limited.';
   } else if (coverage.total_rows !== undefined && (coverage.with_lineup_spot || 0) < (coverage.total_rows || 0)) {
     h += '. Some lineups are still missing.';
+  }
+  if (coverage.lineup_refresh_reason) {
+    h += ' ' + escHtml(coverage.lineup_refresh_reason) + '.';
   }
   h += '</div>';
   h += '<div class="matchup-grid">';
