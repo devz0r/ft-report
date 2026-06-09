@@ -9241,6 +9241,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           decision_policy_summary=None,
                           risk_guard_results_summary=None,
                           recommendation_policy_audit_summary=None,
+                          reliability_check_summary=None,
                           team_handedness_context=None,
                           skip_unchanged_write=False,
                           top_banner_html=''):
@@ -9347,6 +9348,14 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
             recommendation_policy_audit_summary = {
                 'available': False,
                 'note': f'Recommendation policy audit unavailable: {type(e).__name__}: {e}',
+            }
+    if reliability_check_summary is None:
+        try:
+            reliability_check_summary = build_reliability_check_summary()
+        except Exception as e:
+            reliability_check_summary = {
+                'available': False,
+                'note': f'Reliability check unavailable: {type(e).__name__}: {e}',
             }
     # Build a lookup of emerging (HOLD) pitchers.
     # Prefer the global emerging map (assesses ALL FA + MY ROSTER SPs by recent form,
@@ -9761,6 +9770,7 @@ var LEARNING_SAMPLE_SUMMARY = $LEARNING_SAMPLE_SUMMARY_JSON;
 var DECISION_POLICY_BACKTEST = $DECISION_POLICY_BACKTEST_JSON;
 var RISK_GUARD_RESULTS = $RISK_GUARD_RESULTS_JSON;
 var RECOMMENDATION_POLICY_AUDIT = $RECOMMENDATION_POLICY_AUDIT_JSON;
+var RELIABILITY_CHECK = $RELIABILITY_CHECK_JSON;
 var RECOMMENDATION_POLICY_META = $RECOMMENDATION_POLICY_META_JSON;
 var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
 var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
@@ -10728,6 +10738,74 @@ renderStreaming();
 /* ===== Accuracy tab rendering ===== */
 function renderAccuracy() {
   var c = document.getElementById('accuracyContent');
+  function renderReliabilityCheck() {
+    var r = RELIABILITY_CHECK || {};
+    var h2 = '<div class="day-card accuracy-card">';
+    h2 += '<div class="day-header"><span>Reliability Check</span><span style="color:#777;font-size:11px">analysis only</span></div>';
+    if (!r.available) {
+      h2 += '<div class="stream-note" style="color:#777">' + escHtml(r.note || 'Reliability check is not available yet.') + '</div></div>';
+      return h2;
+    }
+    var current = r.current || {};
+    var visible = r.visible_overlay || {};
+    var deltas = r.deltas || {};
+    h2 += '<div class="decision-summary">';
+    h2 += '<span class="decision-pill">Rows <b>' + escHtml(r.labeled_rows || 0) + '</b></span>';
+    h2 += '<span class="decision-pill">START hit <b>' + Number(current.start_hit_rate || 0).toFixed(1) + '%</b></span>';
+    h2 += '<span class="decision-pill">START bust <b>' + Number(current.start_bust_rate || 0).toFixed(1) + '%</b></span>';
+    h2 += '<span class="decision-pill">SIT correct <b>' + Number(current.sit_correct_avoid_rate || 0).toFixed(1) + '%</b></span>';
+    h2 += '<span class="decision-pill">SIT missed good <b>' + Number(current.sit_missed_opportunity_rate || 0).toFixed(1) + '%</b></span>';
+    h2 += '<span class="decision-pill">Visible guard neg starts <b>' + escHtml((current.negative_recommended == null ? '--' : current.negative_recommended) + '→' + (visible.negative_recommended == null ? '--' : visible.negative_recommended)) + '</b></span>';
+    h2 += '</div>';
+    h2 += '<div class="stream-note" style="margin:0 0 8px;color:#777">' + escHtml(r.interpretation || r.note || 'Reliability is still being measured.') + '</div>';
+
+    var bands = r.calibration_bands || [];
+    if (bands.length) {
+      h2 += '<div class="accuracy-table-wrap"><table class="accuracy-table">';
+      h2 += '<tr style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:4px 16px">Projected</td><td style="padding:4px 16px;text-align:right">N</td><td style="padding:4px 16px;text-align:right">Pred</td><td style="padding:4px 16px;text-align:right">Actual</td><td style="padding:4px 16px;text-align:right">Bias</td><td style="padding:4px 16px;text-align:right">Bust</td></tr>';
+      bands.forEach(function(b) {
+        var bias = Number(b.bias || 0);
+        var biasCls = bias > 0.5 ? 'opp-easy' : (bias < -0.5 ? 'opp-hard' : '');
+        h2 += '<tr><td style="padding:6px 16px"><b>' + escHtml(b.band || '') + '</b></td>';
+        h2 += '<td style="padding:6px 16px;text-align:right">' + escHtml(b.n || 0) + '</td>';
+        h2 += '<td style="padding:6px 16px;text-align:right">' + Number(b.mean_predicted || 0).toFixed(1) + '</td>';
+        h2 += '<td style="padding:6px 16px;text-align:right">' + Number(b.mean_actual || 0).toFixed(1) + '</td>';
+        h2 += '<td style="padding:6px 16px;text-align:right" class="' + biasCls + '">' + (bias >= 0 ? '+' : '') + bias.toFixed(1) + '</td>';
+        h2 += '<td style="padding:6px 16px;text-align:right">' + Number(b.bust_rate || 0).toFixed(1) + '%</td></tr>';
+      });
+      h2 += '</table></div>';
+    }
+
+    var tierRows = r.by_tier || [];
+    var roleRows = r.by_role_source || [];
+    var riskRows = r.risk_patterns || [];
+    h2 += '<div class="accuracy-list">';
+    if (tierRows.length) {
+      h2 += '<div class="accuracy-row" style="display:block"><div class="accuracy-row-main"><b>Reliability by tier</b></div>';
+      tierRows.forEach(function(row) {
+        h2 += '<div class="accuracy-row-detail">' + escHtml(row.label || 'unknown') + ': n=' + escHtml(row.n || 0) + ', START hit ' + Number(row.start_hit_rate || 0).toFixed(1) + '%, bust ' + Number(row.start_bust_rate || 0).toFixed(1) + '%</div>';
+      });
+      h2 += '</div>';
+    }
+    if (roleRows.length) {
+      h2 += '<div class="accuracy-row" style="display:block"><div class="accuracy-row-main"><b>Reliability by probable source</b></div>';
+      roleRows.forEach(function(row) {
+        h2 += '<div class="accuracy-row-detail">' + escHtml(row.label || 'unknown') + ': n=' + escHtml(row.n || 0) + ', START hit ' + Number(row.start_hit_rate || 0).toFixed(1) + '%, bust ' + Number(row.start_bust_rate || 0).toFixed(1) + '%</div>';
+      });
+      h2 += '</div>';
+    }
+    if (riskRows.length) {
+      h2 += '<div class="accuracy-row" style="display:block"><div class="accuracy-row-main"><b>Most dangerous recommended-start patterns</b></div>';
+      riskRows.forEach(function(row) {
+        h2 += '<div class="accuracy-row-detail">' + escHtml(row.reason || '') + ': n=' + escHtml(row.n || 0) + ', bust ' + Number(row.bust_rate || 0).toFixed(1) + '%, negative ' + Number(row.negative_rate || 0).toFixed(1) + '%, good ' + Number(row.good_rate || 0).toFixed(1) + '%</div>';
+      });
+      h2 += '</div>';
+    }
+    h2 += '</div>';
+    h2 += '<div class="stream-note" style="margin:0;color:#777">' + escHtml(r.note || 'Analysis only. Current recommendations are unchanged.') + '</div>';
+    h2 += '</div>';
+    return h2;
+  }
   function renderRecommendationPolicyAudit() {
     var a = RECOMMENDATION_POLICY_AUDIT || {};
     var h2 = '<div class="day-card accuracy-card">';
@@ -10800,20 +10878,21 @@ function renderAccuracy() {
     h2 += '</div>';
     return h2;
   }
+  var reliabilityHtml = renderReliabilityCheck();
   var policyAuditHtml = renderRecommendationPolicyAudit();
   if (CALIBRATION && CALIBRATION.note) {
-    c.innerHTML = policyAuditHtml + '<div class="stream-note" style="padding:40px;text-align:center;color:#555">' + CALIBRATION.note + '</div>';
+    c.innerHTML = reliabilityHtml + policyAuditHtml + '<div class="stream-note" style="padding:40px;text-align:center;color:#555">' + CALIBRATION.note + '</div>';
     return;
   }
   if (!CALIBRATION || !CALIBRATION.n) {
-    c.innerHTML = policyAuditHtml + '<div class="stream-note" style="padding:40px;text-align:center;color:#555">No outcomes joined yet. Predictions logged today; accuracy stats will populate after tomorrow’s outcomes are processed.</div>';
+    c.innerHTML = reliabilityHtml + policyAuditHtml + '<div class="stream-note" style="padding:40px;text-align:center;color:#555">No outcomes joined yet. Predictions logged today; accuracy stats will populate after tomorrow’s outcomes are processed.</div>';
     return;
   }
   var cal = CALIBRATION;
   var biasDir = cal.bias > 0 ? 'underpredicting' : (cal.bias < 0 ? 'overpredicting' : 'on the nose');
   var biasCls = Math.abs(cal.bias) > 1 ? 'opp-hard' : 'opp-easy';
 
-  var h = policyAuditHtml;
+  var h = reliabilityHtml + policyAuditHtml;
   // Top stats row
   h += '<div class="day-card accuracy-card">';
   h += '<div class="day-header"><span>Last ' + cal.window_days + ' days &mdash; ' + cal.n + ' starts</span></div>';
@@ -11077,6 +11156,7 @@ renderAccuracy();
         DECISION_POLICY_BACKTEST_JSON=json.dumps(decision_policy_summary) if decision_policy_summary else 'null',
         RISK_GUARD_RESULTS_JSON=json.dumps(risk_guard_results_summary) if risk_guard_results_summary else 'null',
         RECOMMENDATION_POLICY_AUDIT_JSON=json.dumps(recommendation_policy_audit_summary) if recommendation_policy_audit_summary else 'null',
+        RELIABILITY_CHECK_JSON=json.dumps(reliability_check_summary) if reliability_check_summary else 'null',
         RECOMMENDATION_POLICY_META_JSON=json.dumps(recommendation_policy_meta()),
         DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
         NEXT_WATCHLIST_JSON=json.dumps(next_watchlist_summary) if next_watchlist_summary else 'null',
@@ -14037,6 +14117,153 @@ def build_start_sit_policy_backtest_summary():
         'diff_summary': diff_summary,
         'policies': rows_sorted,
         'note': 'Analysis only. Projected points and scoring are unchanged; visible recommendations may use the active risk guard overlay.',
+    }
+
+
+def _safe_pct(value):
+    val = _safe_float(value)
+    return round(val, 1) if val is not None else None
+
+
+def _reliability_calibration_bands(work):
+    bands = [
+        ('<5', None, 5.0),
+        ('5-7.9', 5.0, 8.0),
+        ('8-9.9', 8.0, 10.0),
+        ('10-11.9', 10.0, 12.0),
+        ('12-14.9', 12.0, 15.0),
+        ('15+', 15.0, None),
+    ]
+    out = []
+    for label, low, high in bands:
+        rows = work.copy()
+        if low is not None:
+            rows = rows[rows['predicted_pts'] >= low]
+        if high is not None:
+            rows = rows[rows['predicted_pts'] < high]
+        rows = rows.dropna(subset=['predicted_pts', 'actual_pts'])
+        if rows.empty:
+            continue
+        diff = rows['actual_pts'] - rows['predicted_pts']
+        out.append({
+            'band': label,
+            'n': int(len(rows)),
+            'mean_predicted': round(float(rows['predicted_pts'].mean()), 1),
+            'mean_actual': round(float(rows['actual_pts'].mean()), 1),
+            'bias': round(float(diff.mean()), 1),
+            'mae': round(float(diff.abs().mean()), 1),
+            'usable_rate': _safe_pct((rows['actual_pts'] >= 8).mean() * 100.0),
+            'bust_rate': _safe_pct((rows['actual_pts'] < 5).mean() * 100.0),
+        })
+    return out
+
+
+def _reliability_group_metrics(work, group_col, min_n=10, limit=6):
+    if group_col not in work.columns:
+        return []
+    rows = work.copy()
+    rows[group_col] = rows[group_col].fillna('').astype(str).str.strip()
+    rows = rows[rows[group_col] != '']
+    out = []
+    for label, group in rows.groupby(group_col):
+        if len(group) < min_n:
+            continue
+        metrics = _start_sit_metric_summary(group)
+        out.append({
+            'label': str(label),
+            'n': int(len(group)),
+            'start_hit_rate': round(metrics['start_hit_rate'], 1),
+            'start_bust_rate': round(metrics['start_bust_rate'], 1),
+            'sit_correct_avoid_rate': round(metrics['sit_correct_avoid_rate'], 1),
+            'mean_actual': round(float(group['actual_pts'].mean()), 1),
+            'mean_predicted': round(float(group['predicted_pts'].mean()), 1),
+        })
+    return sorted(out, key=lambda r: (-r['n'], r['start_bust_rate']))[:limit]
+
+
+def _reliability_risk_patterns(work, min_n=20, limit=6):
+    rows = work[work['predicted_advice'].isin(['START', 'BORDERLINE'])].copy()
+    if rows.empty:
+        return []
+    pattern_rows = []
+    for reason in (
+        'recent_era>=5.14', 'cold', 'top-10 offense', 'hitter park',
+        'platoon risk', 'low K/9', 'workload risk', 'negative pitch matchup',
+    ):
+        mask = []
+        for _, row in rows.iterrows():
+            signals = _decision_policy_risk_signals(row)
+            mask.append(bool(signals.get(reason)))
+        subset = rows[mask]
+        if len(subset) < min_n:
+            continue
+        pattern_rows.append({
+            'reason': reason,
+            'n': int(len(subset)),
+            'bust_rate': _safe_pct((subset['actual_pts'] < 5).mean() * 100.0),
+            'negative_rate': _safe_pct((subset['actual_pts'] <= 0).mean() * 100.0),
+            'good_rate': _safe_pct((subset['actual_pts'] >= 12).mean() * 100.0),
+            'mean_actual': round(float(subset['actual_pts'].mean()), 1),
+        })
+    return sorted(
+        pattern_rows,
+        key=lambda r: (-(r['bust_rate'] or 0), -(r['negative_rate'] or 0), -r['n'])
+    )[:limit]
+
+
+def build_reliability_check_summary():
+    """Compact read-only reliability scorecard for the Accuracy tab."""
+    work, source, skipped_source = _load_start_sit_analysis_rows()
+    if work.empty:
+        return {
+            'available': False,
+            'source': source,
+            'skipped_source': skipped_source,
+            'labeled_rows': 0,
+            'note': 'No labeled starts with actual fantasy points are available yet.',
+        }
+    work = work.copy()
+    active_policy = VISIBLE_RISK_GUARD_POLICY_KEY
+    current_col = '_policy_current'
+    active_col = f'_policy_{active_policy}'
+    work[current_col] = [_start_sit_policy_advice(row, 'current') for _, row in work.iterrows()]
+    work[active_col] = [_start_sit_policy_advice(row, active_policy) for _, row in work.iterrows()]
+    current_metrics = _decision_policy_metrics(work, current_col)
+    visible_metrics = _decision_policy_metrics(work, active_col)
+    deltas = _policy_metric_delta(visible_metrics, current_metrics)
+    calibration = _reliability_calibration_bands(work)
+    by_tier = _reliability_group_metrics(work, 'tier_group', min_n=10, limit=8)
+    role_col = None
+    for candidate in ('probable_confidence_label', 'probable_source', '_matchup_source'):
+        if candidate in work.columns and work[candidate].fillna('').astype(str).str.strip().ne('').any():
+            role_col = candidate
+            break
+    by_role_source = _reliability_group_metrics(work, role_col, min_n=10, limit=6) if role_col else []
+    risk_patterns = _reliability_risk_patterns(work, min_n=20, limit=6)
+    if current_metrics['start_bust_rate'] >= 30:
+        interpretation = 'START calls are still too dangerous; prioritize bust prevention before making recommendations more aggressive.'
+    elif current_metrics['sit_missed_opportunity_rate'] >= 25:
+        interpretation = 'The model is leaving meaningful upside on the bench; future work should identify safe upgrades from SIT to BORDERLINE.'
+    elif deltas.get('negative_recommended', 0) < 0:
+        interpretation = 'The visible risk guard is improving safety by reducing negative recommended starts, but missed upside still needs watching.'
+    else:
+        interpretation = 'Reliability is mixed; use this as a guardrail before changing recommendation policy.'
+    return {
+        'available': True,
+        'source': source,
+        'skipped_source': skipped_source,
+        'labeled_rows': int(len(work)),
+        'active_policy_label': recommendation_policy_meta().get('label') or active_policy,
+        'current': current_metrics,
+        'visible_overlay': visible_metrics,
+        'deltas': deltas,
+        'calibration_bands': calibration,
+        'by_tier': by_tier,
+        'by_role_source': by_role_source,
+        'role_source_field': role_col,
+        'risk_patterns': risk_patterns,
+        'interpretation': interpretation,
+        'note': 'Analysis only. Current scoring, projections, learned corrections, and recommendations are unchanged.',
     }
 
 
