@@ -114,6 +114,7 @@ ABBR_TO_MLB_TEAM = {v: k for k, v in MLB_TEAM_TO_ABBR.items()}
 STREAMING_CACHE_DIR = os.path.join(SCRIPT_DIR, "streaming_cache")
 ROSTER_STATUS_CACHE_FILE = os.path.join(STREAMING_CACHE_DIR, "roster_status_cache.json")
 _runtime_prediction_records = []
+_prediction_change_prior_records = {}
 OPEN_METEO_WEATHER_CACHE_FILE = 'open_meteo_weather.json'
 _open_meteo_weather_cache = None
 PITCHER_WORKLOAD_HISTORY_CACHE_FILE = 'pitcher_workload_history.json'
@@ -5737,6 +5738,243 @@ def _decision_records_for_report(snapshot_date, streaming_data):
     return [], 'prediction logs'
 
 
+def _recommendation_change_key(record):
+    return (
+        record.get('date') or record.get('game_date'),
+        normalize_name(record.get('name') or record.get('pitcher_name') or ''),
+        record.get('team'),
+        record.get('opponent'),
+        record.get('home_away'),
+    )
+
+
+def _prediction_log_records_for_change_date(target_date):
+    path = os.path.join(PREDICTIONS_DIR, f'{target_date}.jsonl')
+    if not os.path.exists(path):
+        return {}
+    rows = {}
+    try:
+        with open(path) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                key = _recommendation_change_key(rec)
+                prior = rows.get(key)
+                if prior is None or str(rec.get('logged_at') or '') >= str(prior.get('logged_at') or ''):
+                    rows[key] = rec
+    except Exception:
+        return {}
+    return rows
+
+
+def _prediction_change_previous_record(record, disk_cache):
+    key = _recommendation_change_key(record)
+    if key in _prediction_change_prior_records:
+        return _prediction_change_prior_records.get(key), 'replaced prediction log row'
+    game_date = key[0]
+    if not game_date:
+        return None, None
+    if game_date not in disk_cache:
+        disk_cache[game_date] = _prediction_log_records_for_change_date(game_date)
+    prior = disk_cache.get(game_date, {}).get(key)
+    if not prior:
+        return None, None
+    if str(prior.get('logged_at') or '') == str(record.get('logged_at') or ''):
+        return None, None
+    return prior, 'saved prediction log'
+
+
+def _display_prediction_record(record):
+    record = apply_probable_confidence(apply_probable_role_alert(dict(record or {})))
+    return apply_visible_risk_guard_overlay(record)
+
+
+def _display_tier(record):
+    return record.get('risk_guard_display_tier') or record.get('tier') or 'unknown'
+
+
+def _display_advice(record):
+    return _start_sit_predicted_advice(_display_tier(record), _decision_points(record))
+
+
+def _adj_total(record):
+    val = _safe_float(record.get('adj_total'))
+    if val is not None:
+        return val
+    adjustments = record.get('adjustments') or []
+    total = 0.0
+    seen = False
+    for adj in adjustments:
+        if not isinstance(adj, dict):
+            continue
+        delta = _safe_float(adj.get('delta'))
+        if delta is None:
+            continue
+        total += delta
+        seen = True
+    return total if seen else 0.0
+
+
+def _top_adjustment_label(record):
+    adjustments = record.get('adjustments') or []
+    best = None
+    for adj in adjustments:
+        if not isinstance(adj, dict):
+            continue
+        delta = _safe_float(adj.get('delta'))
+        if delta is None:
+            continue
+        if best is None or abs(delta) > abs(_safe_float(best.get('delta')) or 0.0):
+            best = adj
+    return best.get('label') if best else None
+
+
+def _recommendation_change_reasons(old, new):
+    reasons = []
+    old_pts = _decision_points(old)
+    new_pts = _decision_points(new)
+    pts_delta = new_pts - old_pts
+    old_adj = _adj_total(old)
+    new_adj = _adj_total(new)
+    adj_delta = new_adj - old_adj
+    old_features = old.get('features') or {}
+    new_features = new.get('features') or {}
+    if abs(adj_delta) >= 1.5:
+        label = _top_adjustment_label(new)
+        if label:
+            reasons.append(f"learned adjustment moved {adj_delta:+.1f} pts ({label})")
+        else:
+            reasons.append(f"learned adjustment moved {adj_delta:+.1f} pts")
+    old_trend = old_features.get('trend')
+    new_trend = new_features.get('trend')
+    if old_trend != new_trend and new_trend:
+        reasons.append(f"trend changed to {new_trend}")
+    old_recent = _feature_float(old_features, 'recent_era')
+    new_recent = _feature_float(new_features, 'recent_era')
+    if old_recent is not None and new_recent is not None and abs(new_recent - old_recent) >= 0.75:
+        reasons.append(f"recent ERA changed {old_recent:.2f}→{new_recent:.2f}")
+    old_rank = _feature_float(old_features, 'opp_rank')
+    new_rank = _feature_float(new_features, 'opp_rank')
+    if old_rank is not None and new_rank is not None and abs(new_rank - old_rank) >= 4:
+        reasons.append(f"opponent rank changed {int(old_rank)}→{int(new_rank)}")
+    elif new_rank is not None and new_rank <= 10:
+        reasons.append(f"opponent grades top-10 offense (rank {int(new_rank)})")
+    old_role = old.get('probable_confidence_label')
+    new_role = new.get('probable_confidence_label')
+    if old_role != new_role and new_role:
+        reasons.append(f"probable role changed to {new_role}")
+    if new.get('risk_guard_applied') and not old.get('risk_guard_applied'):
+        guard_reasons = ', '.join((new.get('risk_guard_reasons') or [])[:3])
+        reasons.append(f"risk guard now applies{': ' + guard_reasons if guard_reasons else ''}")
+    old_status = old.get('status')
+    new_status = new.get('status')
+    if old_status != new_status and new_status:
+        reasons.append(f"roster status changed {old_status or 'unknown'}→{new_status}")
+    if not reasons and abs(pts_delta) >= 3.0:
+        reasons.append(f"projection moved {pts_delta:+.1f} pts")
+    return reasons[:4]
+
+
+def build_recommendation_change_summary(base_date=None, records=None, source=None, limit=10):
+    """Compare current report rows with prior prediction-log evidence."""
+    base_date = base_date or date.today().isoformat()
+    records = [dict(r) for r in (records or [])]
+    disk_cache = {}
+    changes = []
+    missing_prior = 0
+    actionable_statuses = {'MY ROSTER', 'FA', 'WAIVER'}
+    for rec in records:
+        if rec.get('tbd') or not (rec.get('name') or rec.get('pitcher_name')):
+            continue
+        current = _display_prediction_record(rec)
+        prior, prior_source = _prediction_change_previous_record(current, disk_cache)
+        if not prior:
+            missing_prior += 1
+            continue
+        old = _display_prediction_record(prior)
+        old_pts = _decision_points(old)
+        new_pts = _decision_points(current)
+        pts_delta = round(new_pts - old_pts, 1)
+        old_tier = _display_tier(old)
+        new_tier = _display_tier(current)
+        old_advice = _display_advice(old)
+        new_advice = _display_advice(current)
+        adj_delta = round(_adj_total(current) - _adj_total(old), 1)
+        old_role = old.get('probable_confidence_label')
+        new_role = current.get('probable_confidence_label')
+        meaningful = (
+            old_advice != new_advice
+            or old_tier != new_tier
+            or abs(pts_delta) >= 3.0
+            or abs(adj_delta) >= 2.0
+            or old_role != new_role
+        )
+        if not meaningful:
+            continue
+        status = current.get('status') or old.get('status') or ''
+        is_actionable = status in actionable_statuses
+        severity = 1
+        if old_advice != new_advice:
+            severity += 4
+        if old_advice == 'START' and new_advice == 'SIT':
+            severity += 4
+        if new_advice == 'START' and old_advice == 'SIT':
+            severity += 3
+        if abs(pts_delta) >= 5.0:
+            severity += 2
+        if is_actionable:
+            severity += 2
+        reasons = _recommendation_change_reasons(old, current)
+        changes.append({
+            'date': current.get('date') or current.get('game_date'),
+            'name': current.get('name') or current.get('pitcher_name'),
+            'team': current.get('team'),
+            'opponent': current.get('opponent'),
+            'home_away': current.get('home_away'),
+            'status': status or 'UNKNOWN',
+            'old_points': round(old_pts, 1),
+            'new_points': round(new_pts, 1),
+            'points_delta': pts_delta,
+            'old_tier': old_tier,
+            'new_tier': new_tier,
+            'old_advice': old_advice,
+            'new_advice': new_advice,
+            'old_adj_total': round(_adj_total(old), 1),
+            'new_adj_total': round(_adj_total(current), 1),
+            'adj_delta': adj_delta,
+            'old_role': old_role,
+            'new_role': new_role,
+            'old_logged_at': old.get('logged_at'),
+            'new_logged_at': current.get('logged_at'),
+            'prior_source': prior_source,
+            'reasons': reasons,
+            'severity': severity,
+            'actionable': is_actionable,
+        })
+    changes.sort(key=lambda r: (-r.get('severity', 0), r.get('date') or '', r.get('name') or ''))
+    limited = changes[:limit]
+    if changes:
+        note = 'Compares current report rows with prior saved prediction evidence. Scoring and recommendations are unchanged.'
+    else:
+        note = 'No meaningful recommendation flips found from available prior prediction evidence.'
+        if missing_prior:
+            note += ' Some starts had no prior saved row to compare.'
+    return {
+        'available': True,
+        'date': base_date,
+        'source': source or 'current report prediction rows',
+        'changes': limited,
+        'change_count': len(changes),
+        'shown_count': len(limited),
+        'missing_prior_count': missing_prior,
+        'note': note,
+    }
+
+
 def _mark_probable_record_problem(record, reason):
     out = dict(record)
     out['probable_conflict_pitcher'] = out.get('name') or out.get('pitcher_name')
@@ -9233,6 +9471,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           daily_decision_summary=None,
                           next_watchlist_summary=None,
                           add_drop_priority_summary=None,
+                          recommendation_change_summary=None,
                           matchup_snapshot_summary=None,
                           matchup_action_summary=None,
                           hitter_decision_summary=None,
@@ -9321,6 +9560,20 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
             snapshot_date, daily_decision_summary, next_watchlist_summary,
             matchup_edge_summary=matchup_edge_summary,
         )
+    if recommendation_change_summary is None:
+        try:
+            recommendation_change_summary = build_recommendation_change_summary(
+                snapshot_date,
+                records=report_decision_records,
+                source=report_decision_source,
+            )
+        except Exception as e:
+            recommendation_change_summary = {
+                'available': False,
+                'changes': [],
+                'change_count': 0,
+                'note': f'Recommendation change audit unavailable: {type(e).__name__}: {e}',
+            }
     if decision_policy_summary is None:
         try:
             decision_policy_summary = build_start_sit_policy_backtest_summary()
@@ -9750,6 +10003,7 @@ $TOP_BANNER_HTML
 <div id="hitterDecisionContent"></div>
 <div id="decisionContent"></div>
 <div id="addDropContent"></div>
+<div id="recommendationChangeContent"></div>
 <div id="watchlistContent"></div>
 </div><!-- end tab-decisions -->
 
@@ -9775,6 +10029,7 @@ var RECOMMENDATION_POLICY_META = $RECOMMENDATION_POLICY_META_JSON;
 var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
 var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
 var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
+var RECOMMENDATION_CHANGES = $RECOMMENDATION_CHANGES_JSON;
 var MATCHUP_SNAPSHOT = $MATCHUP_SNAPSHOT_JSON;
 var MATCHUP_ACTIONS = $MATCHUP_ACTIONS_JSON;
 var HITTER_DECISIONS = $HITTER_DECISIONS_JSON;
@@ -10300,6 +10555,53 @@ function renderAddDropPriority() {
   container.innerHTML = h;
 }
 
+function renderRecommendationChanges() {
+  var container = document.getElementById('recommendationChangeContent');
+  if (!container || !RECOMMENDATION_CHANGES) return;
+  var a = RECOMMENDATION_CHANGES || {};
+  var rows = a.changes || [];
+  var h = '<div class="day-card decision-card">';
+  h += '<div class="day-header"><span class="day-date">Recommendation Changes</span><span class="day-count">' + escHtml(a.change_count || 0) + ' meaningful flip' + ((a.change_count || 0) === 1 ? '' : 's') + '</span></div>';
+  h += '<div class="matchup-small">' + escHtml(a.note || 'Compares current report rows with prior prediction evidence.') + '</div>';
+  if (!rows.length) {
+    h += '<div class="decision-empty">No meaningful recommendation changes found from available prior prediction evidence.</div>';
+  } else {
+    h += '<div class="action-list">';
+    rows.forEach(function(item) {
+      var matchup = item.home_away === 'H' ? 'vs ' + (item.opponent || '?') : '@ ' + (item.opponent || '?');
+      var kind = 'WATCH';
+      if (item.old_advice === 'START' && item.new_advice === 'SIT') kind = 'AVOID';
+      else if (item.new_advice === 'START' && item.old_advice !== 'START') kind = 'CONSIDER';
+      else if (Number(item.points_delta || 0) <= -3) kind = 'CAUTION';
+      var ptsDelta = Number(item.points_delta || 0);
+      var adjDelta = Number(item.adj_delta || 0);
+      var reason = (item.reasons || []).slice(0, 2).join('; ') || 'inputs changed';
+      var text = (item.name || 'Unknown') + ' ' + (item.date || '') + ' ' + matchup + ': ' +
+        item.old_advice + ' → ' + item.new_advice + ', ' +
+        Number(item.old_points || 0).toFixed(1) + ' → ' + Number(item.new_points || 0).toFixed(1) +
+        ' pts (' + (ptsDelta >= 0 ? '+' : '') + ptsDelta.toFixed(1) + ').';
+      var meta = [
+        item.status || 'UNKNOWN',
+        (item.old_tier || '?') + '→' + (item.new_tier || '?'),
+        'learned ' + (adjDelta >= 0 ? '+' : '') + adjDelta.toFixed(1),
+        reason
+      ];
+      if (item.new_role) meta.push(item.new_role);
+      h += '<div class="action-row">';
+      h += '<span class="action-kind ' + actionKindClass(kind) + '">' + escHtml(kind) + '</span>';
+      h += '<div class="action-text">' + escHtml(text) + '</div>';
+      h += '<div class="action-meta">' + meta.map(escHtml).join(' &bull; ') + '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+  if (a.missing_prior_count) {
+    h += '<div class="matchup-small">No prior saved comparison row for ' + escHtml(a.missing_prior_count) + ' current start' + (a.missing_prior_count === 1 ? '' : 's') + '.</div>';
+  }
+  h += '</div>';
+  container.innerHTML = h;
+}
+
 function renderWatchlist() {
   var container = document.getElementById('watchlistContent');
   if (!container || !NEXT_WATCHLIST) return;
@@ -10732,6 +11034,7 @@ renderMatchupEdge();
 renderHitterDecisions();
 renderDailyDecisions();
 renderAddDropPriority();
+renderRecommendationChanges();
 renderWatchlist();
 renderStreaming();
 
@@ -11161,6 +11464,7 @@ renderAccuracy();
         DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
         NEXT_WATCHLIST_JSON=json.dumps(next_watchlist_summary) if next_watchlist_summary else 'null',
         ADD_DROP_PRIORITY_JSON=json.dumps(add_drop_priority_summary) if add_drop_priority_summary else 'null',
+        RECOMMENDATION_CHANGES_JSON=json.dumps(recommendation_change_summary) if recommendation_change_summary else 'null',
         MATCHUP_SNAPSHOT_JSON=json.dumps(matchup_snapshot_summary) if matchup_snapshot_summary else 'null',
         MATCHUP_ACTIONS_JSON=json.dumps(matchup_action_summary) if matchup_action_summary else 'null',
         HITTER_DECISIONS_JSON=json.dumps(hitter_decision_summary) if hitter_decision_summary else 'null',
@@ -15287,6 +15591,7 @@ def flush_predictions():
     """Persist buffered predictions to disk. Writes one JSONL file per game
     date, merging with any existing entries (updating same-pitcher records
     with the freshest one)."""
+    global _prediction_change_prior_records
     if not _pending_predictions:
         return
     if PREVIEW_LOCAL:
@@ -15328,6 +15633,10 @@ def flush_predictions():
                             existing[key] = r
             except Exception:
                 pass
+        for pname, rec in recs.items():
+            prior = existing.get(pname)
+            if prior:
+                _prediction_change_prior_records[_recommendation_change_key(rec)] = prior
         existing.update(recs)  # current run wins over both legacy and prior JSONL
         try:
             with open(path, 'w') as f:
