@@ -4820,7 +4820,8 @@
       }
     ],
     "fb_velo": 93.0,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "R"
   },
   "650644": {
     "mlb_id": 650644,
