@@ -9130,7 +9130,8 @@
       "k9": "7.84",
       "ip": "20.7"
     },
-    "splits_window_years": 3
+    "splits_window_years": 3,
+    "pitcher_hand": "L"
   },
   "663568": {
     "mlb_id": 663568,
