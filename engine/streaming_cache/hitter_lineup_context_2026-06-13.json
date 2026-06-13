@@ -1,15 +1,15 @@
 {
   "date": "2026-06-13",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-06-13T00:21:00",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-06-13T14:42:05",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (17.8h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (3.5h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-06-13T18:10:00+00:00",
-    "hours_to_first_game": 17.82,
+    "hours_to_first_game": 3.47,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.12
   },
   "players": {
     "cj abrams": {
@@ -925,6 +925,17 @@
       "batting_order_raw": null,
       "position": "SS"
     },
+    "esmerlyn valdez": {
+      "name": "Esmerlyn Valdez",
+      "mlb_id": 699013,
+      "team": "PIT",
+      "game_pk": 823369,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "OF"
+    },
     "jake mangum": {
       "name": "Jake Mangum",
       "mlb_id": 663968,
@@ -990,17 +1001,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "DH"
-    },
-    "davis wendzel": {
-      "name": "Davis Wendzel",
-      "mlb_id": 673995,
-      "team": "PIT",
-      "game_pk": 823369,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
     },
     "rafael flores": {
       "name": "Rafael Flores Jr.",
@@ -4038,17 +4038,6 @@
       "batting_order_raw": null,
       "position": "C"
     },
-    "brent rooker": {
-      "name": "Brent Rooker",
-      "mlb_id": 667670,
-      "team": "OAK",
-      "game_pk": 824995,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "DH"
-    },
     "zack gelof": {
       "name": "Zack Gelof",
       "mlb_id": 680869,
@@ -4147,6 +4136,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
+    },
+    "jacob wilson": {
+      "name": "Jacob Wilson",
+      "mlb_id": 805779,
+      "team": "OAK",
+      "game_pk": 824995,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "SS"
     },
     "chad stevens": {
       "name": "Chad Stevens",
