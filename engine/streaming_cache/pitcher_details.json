@@ -11306,5 +11306,22 @@
   "807743": {
     "mlb_id": 807743,
     "pitcher_hand": "L"
+  },
+  "683155": {
+    "mlb_id": 683155,
+    "career_vs_l": {
+      "ops": "0.755",
+      "whip": "1.27",
+      "k9": "6.12",
+      "ip": "64.7"
+    },
+    "career_vs_r": {
+      "ops": "0.848",
+      "whip": "1.32",
+      "k9": "6.60",
+      "ip": "73.7"
+    },
+    "splits_window_years": 2,
+    "pitcher_hand": "R"
   }
 }
