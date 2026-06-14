@@ -118,6 +118,8 @@ _prediction_change_prior_records = {}
 OPEN_METEO_WEATHER_CACHE_FILE = 'open_meteo_weather.json'
 _open_meteo_weather_cache = None
 PITCHER_WORKLOAD_HISTORY_CACHE_FILE = 'pitcher_workload_history.json'
+CURRENT_PREDICTION_LOG_MAX_AGE_HOURS = 18
+ACTIVE_HITTER_LINEUP_LOOKBACK_DAYS = 14
 
 # Pitching scoring weights (for per-start calculation)
 PIT_SCORING = {'IP': 3, 'H': -1, 'ER': -2, 'BB': -1, 'K': 1, 'W': 5, 'L': -5}
@@ -1197,6 +1199,44 @@ def _load_streaming_cache(filename, max_age_hours=24):
     return None, None
 
 
+def _prediction_log_age_hours(record):
+    logged_at = (record or {}).get('logged_at')
+    if not logged_at:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(logged_at))
+    except Exception:
+        return None
+    now = datetime.now(parsed.tzinfo) if parsed.tzinfo else datetime.now()
+    return (now - parsed).total_seconds() / 3600
+
+
+def _prediction_log_is_current(record, max_age_hours=CURRENT_PREDICTION_LOG_MAX_AGE_HOURS):
+    age = _prediction_log_age_hours(record)
+    return age is not None and 0 <= age <= max_age_hours
+
+
+def _mark_stale_prediction_log_record(record, max_age_hours=CURRENT_PREDICTION_LOG_MAX_AGE_HOURS):
+    """Downgrade old prediction-log rows so they do not look like live probables."""
+    out = dict(record or {})
+    age = _prediction_log_age_hours(out)
+    if age is None or age <= max_age_hours:
+        return out
+    logged_at = out.get('logged_at') or 'unknown time'
+    out['probable_source'] = 'prediction_log_cache'
+    out['probable_warning'] = _append_note(
+        out.get('probable_warning'),
+        (
+            f"stale cached prediction log from {logged_at}; "
+            "verify current probable date manually"
+        ),
+    )
+    out['role_verify'] = True
+    out['_stale_prediction_log'] = True
+    out['_prediction_log_age_hours'] = round(age, 1)
+    return out
+
+
 def _save_streaming_cache(filename, data):
     if PREVIEW_LOCAL:
         print(f"  Local preview mode: skipping cache write {filename}")
@@ -2029,6 +2069,79 @@ def _save_il_snapshot(il_data):
         json.dump(il_data, f, indent=2)
 
 
+def _recent_active_hitter_names_from_lineup_cache(lookback_days=ACTIVE_HITTER_LINEUP_LOOKBACK_DAYS):
+    """Use recent boxscore/lineup caches as a guard against stale IL flags."""
+    active = set()
+    if not os.path.isdir(STREAMING_CACHE_DIR):
+        return active
+    today = date.today()
+    pattern = re.compile(r'^hitter_lineup_context_(\d{4}-\d{2}-\d{2})\.json$')
+    for filename in os.listdir(STREAMING_CACHE_DIR):
+        match = pattern.match(filename)
+        if not match:
+            continue
+        try:
+            file_date = date.fromisoformat(match.group(1))
+        except ValueError:
+            continue
+        if file_date > today or (today - file_date).days > lookback_days:
+            continue
+        path = os.path.join(STREAMING_CACHE_DIR, filename)
+        try:
+            with open(path) as f:
+                payload = json.load(f)
+        except Exception:
+            continue
+        for norm, row in ((payload or {}).get('players') or {}).items():
+            if norm:
+                active.add(norm)
+            name = (row or {}).get('name')
+            if name:
+                active.add(normalize_name(name))
+    return active
+
+
+def _fetch_active_hitter_names_by_team():
+    """Read active MLB rosters so stale 40-man IL statuses do not leak into advice."""
+    active_by_team = {}
+    for mlb_id, abbr in MLB_TEAM_TO_ABBR.items():
+        try:
+            url = f"https://statsapi.mlb.com/api/v1/teams/{mlb_id}/roster"
+            params = {'rosterType': 'active', 'season': 2026, 'hydrate': 'person'}
+            resp = requests.get(url, params=params, timeout=10)
+            resp.raise_for_status()
+            roster = resp.json().get('roster', [])
+        except Exception:
+            continue
+        for entry in roster:
+            pos = entry.get('position', {}).get('abbreviation', '')
+            if pos == 'P':
+                continue
+            name = (entry.get('person') or {}).get('fullName', '')
+            if name:
+                active_by_team.setdefault(abbr, set()).add(normalize_name(name))
+    return active_by_team
+
+
+def _filter_il_hitters_with_active_evidence(il_by_team, active_by_team=None, recent_active_names=None):
+    active_by_team = active_by_team or {}
+    recent_active_names = recent_active_names or set()
+    filtered = {}
+    removed = 0
+    for team, rows in (il_by_team or {}).items():
+        team_active = active_by_team.get(team, set())
+        kept = []
+        for row in rows or []:
+            norm = normalize_name((row or {}).get('name') or '')
+            if norm and (norm in team_active or norm in recent_active_names):
+                removed += 1
+                continue
+            kept.append(row)
+        if kept:
+            filtered[team] = kept
+    return filtered, removed
+
+
 def fetch_team_il_hitters(players_list):
     """Fetch notable hitters on the IL for each MLB team, plus recently activated stars.
 
@@ -2041,10 +2154,16 @@ def fetch_team_il_hitters(players_list):
     - il_by_team: {team_abbr: [{name, rank, dollars, il_type}, ...]}
     - returns_by_team: {team_abbr: [{name, rank, dollars}, ...]}
     """
+    active_by_team = _fetch_active_hitter_names_by_team()
+    recent_active_names = _recent_active_hitter_names_from_lineup_cache()
+
     cached, age = _load_streaming_cache('team_il_hitters.json', max_age_hours=12)
     cached_returns, _ = _load_streaming_cache('team_il_returns.json', max_age_hours=12)
     if cached and cached_returns is not None:
+        cached, removed = _filter_il_hitters_with_active_evidence(cached, active_by_team, recent_active_names)
         print(f"  Using cached IL data ({age:.1f}h old)")
+        if removed:
+            print(f"    Filtered {removed} stale cached IL hitter flag(s) using active roster/lineup evidence")
         return cached, cached_returns
 
     print("  Fetching IL data for all 30 teams...")
@@ -2059,6 +2178,8 @@ def fetch_team_il_hitters(players_list):
             'name': p['name'], 'rank': p['rank'],
             'dollars': p['dollars'], 'team': p['team'],
         }
+
+    stale_il_filtered = 0
 
     il_by_team = {}  # team_abbr -> list of notable IL hitters
     # Also track ALL IL hitters by team (not just top 200) for accurate diffing
@@ -2082,6 +2203,9 @@ def fetch_team_il_hitters(players_list):
                 person = entry.get('person', {})
                 name = person.get('fullName', '')
                 norm = normalize_name(name)
+                if norm in active_by_team.get(abbr, set()) or norm in recent_active_names:
+                    stale_il_filtered += 1
+                    continue
 
                 # Track every IL hitter for diffing (even non-notable ones)
                 full_il_by_team.setdefault(abbr, set()).add(norm)
@@ -2104,6 +2228,8 @@ def fetch_team_il_hitters(players_list):
     total = sum(len(v) for v in il_by_team.values())
     teams_hit = len(il_by_team)
     print(f"    {total} notable hitters on IL across {teams_hit} teams")
+    if stale_il_filtered:
+        print(f"    Filtered {stale_il_filtered} stale IL hitter flag(s) using active roster/lineup evidence")
 
     # Save today's snapshot (full IL list, serialized as sorted lists for JSON)
     snapshot = {abbr: sorted(names) for abbr, names in full_il_by_team.items()}
@@ -4356,6 +4482,8 @@ def _prediction_log_probables_for_schedule(schedule, same_day_only=True):
     for game_date in needed_dates:
         rows, _path = _latest_prediction_records_by_date(game_date)
         for rec in rows:
+            if not _prediction_log_is_current(rec):
+                continue
             name = rec.get('name') or rec.get('pitcher_name')
             team = rec.get('team')
             if not name or not team:
@@ -4881,6 +5009,8 @@ def _same_day_cached_rostered_streaming_fallbacks(snapshot_date, existing_rows):
     rows, _path = _latest_prediction_records_by_date(snapshot_date)
     out = []
     for rec in rows:
+        if not _prediction_log_is_current(rec):
+            continue
         name = rec.get('name') or rec.get('pitcher_name')
         if not name or rec.get('status') != 'MY ROSTER' or rec.get('tbd'):
             continue
@@ -4918,6 +5048,8 @@ def load_prediction_logs_for_fast_preview():
         return [], None
     latest = {}
     date_values = set()
+    today_iso = date.today().isoformat()
+    end_iso = (date.today() + timedelta(days=4)).isoformat()
     for fn in sorted(os.listdir(PREDICTIONS_DIR)):
         if not fn.endswith('.jsonl'):
             continue
@@ -4931,10 +5063,13 @@ def load_prediction_logs_for_fast_preview():
                         rec = json.loads(line)
                     except Exception:
                         continue
-                    if rec.get('date'):
-                        date_values.add(rec.get('date'))
+                    rec_date = rec.get('date') or rec.get('game_date')
+                    if not rec_date or rec_date < today_iso or rec_date > end_iso:
+                        continue
+                    date_values.add(rec_date)
+                    rec = _mark_stale_prediction_log_record(rec)
                     key = (
-                        rec.get('date'),
+                        rec_date,
                         normalize_name(rec.get('name') or rec.get('pitcher_name') or ''),
                         rec.get('team'),
                         rec.get('opponent'),
@@ -4981,7 +5116,7 @@ def _latest_prediction_records_by_date(target_date=None):
                     latest[key] = rec
     except Exception:
         return [], path
-    return list(latest.values()), path
+    return [_mark_stale_prediction_log_record(rec) for rec in latest.values()], path
 
 
 def _feature_float(features, key, default=None):
@@ -9990,7 +10125,7 @@ $TOP_BANNER_HTML
 
 <!-- ===== STREAMING TAB ===== -->
 <div class="tab-view" id="tab-streaming">
-<div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold</div>
+<div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold &bull; Proj ERA/K/9 are rest-of-season projection stats, not ESPN season stats</div>
 <div class="stream-legend">Pitch pills: green/blue/red borders show pitch quality; arrows show matchup fit vs today&rsquo;s opponent (up = favorable, down = risk). HOT/COLD compares last-14-day ERA to projection; COLD means recent ERA is at least 1.5 runs worse.</div>
 <div id="streamContent"></div>
 </div><!-- end tab-streaming -->
@@ -10819,6 +10954,28 @@ function streamingRoleWarning(s) {
     escHtml('Treat as volume-only until confirmed. ' + note) + '</div>';
 }
 
+function streamingProbableWarningText(s) {
+  var warning = String((s && s.probable_warning) || '');
+  if (!warning) return '';
+  if ((s && s.projection_sanity_status) === 'clamped' &&
+      warning.indexOf('projection sanity clamp') !== -1) {
+    return 'Workload projection was clamped because the projection row had unusual IP/start. Points use capped workload; verify leash for spot starters.';
+  }
+  return warning;
+}
+
+function streamingProjectionSanityWarning(s) {
+  if (!s || s.projection_sanity_status !== 'clamped') return '';
+  var original = s.projection_ip_per_gs;
+  var adjusted = s.projection_adjusted_ip_per_gs;
+  var detail = 'Projection row had unusual IP/start';
+  if (original !== null && original !== undefined && adjusted !== null && adjusted !== undefined) {
+    detail += ' (' + Number(original).toFixed(2) + '→' + Number(adjusted).toFixed(2) + ')';
+  }
+  detail += '. Points use the capped workload; verify role/leash for spot starters or recent relievers.';
+  return '<div class="stream-caution"><b>Workload check:</b> ' + escHtml(detail) + '</div>';
+}
+
 function streamingExplanation(s) {
   if (probableRoleNeedsVerify(s)) {
     var note = s.probable_warning || 'possible opener/bulk-relief setup';
@@ -10863,7 +11020,8 @@ function streamingExplanation(s) {
 
   if (s.opp_il && s.opp_il.length) pushUnique(reasons, 'opponent missing bat(s)');
   if (s.opp_il_returns && s.opp_il_returns.length) pushUnique(risks, 'opponent getting bat(s) back');
-  if (s.probable_warning) pushUnique(risks, shortReason(s.probable_warning, 68));
+  var warningText = streamingProbableWarningText(s);
+  if (warningText) pushUnique(risks, shortReason(warningText, 68));
 
   if (!reasons.length) pushUnique(reasons, 'projection is the main positive signal');
   if (!risks.length) pushUnique(risks, 'normal streamer volatility');
@@ -10937,8 +11095,8 @@ function renderPitcherEntry(s, allReal) {
     ptsHtml += '<span class="adj-chip ' + adjCls + '" title="' + tip.replace(/"/g, '&quot;') + '">' + adjText + '</span>';
   }
   h += ptsHtml;
-  h += '<span class="stream-stat">ERA <b>' + s.era.toFixed(2) + '</b></span>';
-  h += '<span class="stream-stat">K/9 <b>' + s.k9.toFixed(1) + '</b></span>';
+  h += '<span class="stream-stat" title="Rest-of-season projected ERA, not ESPN season ERA">Proj ERA <b>' + s.era.toFixed(2) + '</b></span>';
+  h += '<span class="stream-stat" title="Rest-of-season projected K/9, not ESPN season K/9">Proj K/9 <b>' + s.k9.toFixed(1) + '</b></span>';
   h += tagHtml;
   h += '</div>';
 
@@ -10976,12 +11134,14 @@ function renderPitcherEntry(s, allReal) {
     var retNames = s.opp_il_returns.map(function(r) { return r.name; }).join(', ');
     h += '<span>\u2022 <span class="opp-il-warn">\u26A0 ' + s.opponent + ' just activated: ' + retNames + '</span></span>';
   }
-  if (s.probable_warning) {
-    h += '<span>\u2022 <span class="opp-il-warn">\u26A0 ' + escHtml(s.probable_warning) + '</span></span>';
+  var probableWarning = streamingProbableWarningText(s);
+  if (probableWarning && s.projection_sanity_status !== 'clamped') {
+    h += '<span>\u2022 <span class="opp-il-warn">\u26A0 ' + escHtml(probableWarning) + '</span></span>';
   }
   h += '</div>';
 
   h += streamingRoleWarning(s);
+  h += streamingProjectionSanityWarning(s);
   h += streamingRiskGuardWarning(s);
 
   // Row 3: pitch arsenal matchup
