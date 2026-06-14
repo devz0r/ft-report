@@ -7717,7 +7717,8 @@
       }
     ],
     "fb_velo": 92.6,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   },
   "676571": {
     "mlb_id": 676571,
@@ -11480,6 +11481,57 @@
       "whip": "1.16",
       "k9": "9.28",
       "ip": "171.7"
+    },
+    "splits_window_years": 3,
+    "pitcher_hand": "R"
+  },
+  "687765": {
+    "mlb_id": 687765,
+    "pitches": [
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 81.80381418181818,
+        "pct": 0.13095239
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 87.83114455555557,
+        "pct": 0.10714286
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 92.13765022222223,
+        "pct": 0.21428572
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 84.48378524999998,
+        "pct": 0.1904762
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 91.26584366666667,
+        "pct": 0.35714287
+      }
+    ],
+    "fb_velo": 92.1,
+    "pitch_count": 5,
+    "career_vs_l": {
+      "ops": "0.859",
+      "whip": "1.53",
+      "k9": "9.00",
+      "ip": "105.0"
+    },
+    "career_vs_r": {
+      "ops": "0.747",
+      "whip": "1.33",
+      "k9": "6.03",
+      "ip": "134.3"
     },
     "splits_window_years": 3,
     "pitcher_hand": "R"
