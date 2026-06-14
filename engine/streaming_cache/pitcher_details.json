@@ -8183,7 +8183,8 @@
     "pitch_count": 6
   },
   "702275": {
-    "mlb_id": 702275
+    "mlb_id": 702275,
+    "pitcher_hand": "R"
   },
   "801139": {
     "mlb_id": 801139,
@@ -11323,5 +11324,113 @@
     },
     "splits_window_years": 2,
     "pitcher_hand": "R"
+  },
+  "668984": {
+    "mlb_id": 668984,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 89.73537773888894,
+        "pct": 0.40268457
+      },
+      {
+        "code": "ST",
+        "desc": "Sweeper",
+        "velo": 77.80212277499996,
+        "pct": 0.17897092
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 74.69833746938774,
+        "pct": 0.109619685
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 91.12833842857145,
+        "pct": 0.20357941
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 85.0315980212766,
+        "pct": 0.10514542
+      }
+    ],
+    "fb_velo": 89.7,
+    "pitch_count": 5,
+    "career_vs_l": {
+      "ops": "0.711",
+      "whip": "1.35",
+      "k9": "8.41",
+      "ip": "40.7"
+    },
+    "career_vs_r": {
+      "ops": "0.785",
+      "whip": "1.50",
+      "k9": "8.75",
+      "ip": "47.3"
+    },
+    "splits_window_years": 3,
+    "pitcher_hand": "R"
+  },
+  "669020": {
+    "mlb_id": 669020,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 94.48745798830413,
+        "pct": 0.45721924
+      },
+      {
+        "code": "ST",
+        "desc": "Sweeper",
+        "velo": 85.32929632608695,
+        "pct": 0.122994654
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 79.74995738571432,
+        "pct": 0.18716578
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 88.58076466666667,
+        "pct": 0.01604278
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 94.94229577777779,
+        "pct": 0.02406417
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 86.85393280555554,
+        "pct": 0.19251336
+      }
+    ],
+    "fb_velo": 94.5,
+    "pitch_count": 6,
+    "career_vs_l": {
+      "ops": "0.694",
+      "whip": "1.36",
+      "k9": "7.53",
+      "ip": "28.7"
+    },
+    "career_vs_r": {
+      "ops": "0.969",
+      "whip": "1.80",
+      "k9": "6.14",
+      "ip": "36.7"
+    },
+    "splits_window_years": 2,
+    "pitcher_hand": "L"
   }
 }
