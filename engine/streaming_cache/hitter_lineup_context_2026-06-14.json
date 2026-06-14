@@ -1,15 +1,15 @@
 {
   "date": "2026-06-14",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-06-14T12:24:06",
+  "refreshed_at": "2026-06-14T14:41:49",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (3.8h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (1.6h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-06-14T16:15:00+00:00",
-    "hours_to_first_game": 3.85,
+    "hours_to_first_game": 1.55,
     "cached_posted_teams": 0,
-    "cache_age_hours": 0.07
+    "cache_age_hours": 0.08
   },
   "players": {
     "cj abrams": {
@@ -17,10 +17,10 @@
       "mlb_id": 682928,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "SS"
     },
     "nasim nunez": {
@@ -28,10 +28,10 @@
       "mlb_id": 683083,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
       "position": "2B"
     },
     "andres chaparro": {
@@ -39,8 +39,8 @@
       "mlb_id": 665953,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "1B"
@@ -50,8 +50,8 @@
       "mlb_id": 686452,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -61,10 +61,10 @@
       "mlb_id": 678391,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
       "position": "3B"
     },
     "dylan crews": {
@@ -72,10 +72,10 @@
       "mlb_id": 686611,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "RF"
     },
     "curtis mead": {
@@ -83,8 +83,8 @@
       "mlb_id": 678554,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "1B"
@@ -94,10 +94,10 @@
       "mlb_id": 695734,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "LF"
     },
     "jose tena": {
@@ -105,8 +105,8 @@
       "mlb_id": 677588,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "DH"
@@ -116,21 +116,21 @@
       "mlb_id": 695578,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
+      "position": "DH"
     },
     "jacob young": {
       "name": "Jacob Young",
       "mlb_id": 696285,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "CF"
     },
     "keibert ruiz": {
@@ -138,10 +138,10 @@
       "mlb_id": 660688,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "C"
     },
     "luis garcia": {
@@ -149,10 +149,10 @@
       "mlb_id": 671277,
       "team": "WSH",
       "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "1B"
     },
     "josh naylor": {
@@ -243,6 +243,17 @@
       "batting_order_raw": null,
       "position": "DH"
     },
+    "miles mastrobuoni": {
+      "name": "Miles Mastrobuoni",
+      "mlb_id": 670156,
+      "team": "SEA",
+      "game_pk": 822722,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "3B"
+    },
     "colt emerson": {
       "name": "Colt Emerson",
       "mlb_id": 806068,
@@ -253,17 +264,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
-    },
-    "ryan bliss": {
-      "name": "Ryan Bliss",
-      "mlb_id": 669208,
-      "team": "SEA",
-      "game_pk": 822722,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "2B"
     },
     "mitch garver": {
       "name": "Mitch Garver",
@@ -320,6 +320,17 @@
       "batting_order_raw": null,
       "position": "2B"
     },
+    "daulton varsho": {
+      "name": "Daulton Varsho",
+      "mlb_id": 662139,
+      "team": "TOR",
+      "game_pk": 822801,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "CF"
+    },
     "andres gimenez": {
       "name": "Andr\u00e9s Gim\u00e9nez",
       "mlb_id": 665926,
@@ -341,17 +352,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
-    },
-    "davis schneider": {
-      "name": "Davis Schneider",
-      "mlb_id": 676914,
-      "team": "TOR",
-      "game_pk": 822801,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "LF"
     },
     "nathan lukes": {
       "name": "Nathan Lukes",
@@ -386,6 +386,17 @@
       "batting_order_raw": null,
       "position": "DH"
     },
+    "tyler heineman": {
+      "name": "Tyler Heineman",
+      "mlb_id": 623168,
+      "team": "TOR",
+      "game_pk": 822801,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
+    },
     "vladimir guerrero": {
       "name": "Vladimir Guerrero Jr.",
       "mlb_id": 665489,
@@ -418,17 +429,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
-    },
-    "alejandro kirk": {
-      "name": "Alejandro Kirk",
-      "mlb_id": 672386,
-      "team": "TOR",
-      "game_pk": 822801,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
     },
     "kazuma okamoto": {
       "name": "Kazuma Okamoto",
@@ -925,6 +925,17 @@
       "batting_order_raw": null,
       "position": "SS"
     },
+    "esmerlyn valdez": {
+      "name": "Esmerlyn Valdez",
+      "mlb_id": 699013,
+      "team": "PIT",
+      "game_pk": 823368,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "OF"
+    },
     "jake mangum": {
       "name": "Jake Mangum",
       "mlb_id": 663968,
@@ -946,6 +957,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
+    },
+    "henry davis": {
+      "name": "Henry Davis",
+      "mlb_id": 680779,
+      "team": "PIT",
+      "game_pk": 823368,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
     },
     "tyler callihan": {
       "name": "Tyler Callihan",
@@ -991,37 +1013,15 @@
       "batting_order_raw": null,
       "position": "DH"
     },
-    "davis wendzel": {
-      "name": "Davis Wendzel",
-      "mlb_id": 673995,
-      "team": "PIT",
-      "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
-    },
-    "rafael flores": {
-      "name": "Rafael Flores Jr.",
-      "mlb_id": 804668,
-      "team": "PIT",
-      "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
-    },
     "heriberto hernandez": {
       "name": "Heriberto Hern\u00e1ndez",
       "mlb_id": 681715,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "LF"
     },
     "christopher morel": {
@@ -1029,8 +1029,8 @@
       "mlb_id": 666624,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "1B"
@@ -1040,8 +1040,8 @@
       "mlb_id": 665923,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
@@ -1051,10 +1051,10 @@
       "mlb_id": 805300,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
       "position": "CF"
     },
     "javier sanoja": {
@@ -1062,8 +1062,8 @@
       "mlb_id": 691594,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
@@ -1073,10 +1073,10 @@
       "mlb_id": 669364,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "2B"
     },
     "kyle stowers": {
@@ -1084,32 +1084,32 @@
       "mlb_id": 669065,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "LF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
+      "position": "DH"
     },
     "liam hicks": {
       "name": "Liam Hicks",
       "mlb_id": 689414,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
+      "position": "1B"
     },
     "owen caissie": {
       "name": "Owen Caissie",
       "mlb_id": 683357,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "RF"
     },
     "leo jimenez": {
@@ -1117,8 +1117,8 @@
       "mlb_id": 677870,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
@@ -1128,21 +1128,21 @@
       "mlb_id": 681393,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "1B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
+      "position": "3B"
     },
     "joe mack": {
       "name": "Joe Mack",
       "mlb_id": 691788,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
       "position": "C"
     },
     "otto lopez": {
@@ -1150,10 +1150,10 @@
       "mlb_id": 672640,
       "team": "MIA",
       "game_pk": 823368,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "SS"
     },
     "luis torrens": {
@@ -1161,10 +1161,10 @@
       "mlb_id": 620443,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "C"
     },
     "bo bichette": {
@@ -1172,19 +1172,19 @@
       "mlb_id": 666182,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
+      "position": "SS"
     },
     "francisco alvarez": {
       "name": "Francisco Alvarez",
       "mlb_id": 682626,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -1194,8 +1194,8 @@
       "mlb_id": 668901,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "1B"
@@ -1205,10 +1205,10 @@
       "mlb_id": 683146,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
       "position": "3B"
     },
     "carson benge": {
@@ -1216,10 +1216,10 @@
       "mlb_id": 701807,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
       "position": "RF"
     },
     "eric wagaman": {
@@ -1227,8 +1227,8 @@
       "mlb_id": 676572,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "1B"
@@ -1238,10 +1238,10 @@
       "mlb_id": 543760,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "2B"
     },
     "mj melendez": {
@@ -1249,30 +1249,30 @@
       "mlb_id": 669004,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "DH"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
+      "position": "LF"
     },
     "juan soto": {
       "name": "Juan Soto",
       "mlb_id": 665742,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "LF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
+      "position": "DH"
     },
     "vidal brujan": {
       "name": "Vidal Bruj\u00e1n",
       "mlb_id": 660644,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "SS"
@@ -1282,10 +1282,10 @@
       "mlb_id": 676724,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "1B"
     },
     "aj ewing": {
@@ -1293,10 +1293,10 @@
       "mlb_id": 805999,
       "team": "NYM",
       "game_pk": 823615,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "CF"
     },
     "michael harris": {
@@ -1447,10 +1447,10 @@
       "mlb_id": 605170,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "C"
     },
     "kody clemens": {
@@ -1458,30 +1458,30 @@
       "mlb_id": 665019,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "1B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
+      "position": "RF"
     },
     "brooks lee": {
       "name": "Brooks Lee",
       "mlb_id": 686797,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
+      "position": "3B"
     },
     "austin martin": {
       "name": "Austin Martin",
       "mlb_id": 668885,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
@@ -1491,21 +1491,21 @@
       "mlb_id": 656484,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
+      "position": "SS"
     },
     "josh bell": {
       "name": "Josh Bell",
       "mlb_id": 605137,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "DH"
     },
     "ryan kreidler": {
@@ -1513,8 +1513,8 @@
       "mlb_id": 668952,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "CF"
@@ -1524,8 +1524,8 @@
       "mlb_id": 606115,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "SS"
@@ -1535,21 +1535,21 @@
       "mlb_id": 668904,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
+      "position": "1B"
     },
     "trevor larnach": {
       "name": "Trevor Larnach",
       "mlb_id": 663616,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
       "position": "LF"
     },
     "byron buxton": {
@@ -1557,10 +1557,10 @@
       "mlb_id": 621439,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "CF"
     },
     "alex jackson": {
@@ -1568,8 +1568,8 @@
       "mlb_id": 656577,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -1579,22 +1579,11 @@
       "mlb_id": 807712,
       "team": "MIN",
       "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "2B"
-    },
-    "nolan gorman": {
-      "name": "Nolan Gorman",
-      "mlb_id": 669357,
-      "team": "STL",
-      "game_pk": 823693,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
     },
     "bryan torres": {
       "name": "Bryan Torres",
@@ -1661,6 +1650,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
+    },
+    "blaze jordan": {
+      "name": "Blaze Jordan",
+      "mlb_id": 691458,
+      "team": "STL",
+      "game_pk": 823693,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "1B"
     },
     "alec burleson": {
       "name": "Alec Burleson",
@@ -2305,21 +2305,21 @@
       "mlb_id": 695600,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
+      "position": "DH"
     },
     "kameron misner": {
       "name": "Kameron Misner",
       "mlb_id": 670224,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
       "position": "CF"
     },
     "tyler tolbert": {
@@ -2327,8 +2327,8 @@
       "mlb_id": 686475,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
@@ -2338,10 +2338,10 @@
       "mlb_id": 686555,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "LF"
     },
     "salvador perez": {
@@ -2349,10 +2349,10 @@
       "mlb_id": 521692,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "C"
     },
     "nick loftin": {
@@ -2360,21 +2360,32 @@
       "mlb_id": 679845,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
+    },
+    "john rave": {
+      "name": "John Rave",
+      "mlb_id": 670231,
+      "team": "KC",
+      "game_pk": 824099,
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "RF"
     },
     "michael massey": {
       "name": "Michael Massey",
       "mlb_id": 686681,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "2B"
     },
     "starling marte": {
@@ -2382,32 +2393,21 @@
       "mlb_id": 516782,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
-    },
-    "vinnie pasquantino": {
-      "name": "Vinnie Pasquantino",
-      "mlb_id": 686469,
-      "team": "KC",
-      "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "1B"
     },
     "maikel garcia": {
       "name": "Maikel Garcia",
       "mlb_id": 672580,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "3B"
     },
     "lane thomas": {
@@ -2415,44 +2415,33 @@
       "mlb_id": 657041,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "CF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
+      "position": "RF"
     },
     "jac caglianone": {
       "name": "Jac Caglianone",
       "mlb_id": 695506,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
+      "position": "1B"
     },
     "bobby witt": {
       "name": "Bobby Witt Jr.",
       "mlb_id": 677951,
       "team": "KC",
       "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "SS"
-    },
-    "shay whitcomb": {
-      "name": "Shay Whitcomb",
-      "mlb_id": 694376,
-      "team": "HOU",
-      "game_pk": 824099,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
     },
     "isaac paredes": {
       "name": "Isaac Paredes",
@@ -2542,6 +2531,17 @@
       "batting_order_raw": null,
       "position": "C"
     },
+    "raynel delgado": {
+      "name": "Raynel Delgado",
+      "mlb_id": 669384,
+      "team": "HOU",
+      "game_pk": 824099,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "2B"
+    },
     "jeremy pena": {
       "name": "Jeremy Pe\u00f1a",
       "mlb_id": 665161,
@@ -2591,8 +2591,8 @@
       "mlb_id": 800050,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
@@ -2602,8 +2602,8 @@
       "mlb_id": 595978,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -2613,10 +2613,10 @@
       "mlb_id": 683953,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
       "position": "2B"
     },
     "daniel schneemann": {
@@ -2624,10 +2624,10 @@
       "mlb_id": 682177,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "CF"
     },
     "patrick bailey": {
@@ -2635,10 +2635,10 @@
       "mlb_id": 672275,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "C"
     },
     "brayan rocchio": {
@@ -2646,52 +2646,52 @@
       "mlb_id": 677587,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "SS"
+    },
+    "gabriel arias": {
+      "name": "Gabriel Arias",
+      "mlb_id": 672356,
+      "team": "CLE",
+      "game_pk": 824424,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
+      "position": "3B"
     },
     "david fry": {
       "name": "David Fry",
       "mlb_id": 681807,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "RF"
-    },
-    "jose ramirez": {
-      "name": "Jos\u00e9 Ram\u00edrez",
-      "mlb_id": 608070,
-      "team": "CLE",
-      "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
     },
     "steven kwan": {
       "name": "Steven Kwan",
       "mlb_id": 680757,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "CF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
+      "position": "LF"
     },
     "angel martinez": {
       "name": "Angel Mart\u00ednez",
       "mlb_id": 682657,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "LF"
@@ -2701,10 +2701,10 @@
       "mlb_id": 700932,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "1B"
     },
     "stuart fairchild": {
@@ -2712,8 +2712,8 @@
       "mlb_id": 656413,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
@@ -2723,19 +2723,30 @@
       "mlb_id": 656555,
       "team": "CLE",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "1B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
+      "position": "DH"
     },
     "zach mckinstry": {
       "name": "Zach McKinstry",
       "mlb_id": 656716,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "2B"
+    },
+    "hao-yu lee": {
+      "name": "Hao-Yu  Lee",
+      "mlb_id": 701678,
+      "team": "DET",
+      "game_pk": 824424,
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
@@ -2745,8 +2756,8 @@
       "mlb_id": 663330,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "DH"
@@ -2756,10 +2767,10 @@
       "mlb_id": 682985,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "LF"
     },
     "kevin mcgonigle": {
@@ -2767,10 +2778,10 @@
       "mlb_id": 805808,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
       "position": "SS"
     },
     "kerry carpenter": {
@@ -2778,63 +2789,63 @@
       "mlb_id": 681481,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "RF"
-    },
-    "zack short": {
-      "name": "Zack Short",
-      "mlb_id": 670097,
-      "team": "DET",
-      "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
     },
     "spencer torkelson": {
       "name": "Spencer Torkelson",
       "mlb_id": 679529,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
       "position": "1B"
-    },
-    "jake rogers": {
-      "name": "Jake Rogers",
-      "mlb_id": 668670,
-      "team": "DET",
-      "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
     },
     "gleyber torres": {
       "name": "Gleyber Torres",
       "mlb_id": 650402,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "2B"
+    },
+    "jake rogers": {
+      "name": "Jake Rogers",
+      "mlb_id": 668670,
+      "team": "DET",
+      "game_pk": 824424,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
+      "position": "C"
+    },
+    "james outman": {
+      "name": "James Outman",
+      "mlb_id": 681546,
+      "team": "DET",
+      "game_pk": 824424,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
+      "position": "CF"
     },
     "matt vierling": {
       "name": "Matt Vierling",
       "mlb_id": 663837,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "CF"
@@ -2844,21 +2855,21 @@
       "mlb_id": 693307,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
+      "position": "DH"
     },
     "colt keith": {
       "name": "Colt Keith",
       "mlb_id": 690993,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "3B"
     },
     "wenceel perez": {
@@ -2866,43 +2877,43 @@
       "mlb_id": 672761,
       "team": "DET",
       "game_pk": 824424,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
-    },
-    "dane myers": {
-      "name": "Dane Myers",
-      "mlb_id": 667472,
-      "team": "CIN",
-      "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "CF"
     },
     "sal stewart": {
       "name": "Sal Stewart",
       "mlb_id": 701398,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
+      "position": "3B"
+    },
+    "dane myers": {
+      "name": "Dane Myers",
+      "mlb_id": 667472,
+      "team": "CIN",
+      "game_pk": 824506,
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "1B"
+      "position": "CF"
     },
     "noelvi marte": {
       "name": "Noelvi Marte",
       "mlb_id": 682622,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "RF"
     },
     "nathaniel lowe": {
@@ -2910,30 +2921,30 @@
       "mlb_id": 663993,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "DH"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
+      "position": "1B"
     },
     "matt mclain": {
       "name": "Matt McLain",
       "mlb_id": 680574,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "2B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
+      "position": "SS"
     },
     "will benson": {
       "name": "Will Benson",
       "mlb_id": 666181,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
@@ -2943,43 +2954,32 @@
       "mlb_id": 694362,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
-    },
-    "pj higgins": {
-      "name": "P.J. Higgins",
-      "mlb_id": 664731,
-      "team": "CIN",
-      "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
+      "position": "CF"
     },
     "spencer steer": {
       "name": "Spencer Steer",
       "mlb_id": 668715,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "LF"
     },
-    "tyler stephenson": {
-      "name": "Tyler Stephenson",
-      "mlb_id": 663886,
+    "jose trevino": {
+      "name": "Jose Trevino",
+      "mlb_id": 624431,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
       "position": "C"
     },
     "eugenio suarez": {
@@ -2987,52 +2987,74 @@
       "mlb_id": 553993,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
+      "position": "DH"
+    },
+    "tyler stephenson": {
+      "name": "Tyler Stephenson",
+      "mlb_id": 663886,
+      "team": "CIN",
+      "game_pk": 824506,
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "DH"
+      "position": "C"
     },
     "edwin arroyo": {
       "name": "Edwin Arroyo",
       "mlb_id": 695490,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
+      "position": "2B"
     },
     "jj bleday": {
       "name": "JJ Bleday",
       "mlb_id": 668709,
       "team": "CIN",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "LF"
+    },
+    "jordan lawlar": {
+      "name": "Jordan Lawlar",
+      "mlb_id": 691783,
+      "team": "AZ",
+      "game_pk": 824506,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
+      "position": "CF"
     },
     "lujames groover": {
       "name": "LuJames Groover",
       "mlb_id": 694410,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
+      "position": "1B"
     },
     "adrian del castillo": {
       "name": "Adrian Del Castillo",
       "mlb_id": 680728,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "DH"
@@ -3042,10 +3064,10 @@
       "mlb_id": 571448,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "3B"
     },
     "tommy troy": {
@@ -3053,10 +3075,10 @@
       "mlb_id": 694371,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "LF"
     },
     "ryan waldschmidt": {
@@ -3064,8 +3086,8 @@
       "mlb_id": 814439,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "CF"
@@ -3075,32 +3097,32 @@
       "mlb_id": 606466,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "2B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
+      "position": "DH"
     },
     "ildemaro vargas": {
       "name": "Ildemaro Vargas",
       "mlb_id": 545121,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "1B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
+      "position": "2B"
     },
     "geraldo perdomo": {
       "name": "Geraldo Perdomo",
       "mlb_id": 672695,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "SS"
     },
     "gabriel moreno": {
@@ -3108,10 +3130,10 @@
       "mlb_id": 672515,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "C"
     },
     "corbin carroll": {
@@ -3119,41 +3141,30 @@
       "mlb_id": 682998,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "RF"
-    },
-    "aramis garcia": {
-      "name": "Aramis Garcia",
-      "mlb_id": 605244,
-      "team": "AZ",
-      "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
     },
     "pavin smith": {
       "name": "Pavin Smith",
       "mlb_id": 656976,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "1B"
+      "position": "DH"
     },
     "jorge barrosa": {
       "name": "Jorge Barrosa",
       "mlb_id": 678489,
       "team": "AZ",
       "game_pk": 824506,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "CF"
@@ -3301,6 +3312,17 @@
       "batting_order_raw": null,
       "position": "3B"
     },
+    "will smith": {
+      "name": "Will Smith",
+      "mlb_id": 669257,
+      "team": "LAD",
+      "game_pk": 824586,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
+    },
     "dalton rushing": {
       "name": "Dalton Rushing",
       "mlb_id": 687221,
@@ -3355,17 +3377,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "1B"
-    },
-    "chuckie robinson": {
-      "name": "Chuckie Robinson",
-      "mlb_id": 642020,
-      "team": "LAD",
-      "game_pk": 824586,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
     },
     "santiago espinal": {
       "name": "Santiago Espinal",
@@ -3873,13 +3884,24 @@
       "batting_order_raw": null,
       "position": "3B"
     },
+    "nick solak": {
+      "name": "Nick Solak",
+      "mlb_id": 669256,
+      "team": "SD",
+      "game_pk": 824823,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
+      "position": "DH"
+    },
     "freddy fermin": {
       "name": "Freddy Fermin",
       "mlb_id": 666023,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -3889,10 +3911,10 @@
       "mlb_id": 701538,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "CF"
     },
     "rodolfo duran": {
@@ -3900,10 +3922,10 @@
       "mlb_id": 660710,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "C"
     },
     "sung-mun song": {
@@ -3911,8 +3933,8 @@
       "mlb_id": 823550,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
@@ -3922,21 +3944,21 @@
       "mlb_id": 669392,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "2B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
+      "position": "LF"
     },
     "gavin sheets": {
       "name": "Gavin Sheets",
       "mlb_id": 657757,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "1B"
     },
     "will wagner": {
@@ -3944,8 +3966,8 @@
       "mlb_id": 695238,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
@@ -3955,66 +3977,55 @@
       "mlb_id": 592518,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "3B"
-    },
-    "miguel andujar": {
-      "name": "Miguel Andujar",
-      "mlb_id": 609280,
-      "team": "SD",
-      "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "DH"
-    },
-    "ty france": {
-      "name": "Ty France",
-      "mlb_id": 664034,
-      "team": "SD",
-      "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "1B"
     },
     "fernando tatis": {
       "name": "Fernando Tatis Jr.",
       "mlb_id": 665487,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
+      "position": "2B"
     },
-    "bryce johnson": {
-      "name": "Bryce Johnson",
-      "mlb_id": 669369,
+    "ty france": {
+      "name": "Ty France",
+      "mlb_id": 664034,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "RF"
+      "position": "1B"
+    },
+    "xander bogaerts": {
+      "name": "Xander Bogaerts",
+      "mlb_id": 593428,
+      "team": "SD",
+      "game_pk": 824823,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
+      "position": "SS"
     },
     "jase bowen": {
       "name": "Jase Bowen",
       "mlb_id": 687749,
       "team": "SD",
       "game_pk": 824823,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "CF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
+      "position": "RF"
     },
     "lawrence butler": {
       "name": "Lawrence Butler",
@@ -4037,6 +4048,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
+    },
+    "brent rooker": {
+      "name": "Brent Rooker",
+      "mlb_id": 667670,
+      "team": "OAK",
+      "game_pk": 824994,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "DH"
     },
     "zack gelof": {
       "name": "Zack Gelof",
@@ -4136,17 +4158,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
-    },
-    "jacob wilson": {
-      "name": "Jacob Wilson",
-      "mlb_id": 805779,
-      "team": "OAK",
-      "game_pk": 824994,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
     },
     "chad stevens": {
       "name": "Chad Stevens",
@@ -4292,7 +4303,18 @@
       "position": "3B"
     }
   },
-  "teams_with_posted_lineups": [],
+  "teams_with_posted_lineups": [
+    "AZ",
+    "CIN",
+    "CLE",
+    "DET",
+    "KC",
+    "MIA",
+    "MIN",
+    "NYM",
+    "SD",
+    "WSH"
+  ],
   "game_pks": [
     822722,
     822801,
