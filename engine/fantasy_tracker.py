@@ -5238,6 +5238,9 @@ def _risk_guard_policy_features(record):
         'proj_k9': record.get('proj_k9') or record.get('k9'),
         'k9': record.get('k9'),
         'workload_risk_score': record.get('workload_risk_score'),
+        'last_start_ip': record.get('last_start_ip'),
+        'predicted_pts_raw': record.get('predicted_pts_raw') or record.get('pts_pre_adj'),
+        'adj_total': record.get('adj_total'),
         'platoon': record.get('platoon'),
         'trend': record.get('trend'),
     }
@@ -5271,6 +5274,9 @@ def apply_visible_risk_guard_overlay(record):
     features = _risk_guard_policy_features(out)
     decision_entry = {
         'pts': points,
+        'pts_pre_adj': out.get('pts_pre_adj') or out.get('predicted_pts_raw'),
+        'predicted_pts_raw': out.get('predicted_pts_raw') or out.get('pts_pre_adj'),
+        'adj_total': out.get('adj_total'),
         'tier': original_tier,
         'status': out.get('status'),
     }
@@ -14036,6 +14042,10 @@ def _decision_policy_risk_signals(row):
     recent_era = _safe_float(row.get('recent_era'))
     proj_k9 = _safe_float(row.get('proj_k9') or row.get('k9'))
     workload = _safe_float(row.get('workload_risk_score'))
+    last_start_ip = _safe_float(row.get('last_start_ip'))
+    predicted_pts = _safe_float(row.get('predicted_pts'))
+    predicted_pts_raw = _safe_float(row.get('predicted_pts_raw') or row.get('pts_pre_adj'))
+    adj_total = _safe_float(row.get('adj_total'))
     pitch_matchup = _safe_float(row.get('pitch_matchup_score'))
     platoon = str(row.get('platoon') or '').lower()
     trend = str(row.get('trend') or '').lower()
@@ -14053,8 +14063,17 @@ def _decision_policy_risk_signals(row):
         signals['low K/9'] = True
     if workload is not None and workload >= 0.4:
         signals['workload risk'] = True
+    if last_start_ip is not None and 0 < last_start_ip < 5.0:
+        signals['short last start'] = True
     if pitch_matchup is not None and pitch_matchup <= -0.05:
         signals['negative pitch matchup'] = True
+    if (
+        trend == 'hot'
+        and adj_total is not None and adj_total >= 2.5
+        and predicted_pts_raw is not None and predicted_pts_raw < 8.0
+        and predicted_pts is not None and predicted_pts >= 10.0
+    ):
+        signals['hot bump from low raw projection'] = True
     return signals
 
 
@@ -14090,7 +14109,9 @@ RISK_GUARD_WEIGHT_PRESETS = [
             'platoon risk': 1.0,
             'low K/9': 1.0,
             'workload risk': 1.0,
+            'short last start': 1.0,
             'negative pitch matchup': 1.0,
+            'hot bump from low raw projection': 2.0,
         },
     },
     {
@@ -14106,7 +14127,9 @@ RISK_GUARD_WEIGHT_PRESETS = [
             'platoon risk': 1.0,
             'low K/9': 1.0,
             'workload risk': 1.0,
+            'short last start': 1.0,
             'negative pitch matchup': 1.0,
+            'hot bump from low raw projection': 2.0,
         },
     },
     {
@@ -14122,7 +14145,9 @@ RISK_GUARD_WEIGHT_PRESETS = [
             'platoon risk': 1.0,
             'low K/9': 1.0,
             'workload risk': 1.0,
+            'short last start': 1.0,
             'negative pitch matchup': 1.0,
+            'hot bump from low raw projection': 2.0,
         },
     },
     {
@@ -14138,7 +14163,9 @@ RISK_GUARD_WEIGHT_PRESETS = [
             'platoon risk': 0.75,
             'low K/9': 0.75,
             'workload risk': 1.0,
+            'short last start': 0.75,
             'negative pitch matchup': 1.0,
+            'hot bump from low raw projection': 2.0,
         },
     },
 ]
@@ -14269,6 +14296,8 @@ def _shadow_risk_guard_decision(entry, features=None, policy_key=VISIBLE_RISK_GU
     row = dict(features)
     row.update({
         'predicted_pts': entry.get('pts'),
+        'predicted_pts_raw': entry.get('predicted_pts_raw') or entry.get('pts_pre_adj'),
+        'adj_total': entry.get('adj_total'),
         'tier': entry.get('tier'),
         'status': entry.get('status'),
     })
