@@ -1,6 +1,6 @@
 {
   "date": "2026-06-15",
-  "timestamp": "2026-06-15T08:53:44.303384",
+  "timestamp": "2026-06-15T14:58:35.801515",
   "players": [
     {
       "rank": 1,
@@ -11501,7 +11501,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "COL",
       "dollars": -32.2,
       "rpts": 48.0,
       "type": "pitcher",
@@ -16402,7 +16402,7 @@
         "3B"
       ],
       "displayPos": "3B",
-      "team": "",
+      "team": "HOU",
       "dollars": -42.9,
       "rpts": 10.8,
       "type": "hitter",
