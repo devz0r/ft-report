@@ -1,15 +1,15 @@
 {
   "date": "2026-06-16",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-06-16T03:00:49",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-06-16T18:18:05",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (19.7h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.4h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-06-16T22:40:00+00:00",
-    "hours_to_first_game": 19.65,
+    "hours_to_first_game": 4.37,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.08
   },
   "players": {
     "cj abrams": {
@@ -320,17 +320,6 @@
       "batting_order_raw": null,
       "position": "1B"
     },
-    "alejandro osuna": {
-      "name": "Alejandro Osuna",
-      "mlb_id": 696030,
-      "team": "TEX",
-      "game_pk": 822888,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "LF"
-    },
     "joc pederson": {
       "name": "Joc Pederson",
       "mlb_id": 592626,
@@ -407,6 +396,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
+    },
+    "michael helman": {
+      "name": "Michael Helman",
+      "mlb_id": 680737,
+      "team": "TEX",
+      "game_pk": 822888,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "CF"
     },
     "brandon nimmo": {
       "name": "Brandon Nimmo",
@@ -3026,17 +3026,6 @@
       "batting_order_raw": null,
       "position": "RF"
     },
-    "chad stevens": {
-      "name": "Chad Stevens",
-      "mlb_id": 677060,
-      "team": "COL",
-      "game_pk": 824667,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "2B"
-    },
     "jake mccarthy": {
       "name": "Jake McCarthy",
       "mlb_id": 664983,
@@ -3091,6 +3080,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "OF"
+    },
+    "tyler freeman": {
+      "name": "Tyler Freeman",
+      "mlb_id": 671289,
+      "team": "COL",
+      "game_pk": 824667,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "RF"
     },
     "edouard julien": {
       "name": "Edouard Julien",
