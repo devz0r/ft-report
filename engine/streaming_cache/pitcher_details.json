@@ -9183,7 +9183,8 @@
       }
     ],
     "fb_velo": 98.5,
-    "pitch_count": 4
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   },
   "702281": {
     "mlb_id": 702281
@@ -11633,5 +11634,9 @@
     },
     "splits_window_years": 3,
     "pitcher_hand": "R"
+  },
+  "687931": {
+    "mlb_id": 687931,
+    "pitcher_hand": "L"
   }
 }
