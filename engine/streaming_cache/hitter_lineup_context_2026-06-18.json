@@ -1,15 +1,15 @@
 {
   "date": "2026-06-18",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-06-18T02:02:48",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-06-18T14:30:50",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (15.5h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (3.1h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-06-18T17:35:00+00:00",
-    "hours_to_first_game": 15.54,
+    "hours_to_first_game": 3.07,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.05
   },
   "players": {
     "wyatt langford": {
@@ -1722,10 +1722,10 @@
       "mlb_id": 575929,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "1B"
     },
     "connor wong": {
@@ -1733,10 +1733,10 @@
       "mlb_id": 657136,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
       "position": "C"
     },
     "wilyer abreu": {
@@ -1744,10 +1744,10 @@
       "mlb_id": 677800,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "RF"
     },
     "andruw monasterio": {
@@ -1755,43 +1755,43 @@
       "mlb_id": 655316,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
+      "position": "2B"
     },
     "isiah kiner-falefa": {
       "name": "Isiah Kiner-Falefa",
       "mlb_id": 643396,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "2B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
+      "position": "SS"
     },
     "mickey gasper": {
       "name": "Mickey Gasper",
       "mlb_id": 681508,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
+      "position": "DH"
     },
     "caleb durbin": {
       "name": "Caleb Durbin",
       "mlb_id": 702332,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
       "position": "3B"
     },
     "carlos narvaez": {
@@ -1799,8 +1799,8 @@
       "mlb_id": 665966,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -1810,8 +1810,8 @@
       "mlb_id": 681987,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "OF"
@@ -1821,10 +1821,10 @@
       "mlb_id": 680776,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "LF"
     },
     "ceddanne rafaela": {
@@ -1832,10 +1832,10 @@
       "mlb_id": 678882,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "CF"
     },
     "masataka yoshida": {
@@ -1843,8 +1843,8 @@
       "mlb_id": 807799,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "DH"
@@ -1854,8 +1854,8 @@
       "mlb_id": 691785,
       "team": "BOS",
       "game_pk": 824748,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
@@ -2565,7 +2565,9 @@
       "position": "CF"
     }
   },
-  "teams_with_posted_lineups": [],
+  "teams_with_posted_lineups": [
+    "BOS"
+  ],
   "game_pks": [
     822889,
     823125,
