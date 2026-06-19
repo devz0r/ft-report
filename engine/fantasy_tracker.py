@@ -143,6 +143,9 @@ OPP_REGRESS_PA = 800
 # threshold higher than one good/bad turn so tiny samples do not move points.
 RECENT_TREND_MIN_STARTS = 3
 RECENT_TREND_MIN_IP_FALLBACK = 15.0
+RECENT_TREND_SEVERE_COLD_MIN_STARTS = 2
+RECENT_TREND_SEVERE_COLD_MIN_IP = 8.0
+RECENT_TREND_SEVERE_COLD_ERA = 7.0
 
 NAME_OVERRIDES = {}
 
@@ -2848,6 +2851,15 @@ def _game_log_start_date(split):
     return None
 
 
+def _workload_start_has_line_stats(start):
+    return any(start.get(k) is not None for k in ('er', 'bb', 'k', 'h'))
+
+
+def _workload_cache_needs_line_stat_refresh(entry):
+    starts = (entry or {}).get('starts') or []
+    return bool(starts) and not any(_workload_start_has_line_stats(s) for s in starts)
+
+
 def _add_workload_start(workload, pitcher_norm, start):
     if not pitcher_norm or not start.get('date'):
         return
@@ -2861,6 +2873,9 @@ def _add_workload_start(workload, pitcher_norm, start):
             existing['pitch_count_source'] = start.get('pitch_count_source')
         if existing.get('ip') is None and start.get('ip') is not None:
             existing['ip'] = start.get('ip')
+        for key in ('er', 'bb', 'k', 'h'):
+            if existing.get(key) is None and start.get(key) is not None:
+                existing[key] = start.get(key)
         sources = {existing.get('source'), start.get('source')}
         existing['source'] = '+'.join(sorted(s for s in sources if s))
         return
@@ -2876,7 +2891,10 @@ def _fetch_mlb_pitcher_workload_starts(pitcher_ids):
     cached, age = _load_streaming_cache(PITCHER_WORKLOAD_HISTORY_CACHE_FILE, max_age_hours=12)
     cache = cached if isinstance(cached, dict) else {}
     current_year = date.today().year
-    missing = [pid for pid in pitcher_ids if pid not in cache]
+    missing = [
+        pid for pid in pitcher_ids
+        if pid not in cache or _workload_cache_needs_line_stat_refresh(cache.get(pid))
+    ]
     if missing:
         print(f"  Fetching MLB workload game logs ({len(missing)} new, {len(pitcher_ids) - len(missing)} cached)...")
 
@@ -2905,8 +2923,12 @@ def _fetch_mlb_pitcher_workload_starts(pitcher_ids):
                 starts.append({
                     'date': start_date,
                     'ip': round(ip, 2) if ip is not None else None,
-                    'pitch_count': _pitch_count_from_stat(stat),
-                    'pitch_count_source': 'mlb_game_log' if _pitch_count_from_stat(stat) is not None else None,
+                    'pitch_count': (pc := _pitch_count_from_stat(stat)),
+                    'pitch_count_source': 'mlb_game_log' if pc is not None else None,
+                    'er': _safe_int(stat.get('earnedRuns')),
+                    'bb': _safe_int(stat.get('baseOnBalls')),
+                    'k': _safe_int(stat.get('strikeOuts')),
+                    'h': _safe_int(stat.get('hits')),
                     'source': 'mlb_game_log',
                 })
         starts.sort(key=lambda s: s.get('date') or '')
@@ -3027,6 +3049,62 @@ def _workload_features_for_game(workload_entry, target_game_date):
     }
 
 
+def _recent_form_from_workload(workload_entry, target_game_date, window_days=14):
+    """Build a recent-form fallback from hard actual starts before game day.
+
+    FanGraphs L14D is still the preferred source. This covers pitchers omitted
+    from that feed while keeping the data pregame-safe for the target start.
+    """
+    starts = list((workload_entry or {}).get('starts') or [])
+    try:
+        target_dt = date.fromisoformat(str(target_game_date)[:10])
+    except Exception:
+        return None
+    cutoff_dt = target_dt - timedelta(days=window_days)
+    recent_starts = []
+    for start in starts:
+        try:
+            start_dt = date.fromisoformat(str(start.get('date') or '')[:10])
+        except Exception:
+            continue
+        if not (cutoff_dt <= start_dt < target_dt):
+            continue
+        ip = _safe_float(start.get('ip'))
+        er = _safe_int(start.get('er'))
+        if ip is None or ip <= 0 or er is None:
+            continue
+        recent_starts.append({
+            'date': start_dt.isoformat(),
+            'ip': ip,
+            'er': er,
+            'bb': _safe_int(start.get('bb')),
+            'h': _safe_int(start.get('h')),
+            'k': _safe_int(start.get('k')),
+        })
+    if not recent_starts:
+        return None
+
+    total_ip = sum(s['ip'] for s in recent_starts)
+    total_er = sum(s['er'] for s in recent_starts)
+    total_bb = sum(s['bb'] for s in recent_starts if s.get('bb') is not None)
+    total_h = sum(s['h'] for s in recent_starts if s.get('h') is not None)
+    total_k = sum(s['k'] for s in recent_starts if s.get('k') is not None)
+    has_whip_parts = any(s.get('bb') is not None for s in recent_starts) and any(
+        s.get('h') is not None for s in recent_starts
+    )
+    has_k = any(s.get('k') is not None for s in recent_starts)
+    if total_ip <= 0:
+        return None
+    return {
+        'IP': round(total_ip, 2),
+        'GS': len(recent_starts),
+        'ERA': (total_er / total_ip) * 9.0,
+        'WHIP': ((total_bb + total_h) / total_ip) if has_whip_parts else None,
+        'K9': (total_k / total_ip) * 9.0 if has_k else None,
+        'source': 'workload_actual_recent',
+    }
+
+
 def compute_pitcher_workload(predictions_dir, outcomes_log, pitcher_ids_by_name=None):
     """Build pregame-safe workload history from cached outcomes plus MLB game logs.
 
@@ -3061,6 +3139,14 @@ def compute_pitcher_workload(predictions_dir, outcomes_log, pitcher_ids_by_name=
                         'ip': _workload_ip_to_float(line_data.get('IP')),
                         'pitch_count': pitch_count,
                         'pitch_count_source': 'outcome_actual_line' if pitch_count is not None else None,
+                        'er': _safe_int(line_data.get('ER') if line_data.get('ER') is not None else line_data.get('er')),
+                        'bb': _safe_int(line_data.get('BB') if line_data.get('BB') is not None else line_data.get('bb')),
+                        'k': _safe_int(
+                            line_data.get('K')
+                            if line_data.get('K') is not None
+                            else line_data.get('SO') if line_data.get('SO') is not None else line_data.get('k')
+                        ),
+                        'h': _safe_int(line_data.get('H') if line_data.get('H') is not None else line_data.get('h')),
                         'source': 'predictions_outcomes',
                     })
         except Exception:
@@ -3668,20 +3754,30 @@ def assess_trend(proj, recent):
         recent_starts = float(recent.get('GS')) if recent.get('GS') not in (None, '') else None
     except Exception:
         recent_starts = None
+    proj_era = _safe_float(proj.get('ERA'), 4.0)
+    recent_era = _safe_float(recent.get('ERA'), proj_era)
+    proj_k9 = _safe_float(proj.get('K9'), 8.0)
+    recent_k9 = _safe_float(recent.get('K9'), proj_k9)
+
     if recent_starts is not None:
-        if recent_starts < RECENT_TREND_MIN_STARTS:
-            return ''
-    elif recent_ip < RECENT_TREND_MIN_IP_FALLBACK:
+        sample_ok = recent_starts >= RECENT_TREND_MIN_STARTS
+    else:
+        sample_ok = recent_ip >= RECENT_TREND_MIN_IP_FALLBACK
+    severe_cold_ok = (
+        recent_starts is not None
+        and recent_starts >= RECENT_TREND_SEVERE_COLD_MIN_STARTS
+        and recent_ip >= RECENT_TREND_SEVERE_COLD_MIN_IP
+        and recent_era >= max(RECENT_TREND_SEVERE_COLD_ERA, proj_era + 3.0)
+    )
+    if not sample_ok and not severe_cold_ok:
         return ''
-    proj_era = proj.get('ERA', 4.0)
-    recent_era = recent.get('ERA', proj_era)
-    proj_k9 = proj.get('K9', 8.0)
-    recent_k9 = recent.get('K9', proj_k9)
 
     # COLD takes priority — if recent ERA is significantly worse, label cold
     # even if K/9 is up.
     if recent_era >= proj_era + 1.5:
         return 'cold'
+    if not sample_ok:
+        return ''
     # HOT only when recent ERA is at or below projection (with small slack)
     if recent_era <= proj_era + 0.3 and (
         recent_era <= proj_era - 1.0 or recent_k9 >= proj_k9 + 2.0
@@ -4691,6 +4787,11 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
         # Tags and context
         tag = classify_pitcher(proj)
         recent = recent_form.get(norm_key) or recent_form.get(normalize_name(pitcher_name))
+        if not recent and pitcher_workload:
+            recent = _recent_form_from_workload(
+                (pitcher_workload or {}).get(normalize_name(fg_name), {}),
+                game['date'],
+            )
         trend = assess_trend(proj, recent)
         # Use global emerging map if available (covers all FA + roster SPs)
         # so per-game streaming display matches the global HOLD assessment.
@@ -16174,6 +16275,8 @@ def log_prediction(entry):
             'tag': entry.get('tag'),
             'trend': entry.get('trend'),
             'recent_era': entry.get('recent_era'),
+            'recent_ip': entry.get('recent_ip'),
+            'recent_k9': entry.get('recent_k9'),
             'fb_velo': entry.get('fb_velo'),
             'pitch_count': entry.get('pitch_count'),
             'emerging': entry.get('emerging'),
