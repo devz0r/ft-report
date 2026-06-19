@@ -7183,6 +7183,8 @@ def build_hidden_stream_targets_summary(base_date=None, records=None, source=Non
             continue
         item = _streamer_edge_report_item(rec, edge)
         item['date'] = rec.get('date') or rec.get('game_date')
+        item['date_label'] = _action_date_text(item['date'], base_date)
+        item['edge_label'] = f"{item.get('edge_grade') or 'WATCH'} start"
         candidates.append(item)
 
     candidates.sort(key=lambda item: (
@@ -7237,7 +7239,7 @@ def _streamer_upside_band_summary(df, min_n=10):
 
 def analyze_streamer_upside():
     """Read-only backtest for hidden/gold/silver streamer signal stacks."""
-    print("STREAMER UPSIDE FINDER")
+    print("DAILY STREAM TARGET FINDER")
     print("=" * 60)
     print("Analysis only: this does not change scoring, predictions, tiers, recommendations, or learned corrections.")
     work, source, skipped_source = _load_start_sit_analysis_rows()
@@ -7297,7 +7299,7 @@ def analyze_streamer_upside():
                 f"{row['bust_rate']:>6.1f}% {row['negative_rate']:>6.1f}%"
             )
 
-    print("\nTop historical hidden hits")
+    print("\nTop historical daily stream hits")
     hits = scored[scored['actual_pts'] >= 18].sort_values(['actual_pts', '_stream_edge_score'], ascending=[False, False])
     if hits.empty:
         print("  None yet.")
@@ -7305,12 +7307,12 @@ def analyze_streamer_upside():
         print(
             f"  - {row.get('game_date') or '?'} | {row.get('pitcher_name') or '?'} "
             f"({row.get('team') or '?'} {row.get('home_away') or ''} {row.get('opponent') or '?'}) "
-            f"{row.get('_stream_edge_grade')} edge {row.get('_stream_edge_score'):.1f} | "
+            f"{row.get('_stream_edge_grade')} start edge {row.get('_stream_edge_score'):.1f} | "
             f"pred {row.get('predicted_pts'):.1f}, actual {row.get('actual_pts'):.1f}"
         )
         print(f"    why: {row.get('_stream_edge_reasons') or 'no logged positive stack'}")
 
-    print("\nTop historical hidden traps")
+    print("\nTop historical daily stream traps")
     traps = scored[scored['actual_pts'] < 5].sort_values(['actual_pts', '_stream_edge_score'], ascending=[True, False])
     if traps.empty:
         print("  None yet.")
@@ -7318,7 +7320,7 @@ def analyze_streamer_upside():
         print(
             f"  - {row.get('game_date') or '?'} | {row.get('pitcher_name') or '?'} "
             f"({row.get('team') or '?'} {row.get('home_away') or ''} {row.get('opponent') or '?'}) "
-            f"{row.get('_stream_edge_grade')} edge {row.get('_stream_edge_score'):.1f} | "
+            f"{row.get('_stream_edge_grade')} start edge {row.get('_stream_edge_score'):.1f} | "
             f"pred {row.get('predicted_pts'):.1f}, actual {row.get('actual_pts'):.1f}"
         )
         print(f"    why: {row.get('_stream_edge_reasons') or 'no logged positive stack'}")
@@ -7326,8 +7328,9 @@ def analyze_streamer_upside():
             print(f"    cautions: {row.get('_stream_edge_cautions')}")
 
     print("\nInterpretation")
+    print("  GOLD/SILVER are per-start grades for a specific date/opponent, not permanent pitcher labels.")
     print("  This looks for stacked objective positives in non-obvious starts; it does not override projections.")
-    print("  Use GOLD/SILVER targets as a watchlist, then let role confidence and disaster guard decide whether they are actually playable.")
+    print("  Use GOLD/SILVER starts as a daily watchlist, then let role confidence and disaster guard decide whether they are actually playable.")
     print("  Next step after more labels: tune which signal stacks create good starts without raising bust rate.")
     return {
         'labeled_rows': int(len(work)),
@@ -11222,8 +11225,8 @@ function renderHiddenStreamTargets() {
   if (!container || !HIDDEN_STREAM_TARGETS) return;
   var h = '<div class="day-card decision-card">';
   var items = HIDDEN_STREAM_TARGETS.items || [];
-  h += '<div class="day-header"><span class="day-date">Hidden Stream Targets</span><span class="day-count">' + escHtml(HIDDEN_STREAM_TARGETS.date_range || '') + '</span></div>';
-  h += '<div class="matchup-small">Looks for FA/waiver and roster-fringe starters where multiple objective positives line up. Projection points are unchanged.</div>';
+  h += '<div class="day-header"><span class="day-date">Daily Stream Targets</span><span class="day-count">' + escHtml(HIDDEN_STREAM_TARGETS.date_range || '') + '</span></div>';
+  h += '<div class="matchup-small">GOLD/SILVER are per-start grades for this date and opponent, not permanent pitcher labels. Projection points are unchanged.</div>';
   h += '<div class="decision-summary">';
   h += '<span class="decision-pill">Rows scanned <b>' + (HIDDEN_STREAM_TARGETS.rows_scanned || 0) + '</b></span>';
   h += '<span class="decision-pill">Targets <b>' + items.length + '</b></span>';
@@ -11231,19 +11234,21 @@ function renderHiddenStreamTargets() {
   h += '<span class="decision-pill">Hidden unknown <b>' + (HIDDEN_STREAM_TARGETS.hidden_unknown_count || 0) + '</b></span>';
   h += '</div>';
   if (!items.length) {
-    h += '<div class="decision-empty">No hidden streamer edge stacks found in the current window.</div>';
+    h += '<div class="decision-empty">No daily stream edge stacks found in the current window.</div>';
   } else {
     h += '<div class="decision-grid watch-grid">';
     items.forEach(function(item) {
       var pts = Number(item.points || 0);
       var matchup = item.home_away === 'H' ? 'vs ' + (item.opponent || '?') : '@ ' + (item.opponent || '?');
       var grade = item.edge_grade || 'WATCH';
+      var edgeLabel = item.edge_label || (grade + ' start');
+      var dateLabel = item.date_label || item.date || '';
       var gradeCls = grade === 'DIAMOND' || grade === 'GOLD' ? 'add' : (grade === 'SILVER' ? 'consider' : 'watch');
       var reasons = (item.edge_reasons || []).slice(0, 3).join('; ');
       var cautions = (item.edge_cautions || []).slice(0, 2).join('; ') || item.risk_reason || 'normal streamer volatility';
       h += '<div class="decision-row">';
       h += '<div class="decision-line1"><span class="decision-name">' + escHtml(item.name) + '</span><span class="decision-pts">' + pts.toFixed(1) + ' pts</span></div>';
-      h += '<div class="decision-meta"><span class="action-kind ' + gradeCls + '">' + escHtml(grade) + '</span> ' + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; edge ' + Number(item.edge_score || 0).toFixed(1) + ' &bull; ' + escHtml(item.date || '') + ' &bull; ' + escHtml(matchup) + '</div>';
+      h += '<div class="decision-meta"><span class="action-kind ' + gradeCls + '">' + escHtml(edgeLabel) + '</span> ' + escHtml(dateLabel) + ' ' + escHtml(matchup) + ' &bull; ' + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; edge ' + Number(item.edge_score || 0).toFixed(1) + '</div>';
       h += '<div class="decision-reasons">';
       h += '<div><span class="decision-reason-label">Why:</span> ' + escHtml(reasons || item.main_reason || 'stacked positive context') + '</div>';
       h += '<div><span class="decision-reason-label">Risk:</span> ' + escHtml(cautions) + '</div>';
