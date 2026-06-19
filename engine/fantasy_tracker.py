@@ -11417,39 +11417,40 @@ function renderAccuracy() {
       return h2;
     }
     var best = p.best || {};
+    var active = p.active || {};
     var current = p.current || {};
     var deltas = p.deltas || {};
     var diff = p.diff_summary || {};
     h2 += '<div class="decision-summary">';
-    h2 += '<span class="decision-pill">Best policy <b>' + escHtml(best.label || 'n/a') + '</b></span>';
+    h2 += '<span class="decision-pill">Top safety score <b>' + escHtml(best.label || 'n/a') + '</b></span>';
     h2 += '<span class="decision-pill">Active overlay <b>' + escHtml(p.active_policy_label || 'n/a') + '</b></span>';
     h2 += '<span class="decision-pill">Rows <b>' + escHtml(p.labeled_rows || 0) + '</b></span>';
     h2 += '<span class="decision-pill">Changed <b>' + escHtml(diff.changed || 0) + '</b></span>';
     h2 += '<span class="decision-pill">Helped/Hurt/Neutral <b>' + escHtml((diff.helped || 0) + '/' + (diff.hurt || 0) + '/' + (diff.neutral || 0)) + '</b></span>';
     h2 += '</div>';
     h2 += '<div class="stream-note" style="margin:0 0 8px;color:#777">';
-    h2 += 'Risk guard overlay is active in visible Streaming recommendations when enough bust-risk flags stack up. Projected points and learned corrections are unchanged.';
+    h2 += 'Active overlay is tuned for balanced disaster prevention. Top safety score is more aggressive and may miss more good starts. Projected points and learned corrections are unchanged.';
     if (p.source) {
       h2 += ' Backtest source: ' + escHtml(p.source) + '.';
     }
     h2 += '</div>';
     h2 += '<div class="accuracy-table-wrap"><table class="accuracy-table">';
-    h2 += '<tr style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:4px 16px">Metric</td><td style="padding:4px 16px;text-align:right">Current</td><td style="padding:4px 16px;text-align:right">Best</td><td style="padding:4px 16px;text-align:right">Change</td></tr>';
+    h2 += '<tr style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:4px 16px">Metric</td><td style="padding:4px 16px;text-align:right">Current</td><td style="padding:4px 16px;text-align:right">Active</td><td style="padding:4px 16px;text-align:right">Top safety</td></tr>';
     var rows = [
-      ['START bust rate', current.start_bust_rate, best.start_bust_rate, deltas.start_bust_rate, '%'],
-      ['Negative recommended starts', current.negative_recommended, best.negative_recommended, deltas.negative_recommended, ''],
-      ['Good starts missed', current.good_starts_missed, best.good_starts_missed, deltas.good_starts_missed, '']
+      ['START bust rate', current.start_bust_rate, active.start_bust_rate, best.start_bust_rate, '%'],
+      ['Negative recommended starts', current.negative_recommended, active.negative_recommended, best.negative_recommended, ''],
+      ['Good starts missed', current.good_starts_missed, active.good_starts_missed, best.good_starts_missed, '']
     ];
     rows.forEach(function(row) {
       var isPct = row[4] === '%';
       var cur = Number(row[1] || 0);
-      var bst = Number(row[2] || 0);
-      var delta = Number(row[3] || 0);
-      var dCls = delta < 0 ? 'opp-easy' : (delta > 0 ? 'opp-hard' : '');
+      var act = Number(row[2] || 0);
+      var bst = Number(row[3] || 0);
       h2 += '<tr><td style="padding:6px 16px"><b>' + escHtml(row[0]) + '</b></td>';
       h2 += '<td style="padding:6px 16px;text-align:right">' + (isPct ? cur.toFixed(1) + '%' : cur.toFixed(0)) + '</td>';
+      h2 += '<td style="padding:6px 16px;text-align:right">' + (isPct ? act.toFixed(1) + '%' : act.toFixed(0)) + '</td>';
       h2 += '<td style="padding:6px 16px;text-align:right">' + (isPct ? bst.toFixed(1) + '%' : bst.toFixed(0)) + '</td>';
-      h2 += '<td style="padding:6px 16px;text-align:right" class="' + dCls + '">' + (delta >= 0 ? '+' : '') + (isPct ? delta.toFixed(1) + ' pts' : delta.toFixed(0)) + '</td></tr>';
+      h2 += '</tr>';
     });
     h2 += '</table></div>';
     var reasons = diff.reason_summary || [];
@@ -14168,6 +14169,24 @@ RISK_GUARD_WEIGHT_PRESETS = [
             'hot bump from low raw projection': 2.0,
         },
     },
+    {
+        'key': 'disaster_risk_guard',
+        'label': 'Disaster-focused risk guard',
+        'description': 'Demote only when blowup-risk signals stack; low-ceiling matchup concerns count less by themselves.',
+        'threshold': 3.0,
+        'weights': {
+            'cold': 2.5,
+            'recent_era>=5.14': 2.25,
+            'hot bump from low raw projection': 2.5,
+            'short last start': 1.5,
+            'workload risk': 1.25,
+            'negative pitch matchup': 1.0,
+            'top-10 offense': 0.75,
+            'platoon risk': 0.75,
+            'hitter park': 0.5,
+            'low K/9': 0.5,
+        },
+    },
 ]
 
 RISK_GUARD_WEIGHT_PRESETS_BY_KEY = {
@@ -14177,7 +14196,7 @@ RISK_GUARD_WEIGHT_PRESETS_BY_KEY = {
 # Formal report recommendation policy. This affects visible START /
 # BORDERLINE / SIT guidance only; projected points and learned corrections
 # stay untouched. Set to "raw_model" to disable the risk-guard display layer.
-RECOMMENDATION_POLICY_MODE = 'risk_guard_v2'
+RECOMMENDATION_POLICY_MODE = 'disaster_guard'
 RECOMMENDATION_POLICY_MODES = {
     'raw_model': {
         'mode': 'raw_model',
@@ -14192,6 +14211,13 @@ RECOMMENDATION_POLICY_MODES = {
         'policy_key': 'weighted_risk_guard_v2',
         'uses_risk_guard': True,
         'note': 'Visible recommendations use the backtested risk guard; projected points are unchanged.',
+    },
+    'disaster_guard': {
+        'mode': 'disaster_guard',
+        'label': 'Disaster Guard',
+        'policy_key': 'disaster_risk_guard',
+        'uses_risk_guard': True,
+        'note': 'Visible recommendations demote only when blowup-risk signals stack; projected points are unchanged.',
     },
 }
 
@@ -14524,6 +14550,11 @@ def build_start_sit_policy_backtest_summary():
             'Weighted risk guard v2',
             'Demote when weighted risk score reaches 3, emphasizing cold/recent ERA.',
         ),
+        (
+            'disaster_risk_guard',
+            'Disaster-focused risk guard',
+            'Demote only when blowup-risk signals stack; low-ceiling matchup concerns count less by themselves.',
+        ),
         ('streamer_conservative', 'FA/waiver conservative', 'Demote FA/WAIVER streams with any risk flag or projection below 10.'),
     ]
 
@@ -14537,6 +14568,7 @@ def build_start_sit_policy_backtest_summary():
     rows_sorted = sorted(rows, key=lambda r: (-r['utility_score'], r['start_bust_rate'], r['good_starts_missed']))
     current = next((r for r in rows if r['key'] == 'current'), None)
     best = rows_sorted[0] if rows_sorted else None
+    active = next((r for r in rows if r['key'] == VISIBLE_RISK_GUARD_POLICY_KEY), None)
     diff_summary = None
     if best and best['key'] != 'current':
         diffs = _policy_diff_rows(work, best['key'])
@@ -14602,6 +14634,7 @@ def build_start_sit_policy_backtest_summary():
         'labeled_rows': int(len(work)),
         'current': current,
         'best': best,
+        'active': active,
         'active_policy_key': VISIBLE_RISK_GUARD_POLICY_KEY,
         'active_policy_label': RISK_GUARD_WEIGHT_PRESETS_BY_KEY.get(
             VISIBLE_RISK_GUARD_POLICY_KEY, {}
