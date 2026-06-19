@@ -6833,6 +6833,409 @@ def build_next_watchlist_summary(base_date=None, records=None, source=None, days
     return summary
 
 
+def _row_value(row, key, default=None):
+    """Small helper for dict/pandas row access without making analysis brittle."""
+    try:
+        value = row.get(key, default)
+    except Exception:
+        value = default
+    if value is None:
+        try:
+            features = row.get('features') or {}
+        except Exception:
+            features = {}
+        if isinstance(features, dict):
+            value = features.get(key, default)
+    try:
+        if pd.isna(value):
+            return default
+    except Exception:
+        pass
+    return value
+
+
+def _streamer_edge_signal_score(row):
+    """Score hidden-stream upside from logged pregame context only.
+
+    This is intentionally separate from projection/scoring. It looks for
+    multiple independent green lights, then caps or blocks low-confidence
+    role/date and clear blowup-risk setups.
+    """
+    pts = _safe_float(_row_value(row, 'predicted_pts'))
+    if pts is None:
+        pts = _safe_float(_row_value(row, 'pts'))
+    if pts is None:
+        pts = _safe_float(_row_value(row, 'final_pts'))
+    raw_pts = _safe_float(_row_value(row, 'predicted_pts_raw'))
+    adj_total = _safe_float(_row_value(row, 'adj_total'))
+    opp_rank = _safe_float(_row_value(row, 'opp_rank'))
+    park_factor = _safe_float(_row_value(row, 'park_factor'))
+    pitch_matchup = _safe_float(_row_value(row, 'pitch_matchup_score'))
+    workload = _safe_float(_row_value(row, 'workload_risk_score'))
+    last_start_ip = _safe_float(_row_value(row, 'last_start_ip'))
+    recent_era = _safe_float(_row_value(row, 'recent_era'))
+    proj_k9 = _safe_float(_row_value(row, 'proj_k9') or _row_value(row, 'k9'))
+    days_rest = _safe_float(_row_value(row, 'days_rest'))
+    opp_il_count = _safe_float(_row_value(row, 'opp_il_count'), 0) or 0
+    opp_il_returns = _safe_float(_row_value(row, 'opp_il_returns_count'), 0) or 0
+    platoon = str(_row_value(row, 'platoon') or '').lower()
+    trend = str(_row_value(row, 'trend') or '').lower()
+    status = str(_row_value(row, 'status') or '').upper()
+    tier = str(_row_value(row, 'tier') or '').lower()
+    warning = str(_row_value(row, 'probable_warning') or '').lower()
+    probable_conf = str(_row_value(row, 'probable_confidence') or '').lower()
+    probable_source = str(_row_value(row, 'probable_source') or '').lower()
+
+    positives = []
+    cautions = []
+    blockers = []
+    score = 0.0
+
+    if pts is not None:
+        if 8.0 <= pts < 10.0:
+            score += 1.0
+            positives.append(f"playable projection ({pts:.1f})")
+        elif 10.0 <= pts < 12.0:
+            score += 1.5
+            positives.append(f"strong streamer projection ({pts:.1f})")
+        elif pts >= 12.0:
+            score += 0.5
+            positives.append(f"already projects well ({pts:.1f})")
+        elif pts < 6.0:
+            blockers.append(f"projection too light ({pts:.1f})")
+
+    if opp_rank is not None:
+        if opp_rank >= 26:
+            score += 2.0
+            positives.append(f"very soft opponent offense (rank {int(opp_rank)})")
+        elif opp_rank >= 21:
+            score += 1.25
+            positives.append(f"soft opponent offense (rank {int(opp_rank)})")
+        elif opp_rank <= 10:
+            cautions.append(f"top-10 opponent offense (rank {int(opp_rank)})")
+
+    if park_factor is not None:
+        if park_factor <= 0.96:
+            score += 1.0
+            positives.append(f"pitcher-friendly park ({park_factor:.2f})")
+        elif park_factor >= 1.08:
+            cautions.append(f"hitter-friendly park ({park_factor:.2f})")
+
+    if platoon == 'edge':
+        score += 1.0
+        positives.append('platoon edge')
+    elif platoon == 'risk':
+        cautions.append('platoon risk')
+
+    if pitch_matchup is not None:
+        if pitch_matchup >= 0.08:
+            score += 1.5
+            positives.append(f"strong pitch-fit edge ({pitch_matchup:+.2f})")
+        elif pitch_matchup >= 0.05:
+            score += 1.0
+            positives.append(f"positive pitch fit ({pitch_matchup:+.2f})")
+        elif pitch_matchup <= -0.05:
+            cautions.append(f"pitch-fit concern ({pitch_matchup:+.2f})")
+
+    if proj_k9 is not None:
+        if proj_k9 >= 9.5:
+            score += 1.5
+            positives.append(f"K upside ({proj_k9:.1f} K/9)")
+        elif proj_k9 >= 8.5:
+            score += 0.75
+            positives.append(f"decent K base ({proj_k9:.1f} K/9)")
+        elif proj_k9 < 7.2:
+            cautions.append(f"low K base ({proj_k9:.1f} K/9)")
+
+    if workload is not None:
+        if workload <= 0.2:
+            score += 0.75
+            positives.append('low workload/leash risk')
+        elif workload >= 0.6:
+            cautions.append('elevated workload/leash risk')
+    if last_start_ip is not None:
+        if last_start_ip >= 5.0:
+            score += 0.75
+            positives.append(f"recently reached {last_start_ip:.1f} IP")
+        elif 0 < last_start_ip < 4.0:
+            cautions.append(f"short last start ({last_start_ip:.1f} IP)")
+    if days_rest is not None and 4 <= days_rest <= 7:
+        score += 0.25
+        positives.append(f"normal rest ({int(days_rest)} days)")
+
+    if opp_il_count:
+        score += min(1.0, 0.5 * opp_il_count)
+        positives.append('opponent missing notable bat(s)')
+    if opp_il_returns:
+        cautions.append('opponent getting bat(s) back')
+
+    if trend == 'hot' and recent_era is not None and recent_era <= 3.5:
+        score += 0.5
+        positives.append(f"ERA trend up ({recent_era:.2f} L14D)")
+    elif trend == 'cold' or (recent_era is not None and recent_era >= 5.14):
+        cautions.append('bad recent ERA trend')
+
+    if raw_pts is not None and adj_total is not None and raw_pts < 8.0 and adj_total >= 2.5:
+        cautions.append('projection depends heavily on learned hot/trend bump')
+
+    role_verify = (
+        probable_conf in ('source_conflict', 'opener_bulk_risk', 'cached_stale', 'inferred_roster', 'tbd_problem')
+        or probable_source == 'prediction_log_cache'
+        or 'bulk' in warning
+        or 'opener' in warning
+        or 'verify manually' in warning
+    )
+    if role_verify:
+        blockers.append('starter role/date needs verification')
+    if status and status not in ('FA', 'WAIVER', 'MY ROSTER', '?', 'UNKNOWN'):
+        blockers.append('not actionable roster status')
+    if tier == 'must_start' or (pts is not None and pts >= 12.5):
+        cautions.append('not really hidden; already a strong projection')
+
+    score -= 0.75 * len(cautions)
+    if blockers:
+        score = min(score, 1.5)
+    if len(positives) < 2:
+        score = min(score, 2.0)
+    score = round(max(score, 0.0), 2)
+
+    if score >= 8.0 and not cautions:
+        grade = 'DIAMOND'
+    elif score >= 5.0:
+        grade = 'GOLD'
+    elif score >= 3.25:
+        grade = 'SILVER'
+    elif score >= 2.25:
+        grade = 'BRONZE'
+    else:
+        grade = 'WATCH'
+
+    return {
+        'score': score,
+        'grade': grade,
+        'positives': positives[:5],
+        'cautions': cautions[:5],
+        'blockers': blockers[:4],
+        'points': pts,
+        'hidden_candidate': bool(
+            pts is not None and 6.0 <= pts < 12.0 and len(positives) >= 2 and not blockers
+        ),
+    }
+
+
+def _streamer_edge_report_item(record, edge):
+    item = _decision_report_item(record)
+    item['edge_score'] = edge.get('score')
+    item['edge_grade'] = edge.get('grade')
+    item['edge_reasons'] = edge.get('positives') or []
+    item['edge_cautions'] = edge.get('cautions') or []
+    item['main_reason'] = _compact_decision_text('; '.join(item['edge_reasons'][:2]) or item.get('main_reason'))
+    if item['edge_cautions']:
+        item['risk_reason'] = _compact_decision_text('; '.join(item['edge_cautions'][:2]))
+    return item
+
+
+def build_hidden_stream_targets_summary(base_date=None, records=None, source=None, days=3, limit=8):
+    """Find actionable low-obviousness streams with stacked positive context."""
+    base_date = base_date or date.today().isoformat()
+    try:
+        start = date.fromisoformat(base_date)
+    except Exception:
+        start = date.today()
+    dates = [(start + timedelta(days=i)).isoformat() for i in range(days + 1)]
+    if records is None:
+        records = []
+        for d in dates:
+            rows, _ = _latest_prediction_records_by_date(d)
+            records.extend(rows)
+        source = source or 'prediction logs'
+    else:
+        records = [dict(r) for r in records]
+        source = source or 'current report prediction records'
+
+    records = [
+        r for r in records
+        if (r.get('date') or r.get('game_date')) in set(dates)
+    ]
+    records = [apply_probable_confidence(apply_probable_role_alert(dict(r))) for r in records]
+    records, probable_report = validate_probable_prediction_records(records, source=source)
+    records = [apply_visible_risk_guard_overlay(apply_probable_confidence(dict(r))) for r in records]
+    records, enrichment = _enrich_decision_statuses(records)
+    records = [apply_probable_confidence(apply_probable_role_alert(dict(r))) for r in records]
+
+    actionable_statuses = {'FA', 'WAIVER', 'MY ROSTER'}
+    candidates = []
+    hidden_other = 0
+    hidden_unknown = 0
+    for rec in records:
+        status = rec.get('status')
+        if status and status not in actionable_statuses:
+            hidden_other += 1
+            continue
+        if not status:
+            hidden_unknown += 1
+            continue
+        edge = _streamer_edge_signal_score(rec)
+        if not edge.get('hidden_candidate') or edge.get('score', 0) < 3.25:
+            continue
+        if rec.get('risk_guard_applied') and edge.get('score', 0) < 5.0:
+            continue
+        item = _streamer_edge_report_item(rec, edge)
+        item['date'] = rec.get('date') or rec.get('game_date')
+        candidates.append(item)
+
+    candidates.sort(key=lambda item: (
+        -float(item.get('edge_score') or 0),
+        0 if item.get('status') in ('FA', 'WAIVER') else 1,
+        -float(item.get('points') or 0),
+        item.get('date') or '',
+    ))
+    selected = candidates[:limit]
+    notes = []
+    if hidden_unknown:
+        notes.append(f"{hidden_unknown} rows had unknown roster status and were not used for hidden-stream targets.")
+    if probable_report.get('suppressed_total'):
+        notes.append(f"{probable_report['suppressed_total']} low-confidence probable date(s) were suppressed before scoring upside.")
+    return {
+        'base_date': base_date,
+        'date_range': f"{dates[0]} to {dates[-1]}" if dates else '',
+        'source': source,
+        'items': selected,
+        'count': len(selected),
+        'rows_scanned': len(records),
+        'hidden_other_count': hidden_other,
+        'hidden_unknown_count': hidden_unknown,
+        'roster_enriched_count': enrichment.get('roster_enriched_count', 0),
+        'prediction_enriched_count': enrichment.get('prediction_enriched_count', 0),
+        'notes': notes,
+        'probable_sanity': probable_report,
+    }
+
+
+def _streamer_upside_band_summary(df, min_n=10):
+    rows = []
+    if df.empty:
+        return rows
+    for grade in ('DIAMOND', 'GOLD', 'SILVER', 'BRONZE', 'WATCH'):
+        subset = df[df['_stream_edge_grade'] == grade]
+        if len(subset) < min_n:
+            continue
+        rows.append({
+            'grade': grade,
+            'n': int(len(subset)),
+            'mean_predicted': round(float(subset['predicted_pts'].mean()), 1),
+            'mean_actual': round(float(subset['actual_pts'].mean()), 1),
+            'usable_rate': _safe_pct((subset['actual_pts'] >= 8).mean() * 100.0),
+            'good_rate': _safe_pct((subset['actual_pts'] >= 12).mean() * 100.0),
+            'smash_rate': _safe_pct((subset['actual_pts'] >= 18).mean() * 100.0),
+            'bust_rate': _safe_pct((subset['actual_pts'] < 5).mean() * 100.0),
+            'negative_rate': _safe_pct((subset['actual_pts'] <= 0).mean() * 100.0),
+        })
+    return rows
+
+
+def analyze_streamer_upside():
+    """Read-only backtest for hidden/gold/silver streamer signal stacks."""
+    print("STREAMER UPSIDE FINDER")
+    print("=" * 60)
+    print("Analysis only: this does not change scoring, predictions, tiers, recommendations, or learned corrections.")
+    work, source, skipped_source = _load_start_sit_analysis_rows()
+    if skipped_source:
+        print(f"Warehouse source skipped: {skipped_source}")
+    print(f"Source: {source}")
+    if work.empty:
+        print("No labeled starts with actual fantasy points are available yet.")
+        return {'labeled_rows': 0}
+
+    work = work.copy()
+    edges = [_streamer_edge_signal_score(row) for _, row in work.iterrows()]
+    work['_stream_edge_score'] = [e['score'] for e in edges]
+    work['_stream_edge_grade'] = [e['grade'] for e in edges]
+    work['_stream_edge_hidden'] = [e['hidden_candidate'] for e in edges]
+    work['_stream_edge_reasons'] = ['; '.join(e['positives'][:4]) for e in edges]
+    work['_stream_edge_cautions'] = ['; '.join(e['cautions'][:3]) for e in edges]
+
+    hidden_pool = work[
+        (work['_stream_edge_hidden'])
+        & (work['predicted_pts'] >= 6.0)
+        & (work['predicted_pts'] < 12.0)
+        & (work['tier_group'] != 'must_start')
+    ].copy()
+    actionable = hidden_pool[hidden_pool['status_group'].isin(['FA/WAIVER', 'MY ROSTER'])]
+    broader = hidden_pool[hidden_pool['status_group'].isin(['FA/WAIVER', 'MY ROSTER', 'UNKNOWN'])]
+    scored = broader[broader['_stream_edge_score'] >= 3.25].copy()
+
+    print(f"\nLabeled starts analyzed: {len(work)}")
+    print(f"Hidden-stream candidate pool: {len(hidden_pool)}")
+    print(f"Actionable-status hidden candidates: {len(actionable)}")
+    print(f"Scored silver-or-better hidden candidates: {len(scored)}")
+    if len(scored) < 100:
+        print("Small-sample warning: hidden-stream edge stacks are still a small sample.")
+
+    baseline = _decision_policy_metrics(hidden_pool, 'predicted_advice') if not hidden_pool.empty else None
+    if baseline:
+        print("\nBaseline hidden-candidate outcomes")
+        print(f"  n: {baseline['total']}")
+        print(f"  usable rate: {(hidden_pool['actual_pts'] >= 8).mean() * 100.0:.1f}%")
+        print(f"  mean actual: {hidden_pool['actual_pts'].mean():.1f}")
+        print(f"  good rate: {(hidden_pool['actual_pts'] >= 12).mean() * 100.0:.1f}%")
+        print(f"  smash rate: {(hidden_pool['actual_pts'] >= 18).mean() * 100.0:.1f}%")
+        print(f"  bust rate: {(hidden_pool['actual_pts'] < 5).mean() * 100.0:.1f}%")
+
+    print("\nEdge grade backtest")
+    bands = _streamer_upside_band_summary(scored, min_n=5)
+    if not bands:
+        print("  Not enough silver/gold/diamond rows yet for stable grade buckets.")
+    else:
+        print(f"{'Grade':<8s} {'N':>5s} {'Pred':>7s} {'Actual':>7s} {'Usable':>8s} {'Good':>7s} {'Smash':>7s} {'Bust':>7s} {'Neg':>7s}")
+        for row in bands:
+            print(
+                f"{row['grade']:<8s} {row['n']:>5d} {row['mean_predicted']:>7.1f} "
+                f"{row['mean_actual']:>7.1f} {row['usable_rate']:>7.1f}% "
+                f"{row['good_rate']:>6.1f}% {row['smash_rate']:>6.1f}% "
+                f"{row['bust_rate']:>6.1f}% {row['negative_rate']:>6.1f}%"
+            )
+
+    print("\nTop historical hidden hits")
+    hits = scored[scored['actual_pts'] >= 18].sort_values(['actual_pts', '_stream_edge_score'], ascending=[False, False])
+    if hits.empty:
+        print("  None yet.")
+    for _, row in hits.head(8).iterrows():
+        print(
+            f"  - {row.get('game_date') or '?'} | {row.get('pitcher_name') or '?'} "
+            f"({row.get('team') or '?'} {row.get('home_away') or ''} {row.get('opponent') or '?'}) "
+            f"{row.get('_stream_edge_grade')} edge {row.get('_stream_edge_score'):.1f} | "
+            f"pred {row.get('predicted_pts'):.1f}, actual {row.get('actual_pts'):.1f}"
+        )
+        print(f"    why: {row.get('_stream_edge_reasons') or 'no logged positive stack'}")
+
+    print("\nTop historical hidden traps")
+    traps = scored[scored['actual_pts'] < 5].sort_values(['actual_pts', '_stream_edge_score'], ascending=[True, False])
+    if traps.empty:
+        print("  None yet.")
+    for _, row in traps.head(8).iterrows():
+        print(
+            f"  - {row.get('game_date') or '?'} | {row.get('pitcher_name') or '?'} "
+            f"({row.get('team') or '?'} {row.get('home_away') or ''} {row.get('opponent') or '?'}) "
+            f"{row.get('_stream_edge_grade')} edge {row.get('_stream_edge_score'):.1f} | "
+            f"pred {row.get('predicted_pts'):.1f}, actual {row.get('actual_pts'):.1f}"
+        )
+        print(f"    why: {row.get('_stream_edge_reasons') or 'no logged positive stack'}")
+        if row.get('_stream_edge_cautions'):
+            print(f"    cautions: {row.get('_stream_edge_cautions')}")
+
+    print("\nInterpretation")
+    print("  This looks for stacked objective positives in non-obvious starts; it does not override projections.")
+    print("  Use GOLD/SILVER targets as a watchlist, then let role confidence and disaster guard decide whether they are actually playable.")
+    print("  Next step after more labels: tune which signal stacks create good starts without raising bust rate.")
+    return {
+        'labeled_rows': int(len(work)),
+        'hidden_pool': int(len(hidden_pool)),
+        'scored_rows': int(len(scored)),
+        'bands': bands,
+    }
+
+
 def _action_matchup_text(item):
     if item.get('home_away') == 'H':
         return f"vs {item.get('opponent') or '?'}"
@@ -9612,6 +10015,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           daily_decision_summary=None,
                           next_watchlist_summary=None,
                           add_drop_priority_summary=None,
+                          hidden_stream_targets_summary=None,
                           recommendation_change_summary=None,
                           matchup_snapshot_summary=None,
                           matchup_action_summary=None,
@@ -9701,6 +10105,20 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
             snapshot_date, daily_decision_summary, next_watchlist_summary,
             matchup_edge_summary=matchup_edge_summary,
         )
+    if hidden_stream_targets_summary is None:
+        try:
+            hidden_stream_targets_summary = build_hidden_stream_targets_summary(
+                snapshot_date,
+                records=report_decision_records,
+                source=report_decision_source,
+            )
+        except Exception as e:
+            hidden_stream_targets_summary = {
+                'base_date': snapshot_date,
+                'items': [],
+                'count': 0,
+                'notes': [f'Hidden stream targets unavailable: {type(e).__name__}: {e}'],
+            }
     if recommendation_change_summary is None:
         try:
             recommendation_change_summary = build_recommendation_change_summary(
@@ -10144,6 +10562,7 @@ $TOP_BANNER_HTML
 <div id="hitterDecisionContent"></div>
 <div id="decisionContent"></div>
 <div id="addDropContent"></div>
+<div id="hiddenStreamContent"></div>
 <div id="recommendationChangeContent"></div>
 <div id="watchlistContent"></div>
 </div><!-- end tab-decisions -->
@@ -10170,6 +10589,7 @@ var RECOMMENDATION_POLICY_META = $RECOMMENDATION_POLICY_META_JSON;
 var DAILY_DECISIONS = $DAILY_DECISIONS_JSON;
 var NEXT_WATCHLIST = $NEXT_WATCHLIST_JSON;
 var ADD_DROP_PRIORITY = $ADD_DROP_PRIORITY_JSON;
+var HIDDEN_STREAM_TARGETS = $HIDDEN_STREAM_TARGETS_JSON;
 var RECOMMENDATION_CHANGES = $RECOMMENDATION_CHANGES_JSON;
 var MATCHUP_SNAPSHOT = $MATCHUP_SNAPSHOT_JSON;
 var MATCHUP_ACTIONS = $MATCHUP_ACTIONS_JSON;
@@ -10696,6 +11116,47 @@ function renderAddDropPriority() {
   container.innerHTML = h;
 }
 
+function renderHiddenStreamTargets() {
+  var container = document.getElementById('hiddenStreamContent');
+  if (!container || !HIDDEN_STREAM_TARGETS) return;
+  var h = '<div class="day-card decision-card">';
+  var items = HIDDEN_STREAM_TARGETS.items || [];
+  h += '<div class="day-header"><span class="day-date">Hidden Stream Targets</span><span class="day-count">' + escHtml(HIDDEN_STREAM_TARGETS.date_range || '') + '</span></div>';
+  h += '<div class="matchup-small">Looks for FA/waiver and roster-fringe starters where multiple objective positives line up. Projection points are unchanged.</div>';
+  h += '<div class="decision-summary">';
+  h += '<span class="decision-pill">Rows scanned <b>' + (HIDDEN_STREAM_TARGETS.rows_scanned || 0) + '</b></span>';
+  h += '<span class="decision-pill">Targets <b>' + items.length + '</b></span>';
+  h += '<span class="decision-pill">Hidden OTHER <b>' + (HIDDEN_STREAM_TARGETS.hidden_other_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">Hidden unknown <b>' + (HIDDEN_STREAM_TARGETS.hidden_unknown_count || 0) + '</b></span>';
+  h += '</div>';
+  if (!items.length) {
+    h += '<div class="decision-empty">No hidden streamer edge stacks found in the current window.</div>';
+  } else {
+    h += '<div class="decision-grid watch-grid">';
+    items.forEach(function(item) {
+      var pts = Number(item.points || 0);
+      var matchup = item.home_away === 'H' ? 'vs ' + (item.opponent || '?') : '@ ' + (item.opponent || '?');
+      var grade = item.edge_grade || 'WATCH';
+      var gradeCls = grade === 'DIAMOND' || grade === 'GOLD' ? 'add' : (grade === 'SILVER' ? 'consider' : 'watch');
+      var reasons = (item.edge_reasons || []).slice(0, 3).join('; ');
+      var cautions = (item.edge_cautions || []).slice(0, 2).join('; ') || item.risk_reason || 'normal streamer volatility';
+      h += '<div class="decision-row">';
+      h += '<div class="decision-line1"><span class="decision-name">' + escHtml(item.name) + '</span><span class="decision-pts">' + pts.toFixed(1) + ' pts</span></div>';
+      h += '<div class="decision-meta"><span class="action-kind ' + gradeCls + '">' + escHtml(grade) + '</span> ' + escHtml(item.team || '?') + ' &bull; ' + escHtml(item.status || 'UNKNOWN') + ' &bull; edge ' + Number(item.edge_score || 0).toFixed(1) + ' &bull; ' + escHtml(item.date || '') + ' &bull; ' + escHtml(matchup) + '</div>';
+      h += '<div class="decision-reasons">';
+      h += '<div><span class="decision-reason-label">Why:</span> ' + escHtml(reasons || item.main_reason || 'stacked positive context') + '</div>';
+      h += '<div><span class="decision-reason-label">Risk:</span> ' + escHtml(cautions) + '</div>';
+      h += '</div></div>';
+    });
+    h += '</div>';
+  }
+  if (HIDDEN_STREAM_TARGETS.notes && HIDDEN_STREAM_TARGETS.notes.length) {
+    h += '<div class="decision-warning">' + HIDDEN_STREAM_TARGETS.notes.map(escHtml).join(' ') + '</div>';
+  }
+  h += '</div>';
+  container.innerHTML = h;
+}
+
 function renderRecommendationChanges() {
   var container = document.getElementById('recommendationChangeContent');
   if (!container || !RECOMMENDATION_CHANGES) return;
@@ -11200,6 +11661,7 @@ renderMatchupEdge();
 renderHitterDecisions();
 renderDailyDecisions();
 renderAddDropPriority();
+renderHiddenStreamTargets();
 renderRecommendationChanges();
 renderWatchlist();
 renderStreaming();
@@ -11631,6 +12093,7 @@ renderAccuracy();
         DAILY_DECISIONS_JSON=json.dumps(daily_decision_summary) if daily_decision_summary else 'null',
         NEXT_WATCHLIST_JSON=json.dumps(next_watchlist_summary) if next_watchlist_summary else 'null',
         ADD_DROP_PRIORITY_JSON=json.dumps(add_drop_priority_summary) if add_drop_priority_summary else 'null',
+        HIDDEN_STREAM_TARGETS_JSON=json.dumps(hidden_stream_targets_summary) if hidden_stream_targets_summary else 'null',
         RECOMMENDATION_CHANGES_JSON=json.dumps(recommendation_change_summary) if recommendation_change_summary else 'null',
         MATCHUP_SNAPSHOT_JSON=json.dumps(matchup_snapshot_summary) if matchup_snapshot_summary else 'null',
         MATCHUP_ACTIONS_JSON=json.dumps(matchup_action_summary) if matchup_action_summary else 'null',
@@ -13609,6 +14072,8 @@ def _start_sit_prepare_dataframe(df):
             'platoon', 'trend', 'recent_era', 'proj_k9', 'k9',
             'workload_risk_score', 'pitch_matchup_score',
             'opp_il_count', 'opp_il_returns_count',
+            'last_start_ip', 'days_rest', 'predicted_pts_raw', 'adj_total',
+            'probable_confidence', 'probable_confidence_label',
         ]
         for col in feature_cols:
             if col not in work.columns:
@@ -16904,6 +17369,7 @@ def main():
     parser.add_argument('--analyze-start-sit-misses', action='store_true', help='Read-only explanation analysis for start/sit decision misses')
     parser.add_argument('--analyze-start-sit-policy-backtest', action='store_true', help='Read-only comparison of alternate start/sit decision policies')
     parser.add_argument('--analyze-risk-guard-weights', action='store_true', help='Read-only comparison of weighted risk-guard overlays')
+    parser.add_argument('--analyze-streamer-upside', action='store_true', help='Read-only hidden-stream upside signal analysis')
     parser.add_argument('--audit-recommendation-policy', action='store_true', help='Read-only audit of raw model tiers vs visible recommendation overlay')
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--matchup-snapshot', action='store_true', help='Read-only ESPN head-to-head matchup snapshot')
@@ -17000,6 +17466,10 @@ def main():
 
     if args.analyze_risk_guard_weights:
         analyze_risk_guard_weights()
+        return
+
+    if args.analyze_streamer_upside:
+        analyze_streamer_upside()
         return
 
     if args.audit_recommendation_policy:
