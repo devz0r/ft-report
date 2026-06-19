@@ -10132,7 +10132,7 @@ $TOP_BANNER_HTML
 <!-- ===== STREAMING TAB ===== -->
 <div class="tab-view" id="tab-streaming">
 <div class="stream-note">Streaming: $WEEK_RANGE (5-day look-ahead) &bull; Sorted by projected pts/start &bull; Your starters highlighted in gold &bull; Proj ERA/K/9 are rest-of-season projection stats, not ESPN season stats</div>
-<div class="stream-legend">Pitch pills: green/blue/red borders show pitch quality; arrows show matchup fit vs today&rsquo;s opponent (up = favorable, down = risk). HOT/COLD compares last-14-day ERA to projection; COLD means recent ERA is at least 1.5 runs worse.</div>
+<div class="stream-legend">Pitch pills: green/blue/red borders show pitch quality; arrows show matchup fit vs today&rsquo;s opponent (up = favorable, down = risk). ERA trend compares last-14-day ERA to projection; it is context, not a standalone start recommendation.</div>
 <div id="streamContent"></div>
 </div><!-- end tab-streaming -->
 
@@ -10878,7 +10878,7 @@ function streamingRiskGuardSignals(s) {
 
   if (s.trend === 'cold') {
     score += 2;
-    signals.push('COLD tag');
+    signals.push('ERA trend down');
   }
   if (isFinite(recentEra) && recentEra >= 5.14) {
     score += 1;
@@ -11016,8 +11016,8 @@ function streamingExplanation(s) {
   if (s.platoon === 'edge') pushUnique(reasons, 'platoon edge');
   else if (s.platoon === 'risk') pushUnique(risks, 'platoon risk');
 
-  if (s.trend === 'hot') pushUnique(reasons, 'recent form is hot');
-  else if (s.trend === 'cold') pushUnique(risks, 'cold tag: L14D ERA is 1.5+ runs worse than projection');
+  if (s.trend === 'hot') pushUnique(reasons, 'recent ERA is beating projection');
+  else if (s.trend === 'cold') pushUnique(risks, 'ERA trend down: L14D ERA is 1.5+ runs worse than projection');
 
   var goodPitch = pitchFitPhrase(s, 'good');
   var badPitch = pitchFitPhrase(s, 'bad');
@@ -11126,8 +11126,8 @@ function renderPitcherEntry(s, allReal) {
     var splitsLabel = s.splits_window_years ? ('L' + s.splits_window_years) : 'recent';
     h += '<span title="IP-weighted average over the last ' + (s.splits_window_years || 3) + ' seasons. Career averages mask aging-vet decline.">\u2022 ' + splitsLabel + ' vs L: ' + s.vs_l_ops + ' / vs R: ' + s.vs_r_ops + '</span>';
   }
-  if (s.trend === 'hot') h += '<span>\u2022 <span class="trend-hot">\u25B2 HOT</span> (' + (s.recent_era !== null ? s.recent_era.toFixed(2) + ' ERA L14D' : '') + ')</span>';
-  else if (s.trend === 'cold') h += '<span>\u2022 <span class="trend-cold">\u25BC COLD</span> (' + (s.recent_era !== null ? s.recent_era.toFixed(2) + ' ERA L14D' : '') + ')</span>';
+  if (s.trend === 'hot') h += '<span>\u2022 <span class="trend-hot">\u25B2 ERA trend up</span> (' + (s.recent_era !== null ? s.recent_era.toFixed(2) + ' ERA L14D' : '') + ')</span>';
+  else if (s.trend === 'cold') h += '<span>\u2022 <span class="trend-cold">\u25BC ERA trend down</span> (' + (s.recent_era !== null ? s.recent_era.toFixed(2) + ' ERA L14D' : '') + ')</span>';
   // Opponent IL: notable hitters missing from opponent lineup
   if (s.opp_il && s.opp_il.length > 0) {
     var ilNames = s.opp_il.map(function(il) {
