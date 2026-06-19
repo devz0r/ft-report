@@ -1,15 +1,15 @@
 {
   "date": "2026-06-19",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-06-19T00:15:30",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-06-19T13:57:58",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (18.1h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.4h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-06-19T18:20:00+00:00",
-    "hours_to_first_game": 18.07,
+    "hours_to_first_game": 4.37,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.08
   },
   "players": {
     "wyatt langford": {
@@ -2971,17 +2971,6 @@
       "batting_order_raw": null,
       "position": "C"
     },
-    "moises ballesteros": {
-      "name": "Mois\u00e9s Ballesteros",
-      "mlb_id": 694208,
-      "team": "CHC",
-      "game_pk": 824663,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "DH"
-    },
     "seiya suzuki": {
       "name": "Seiya Suzuki",
       "mlb_id": 673548,
@@ -3620,6 +3609,17 @@
       "batting_order_raw": null,
       "position": "3B"
     },
+    "christian moore": {
+      "name": "Christian Moore",
+      "mlb_id": 695681,
+      "team": "LAA",
+      "game_pk": 824990,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "2B"
+    },
     "zach neto": {
       "name": "Zach Neto",
       "mlb_id": 687263,
@@ -3631,17 +3631,6 @@
       "batting_order_raw": null,
       "position": "SS"
     },
-    "trey mancini": {
-      "name": "Trey Mancini",
-      "mlb_id": 641820,
-      "team": "LAA",
-      "game_pk": 824990,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "1B"
-    },
     "nick madrigal": {
       "name": "Nick Madrigal",
       "mlb_id": 663611,
@@ -3652,17 +3641,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
-    },
-    "mike trout": {
-      "name": "Mike Trout",
-      "mlb_id": 545361,
-      "team": "LAA",
-      "game_pk": 824990,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "CF"
     },
     "jo adell": {
       "name": "Jo Adell",
@@ -3686,6 +3664,17 @@
       "batting_order_raw": null,
       "position": "3B"
     },
+    "vaughn grissom": {
+      "name": "Vaughn Grissom",
+      "mlb_id": 687093,
+      "team": "LAA",
+      "game_pk": 824990,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "2B"
+    },
     "nolan schanuel": {
       "name": "Nolan Schanuel",
       "mlb_id": 694384,
@@ -3708,9 +3697,9 @@
       "batting_order_raw": null,
       "position": "LF"
     },
-    "logan porter": {
-      "name": "Logan Porter",
-      "mlb_id": 682515,
+    "tyler heineman": {
+      "name": "Tyler Heineman",
+      "mlb_id": 623168,
       "team": "LAA",
       "game_pk": 824990,
       "lineup_status": "unknown",
