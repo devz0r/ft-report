@@ -11639,5 +11639,62 @@
   "687931": {
     "mlb_id": 687931,
     "pitcher_hand": "L"
+  },
+  "656794": {
+    "mlb_id": 656794,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 94.54385434343436,
+        "pct": 0.31083202
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 80.53710788235294,
+        "pct": 0.026687598
+      },
+      {
+        "code": "SV",
+        "desc": "Slurve",
+        "velo": 82.36518722488036,
+        "pct": 0.32810047
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 86.66106240740743,
+        "pct": 0.042386185
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 93.10914229714284,
+        "pct": 0.2747253
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 90.48494718181819,
+        "pct": 0.017268445
+      }
+    ],
+    "fb_velo": 94.5,
+    "pitch_count": 6,
+    "career_vs_l": {
+      "ops": "0.615",
+      "whip": "1.20",
+      "k9": "8.87",
+      "ip": "47.7"
+    },
+    "career_vs_r": {
+      "ops": "0.710",
+      "whip": "1.35",
+      "k9": "8.56",
+      "ip": "95.7"
+    },
+    "splits_window_years": 3,
+    "pitcher_hand": "L"
   }
 }
