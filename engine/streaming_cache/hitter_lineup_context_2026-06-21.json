@@ -1,15 +1,15 @@
 {
   "date": "2026-06-21",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-06-21T02:58:47",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-06-21T13:07:46",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (14.6h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.5h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-06-21T17:35:00+00:00",
-    "hours_to_first_game": 14.6,
+    "hours_to_first_game": 4.45,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.1
   },
   "players": {
     "wyatt langford": {
@@ -4004,6 +4004,292 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
+    },
+    "lujames groover": {
+      "name": "LuJames Groover",
+      "mlb_id": 694410,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "1B"
+    },
+    "tim tawa": {
+      "name": "Tim Tawa",
+      "mlb_id": 694374,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "LF"
+    },
+    "adrian del castillo": {
+      "name": "Adrian Del Castillo",
+      "mlb_id": 680728,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "DH"
+    },
+    "nolan arenado": {
+      "name": "Nolan Arenado",
+      "mlb_id": 571448,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "3B"
+    },
+    "tommy troy": {
+      "name": "Tommy Troy",
+      "mlb_id": 694371,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "LF"
+    },
+    "ketel marte": {
+      "name": "Ketel Marte",
+      "mlb_id": 606466,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "2B"
+    },
+    "ildemaro vargas": {
+      "name": "Ildemaro Vargas",
+      "mlb_id": 545121,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "1B"
+    },
+    "geraldo perdomo": {
+      "name": "Geraldo Perdomo",
+      "mlb_id": 672695,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "SS"
+    },
+    "gabriel moreno": {
+      "name": "Gabriel Moreno",
+      "mlb_id": 672515,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
+    },
+    "corbin carroll": {
+      "name": "Corbin Carroll",
+      "mlb_id": 682998,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "RF"
+    },
+    "lourdes gurriel": {
+      "name": "Lourdes Gurriel Jr.",
+      "mlb_id": 666971,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "LF"
+    },
+    "pavin smith": {
+      "name": "Pavin Smith",
+      "mlb_id": 656976,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "DH"
+    },
+    "jorge barrosa": {
+      "name": "Jorge Barrosa",
+      "mlb_id": 678489,
+      "team": "AZ",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "CF"
+    },
+    "victor caratini": {
+      "name": "Victor Caratini",
+      "mlb_id": 605170,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
+    },
+    "kody clemens": {
+      "name": "Kody Clemens",
+      "mlb_id": 665019,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "1B"
+    },
+    "brooks lee": {
+      "name": "Brooks Lee",
+      "mlb_id": 686797,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "SS"
+    },
+    "austin martin": {
+      "name": "Austin Martin",
+      "mlb_id": 668885,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "RF"
+    },
+    "tristan gray": {
+      "name": "Tristan Gray",
+      "mlb_id": 656484,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "SS"
+    },
+    "josh bell": {
+      "name": "Josh Bell",
+      "mlb_id": 605137,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "DH"
+    },
+    "kyler fedko": {
+      "name": "Kyler Fedko",
+      "mlb_id": 693459,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "LF"
+    },
+    "ryan kreidler": {
+      "name": "Ryan Kreidler",
+      "mlb_id": 668952,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "CF"
+    },
+    "royce lewis": {
+      "name": "Royce Lewis",
+      "mlb_id": 668904,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "3B"
+    },
+    "trevor larnach": {
+      "name": "Trevor Larnach",
+      "mlb_id": 663616,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "LF"
+    },
+    "byron buxton": {
+      "name": "Byron Buxton",
+      "mlb_id": 621439,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "CF"
+    },
+    "alex jackson": {
+      "name": "Alex Jackson",
+      "mlb_id": 656577,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
+    },
+    "luke keaschall": {
+      "name": "Luke Keaschall",
+      "mlb_id": 807712,
+      "team": "MIN",
+      "game_pk": 825067,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "2B"
     }
   },
   "teams_with_posted_lineups": [],
@@ -4021,6 +4307,7 @@
     824343,
     824664,
     824908,
-    824987
+    824987,
+    825067
   ]
 }
