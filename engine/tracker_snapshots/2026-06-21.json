@@ -1,6 +1,6 @@
 {
   "date": "2026-06-21",
-  "timestamp": "2026-06-21T02:54:10.268638",
+  "timestamp": "2026-06-21T07:28:06.736234",
   "players": [
     {
       "rank": 1,
@@ -4864,7 +4864,8 @@
       "positions": [
         "1B",
         "2B",
-        "3B"
+        "3B",
+        "DH"
       ],
       "displayPos": "2B",
       "team": "LAA",
@@ -15556,21 +15557,6 @@
     },
     {
       "rank": 1053,
-      "name": "Raynel Delgado",
-      "positions": [
-        "2B",
-        "3B"
-      ],
-      "displayPos": "2B",
-      "team": "HOU",
-      "dollars": -43.0,
-      "rpts": 10.2,
-      "type": "hitter",
-      "fg_id": "22272",
-      "espn_id": 41291
-    },
-    {
-      "rank": 1054,
       "name": "Buddy Kennedy",
       "positions": [
         "1B",
@@ -15587,7 +15573,7 @@
       "espn_id": 42985
     },
     {
-      "rank": 1055,
+      "rank": 1054,
       "name": "Manuel Margot",
       "positions": [
         "OF"
@@ -15601,7 +15587,7 @@
       "espn_id": 33599
     },
     {
-      "rank": 1056,
+      "rank": 1055,
       "name": "Nelson Rada",
       "positions": [
         "OF"
@@ -15615,7 +15601,7 @@
       "espn_id": 5197480
     },
     {
-      "rank": 1057,
+      "rank": 1056,
       "name": "Matthew Lugo",
       "positions": [
         "OF"
@@ -15629,7 +15615,7 @@
       "espn_id": 42486
     },
     {
-      "rank": 1058,
+      "rank": 1057,
       "name": "Chuckie Robinson",
       "positions": [
         "C"
@@ -15643,7 +15629,7 @@
       "espn_id": 40354
     },
     {
-      "rank": 1059,
+      "rank": 1058,
       "name": "Yohandy Morales",
       "positions": [
         "1B",
@@ -15658,7 +15644,7 @@
       "espn_id": 4683376
     },
     {
-      "rank": 1060,
+      "rank": 1059,
       "name": "Alika Williams",
       "positions": [
         "2B",
@@ -15673,7 +15659,7 @@
       "espn_id": 4424289
     },
     {
-      "rank": 1061,
+      "rank": 1060,
       "name": "Connor Joe",
       "positions": [
         "OF"
@@ -15687,7 +15673,7 @@
       "espn_id": 35440
     },
     {
-      "rank": 1062,
+      "rank": 1061,
       "name": "Luis Lara",
       "positions": [
         "OF"
@@ -15701,7 +15687,7 @@
       "espn_id": 5138536
     },
     {
-      "rank": 1063,
+      "rank": 1062,
       "name": "Nick Morabito",
       "positions": [
         "OF",
@@ -15716,7 +15702,7 @@
       "espn_id": 5080768
     },
     {
-      "rank": 1064,
+      "rank": 1063,
       "name": "Zach Dezenzo",
       "positions": [
         "OF"
@@ -15730,7 +15716,7 @@
       "espn_id": 5137883
     },
     {
-      "rank": 1065,
+      "rank": 1064,
       "name": "Ronny Mauricio",
       "positions": [
         "3B"
@@ -15744,7 +15730,7 @@
       "espn_id": 40978
     },
     {
-      "rank": 1066,
+      "rank": 1065,
       "name": "Luca Tresh",
       "positions": [
         "C"
@@ -15758,7 +15744,7 @@
       "espn_id": 4416289
     },
     {
-      "rank": 1067,
+      "rank": 1066,
       "name": "Garrett Stubbs",
       "positions": [
         "C",
@@ -15776,7 +15762,7 @@
       "espn_id": 35760
     },
     {
-      "rank": 1068,
+      "rank": 1067,
       "name": "Sam Huff",
       "positions": [
         "C"
@@ -15790,7 +15776,7 @@
       "espn_id": 40798
     },
     {
-      "rank": 1069,
+      "rank": 1068,
       "name": "Hyeseong Kim",
       "positions": [
         "2B",
@@ -15805,7 +15791,7 @@
       "espn_id": 5134614
     },
     {
-      "rank": 1070,
+      "rank": 1069,
       "name": "Bryan De La Cruz",
       "positions": [
         "OF",
@@ -15820,7 +15806,7 @@
       "espn_id": 40787
     },
     {
-      "rank": 1071,
+      "rank": 1070,
       "name": "Gabriel Gonzalez",
       "positions": [
         "OF"
@@ -15834,7 +15820,7 @@
       "espn_id": 4919918
     },
     {
-      "rank": 1072,
+      "rank": 1071,
       "name": "Sebastian Rivero",
       "positions": [
         "C"
@@ -15848,7 +15834,7 @@
       "espn_id": 41447
     },
     {
-      "rank": 1073,
+      "rank": 1072,
       "name": "Justin Dean",
       "positions": [
         "OF"
@@ -15862,7 +15848,7 @@
       "espn_id": 41531
     },
     {
-      "rank": 1074,
+      "rank": 1073,
       "name": "H\u00e9ctor Rodr\u00edguez",
       "positions": [
         "OF"
@@ -15876,7 +15862,7 @@
       "espn_id": 5122878
     },
     {
-      "rank": 1075,
+      "rank": 1074,
       "name": "Christian Cairo",
       "positions": [
         "2B",
@@ -15892,7 +15878,7 @@
       "espn_id": 4995352
     },
     {
-      "rank": 1076,
+      "rank": 1075,
       "name": "Aaron Zavala",
       "positions": [
         "OF"
@@ -15906,7 +15892,7 @@
       "espn_id": 4832161
     },
     {
-      "rank": 1077,
+      "rank": 1076,
       "name": "Dominic Keegan",
       "positions": [
         "C"
@@ -15920,7 +15906,7 @@
       "espn_id": 4414520
     },
     {
-      "rank": 1078,
+      "rank": 1077,
       "name": "Felix Reyes",
       "positions": [
         "1B",
@@ -15936,7 +15922,7 @@
       "espn_id": 5015567
     },
     {
-      "rank": 1079,
+      "rank": 1078,
       "name": "Adael Amador",
       "positions": [
         "2B"
@@ -15950,7 +15936,7 @@
       "espn_id": 4917787
     },
     {
-      "rank": 1080,
+      "rank": 1079,
       "name": "Tim Tawa",
       "positions": [
         "1B",
@@ -15966,7 +15952,7 @@
       "espn_id": 4345192
     },
     {
-      "rank": 1081,
+      "rank": 1080,
       "name": "Carlos Rodr\u00edguez",
       "positions": [
         "OF"
@@ -15980,7 +15966,7 @@
       "espn_id": 41400
     },
     {
-      "rank": 1082,
+      "rank": 1081,
       "name": "Will Banfield",
       "positions": [
         "C"
@@ -15994,7 +15980,7 @@
       "espn_id": 41228
     },
     {
-      "rank": 1083,
+      "rank": 1082,
       "name": "Yohel Pozo",
       "positions": [
         "C"
@@ -16008,7 +15994,7 @@
       "espn_id": 35675
     },
     {
-      "rank": 1084,
+      "rank": 1083,
       "name": "Jeferson Quero",
       "positions": [
         "C"
@@ -16022,7 +16008,7 @@
       "espn_id": 4917867
     },
     {
-      "rank": 1085,
+      "rank": 1084,
       "name": "Jacob Berry",
       "positions": [
         "3B",
@@ -16035,6 +16021,22 @@
       "type": "hitter",
       "fg_id": "sa3019825",
       "espn_id": 4751529
+    },
+    {
+      "rank": 1085,
+      "name": "Raynel Delgado",
+      "positions": [
+        "2B",
+        "3B",
+        "SS"
+      ],
+      "displayPos": "SS",
+      "team": "HOU",
+      "dollars": -43.8,
+      "rpts": 10.2,
+      "type": "hitter",
+      "fg_id": "22272",
+      "espn_id": 41291
     },
     {
       "rank": 1086,
