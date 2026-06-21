@@ -1,30 +1,5 @@
 {
-  "biases": {
-    "auto_recent_era_-inf_2.64": {
-      "applied_delta": 3.5,
-      "basis": "auto:recent_era",
-      "eligible": true,
-      "key": "auto_recent_era_-inf_2.64",
-      "label": "when recent_era \u2264 2.64: +4.5 pts (n=205)",
-      "mean": 4.52,
-      "n": 205,
-      "se": 0.8146,
-      "std": 11.66,
-      "z": 5.55
-    },
-    "trend_hot": {
-      "applied_delta": 3.62,
-      "basis": "trend",
-      "eligible": true,
-      "key": "trend_hot",
-      "label": "on hot streak: +4.3 pts (n=314)",
-      "mean": 4.31,
-      "n": 314,
-      "se": 0.6082,
-      "std": 10.78,
-      "z": 7.09
-    }
-  },
-  "count": 2,
-  "updated_at": "2026-06-20T23:41:55"
+  "biases": {},
+  "count": 0,
+  "updated_at": "2026-06-21T02:54:07"
 }
