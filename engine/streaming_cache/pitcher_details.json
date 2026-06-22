@@ -10086,7 +10086,8 @@
       "k9": "7.92",
       "ip": "142.0"
     },
-    "splits_window_years": 3
+    "splits_window_years": 3,
+    "pitcher_hand": "L"
   },
   "669920": {
     "mlb_id": 669920,
