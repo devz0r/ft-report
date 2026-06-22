@@ -11720,5 +11720,44 @@
   "703615": {
     "mlb_id": 703615,
     "pitcher_hand": "R"
+  },
+  "696270": {
+    "mlb_id": 696270,
+    "pitches": [
+      {
+        "code": "ST",
+        "desc": "Sweeper",
+        "velo": 79.201903,
+        "pct": 0.13899614
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 92.25690881578946,
+        "pct": 0.2934363
+      },
+      {
+        "code": "FS",
+        "desc": "Splitter",
+        "velo": 84.13425941666668,
+        "pct": 0.27799228
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 89.85053617333334,
+        "pct": 0.28957528
+      }
+    ],
+    "fb_velo": 92.3,
+    "pitch_count": 4,
+    "career_vs_r": {
+      "ops": "0.926",
+      "whip": "1.94",
+      "k9": "8.44",
+      "ip": "16.0"
+    },
+    "splits_window_years": 2,
+    "pitcher_hand": "R"
   }
 }
