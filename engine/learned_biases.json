@@ -1,42 +1,5 @@
 {
-  "biases": {
-    "auto_recent_era_-inf_2.63": {
-      "applied_delta": 3.56,
-      "basis": "auto:recent_era",
-      "eligible": true,
-      "key": "auto_recent_era_-inf_2.63",
-      "label": "when recent_era \u2264 2.63: +4.6 pts (n=209)",
-      "mean": 4.58,
-      "n": 209,
-      "se": 0.8002,
-      "std": 11.57,
-      "z": 5.72
-    },
-    "trend_cold": {
-      "applied_delta": -5.0,
-      "basis": "trend",
-      "eligible": true,
-      "key": "trend_cold",
-      "label": "on cold streak: -8.5 pts (n=127)",
-      "mean": -8.49,
-      "n": 127,
-      "se": 1.0896,
-      "std": 12.28,
-      "z": -7.79
-    },
-    "trend_hot": {
-      "applied_delta": 3.65,
-      "basis": "trend",
-      "eligible": true,
-      "key": "trend_hot",
-      "label": "on hot streak: +4.3 pts (n=321)",
-      "mean": 4.33,
-      "n": 321,
-      "se": 0.5965,
-      "std": 10.69,
-      "z": 7.27
-    }
-  },
-  "count": 3,
-  "updated_at": "2026-06-21T23:02:43"
+  "biases": {},
+  "count": 0,
+  "updated_at": "2026-06-22T01:59:43"
 }
