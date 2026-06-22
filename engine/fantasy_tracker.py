@@ -7136,6 +7136,58 @@ def _streamer_edge_report_item(record, edge):
     return item
 
 
+def _stream_target_key(record):
+    return (
+        str(record.get('date') or record.get('game_date') or '')[:10],
+        normalize_name(record.get('name') or record.get('pitcher_name') or ''),
+        record.get('team'),
+        record.get('opponent'),
+        record.get('home_away'),
+    )
+
+
+def annotate_stream_target_badges(streaming_data, hidden_stream_targets_summary):
+    """Attach per-start stream-target badges to existing report rows only."""
+    if not streaming_data or not hidden_stream_targets_summary:
+        return streaming_data
+    items = hidden_stream_targets_summary.get('items') or []
+    by_key = {}
+    for item in items:
+        key = _stream_target_key(item)
+        if key[0] and key[1]:
+            by_key[key] = item
+    out = []
+    for row in streaming_data:
+        rec = dict(row)
+        item = by_key.get(_stream_target_key(rec))
+        edge = None
+        if item:
+            edge = {
+                'grade': item.get('edge_grade'),
+                'score': item.get('edge_score'),
+                'positives': item.get('edge_reasons') or [],
+                'cautions': item.get('edge_cautions') or [],
+            }
+        else:
+            status = rec.get('status')
+            if status in ('FA', 'WAIVER', 'MY ROSTER'):
+                candidate = _streamer_edge_signal_score(rec)
+                if candidate.get('hidden_candidate') and candidate.get('score', 0) >= 3.25:
+                    edge = candidate
+        if edge:
+            rec['stream_target_grade'] = edge.get('grade')
+            rec['stream_target_label'] = f"{edge.get('grade') or 'WATCH'} start"
+            rec['stream_target_score'] = edge.get('score')
+            rec['stream_target_reasons'] = edge.get('positives') or []
+            rec['stream_target_cautions'] = edge.get('cautions') or []
+            if rec.get('risk_guard_applied') or rec.get('risk_guard_reasons') or edge.get('cautions'):
+                rec['stream_target_note'] = 'Good stream shape, but risk guard says caution.'
+            else:
+                rec['stream_target_note'] = 'Best stream shape for this date/opponent.'
+        out.append(rec)
+    return out
+
+
 def build_hidden_stream_targets_summary(base_date=None, records=None, source=None, days=3, limit=8):
     """Find actionable low-obviousness streams with stacked positive context."""
     base_date = base_date or date.today().isoformat()
@@ -7212,6 +7264,7 @@ def build_hidden_stream_targets_summary(base_date=None, records=None, source=Non
         'prediction_enriched_count': enrichment.get('prediction_enriched_count', 0),
         'notes': notes,
         'probable_sanity': probable_report,
+        'backtest': build_stream_target_backtest_summary(),
     }
 
 
@@ -7235,6 +7288,90 @@ def _streamer_upside_band_summary(df, min_n=10):
             'negative_rate': _safe_pct((subset['actual_pts'] <= 0).mean() * 100.0),
         })
     return rows
+
+
+def _advice_rank(advice):
+    return {'SIT': 0, 'BORDERLINE': 1, 'START': 2}.get(str(advice or '').upper(), -1)
+
+
+def _more_conservative_advice(a, b):
+    return a if _advice_rank(a) <= _advice_rank(b) else b
+
+
+def _stream_target_policy_advice(row, use_guard=False):
+    current = row.get('predicted_advice') or 'UNKNOWN'
+    edge = _streamer_edge_signal_score(row)
+    if not edge.get('hidden_candidate') or edge.get('score', 0) < 3.25:
+        target = current
+    elif edge.get('grade') in ('DIAMOND', 'GOLD'):
+        target = 'START'
+    elif edge.get('grade') == 'SILVER':
+        target = 'BORDERLINE'
+    else:
+        target = current
+    if not use_guard:
+        return target
+    guarded = _start_sit_policy_advice(row, VISIBLE_RISK_GUARD_POLICY_KEY)
+    return _more_conservative_advice(target, guarded)
+
+
+def _advice_diff_summary(work, from_col, to_col):
+    changed = work[work[from_col] != work[to_col]].copy()
+    if changed.empty:
+        return {'changed': 0, 'helped': 0, 'hurt': 0, 'neutral': 0}
+    outcomes = [
+        _policy_diff_outcome(row, row.get(from_col), row.get(to_col))
+        for _, row in changed.iterrows()
+    ]
+    return {
+        'changed': int(len(changed)),
+        'helped': int(sum(1 for o in outcomes if o == 'helped')),
+        'hurt': int(sum(1 for o in outcomes if o == 'hurt')),
+        'neutral': int(sum(1 for o in outcomes if o == 'neutral')),
+    }
+
+
+def build_stream_target_backtest_summary():
+    """Read-only comparison of target grades with and without disaster guard."""
+    try:
+        work, source, skipped_source = _load_start_sit_analysis_rows()
+    except Exception as e:
+        return {'available': False, 'note': f'Stream-target backtest unavailable: {type(e).__name__}: {e}'}
+    if work.empty:
+        return {
+            'available': False,
+            'source': source,
+            'skipped_source': skipped_source,
+            'note': 'No labeled starts with actual fantasy points are available yet.',
+        }
+    work = work.copy()
+    work['_stream_target_current'] = [_start_sit_policy_advice(row, 'current') for _, row in work.iterrows()]
+    work['_stream_target_only'] = [_stream_target_policy_advice(row, use_guard=False) for _, row in work.iterrows()]
+    work['_stream_target_guard'] = [_stream_target_policy_advice(row, use_guard=True) for _, row in work.iterrows()]
+    edges = [_streamer_edge_signal_score(row) for _, row in work.iterrows()]
+    work['_stream_edge_grade'] = [e.get('grade') for e in edges]
+    work['_stream_edge_score'] = [e.get('score') for e in edges]
+    work['_stream_edge_hidden'] = [bool(e.get('hidden_candidate')) for e in edges]
+    targets = work[(work['_stream_edge_hidden']) & (work['_stream_edge_score'] >= 3.25)]
+
+    current = _decision_policy_metrics(work, '_stream_target_current')
+    target = _decision_policy_metrics(work, '_stream_target_only')
+    guarded = _decision_policy_metrics(work, '_stream_target_guard')
+    return {
+        'available': True,
+        'source': source,
+        'skipped_source': skipped_source,
+        'labeled_rows': int(len(work)),
+        'target_rows': int(len(targets)),
+        'gold_rows': int((targets['_stream_edge_grade'].isin(['DIAMOND', 'GOLD'])).sum()) if not targets.empty else 0,
+        'silver_rows': int((targets['_stream_edge_grade'] == 'SILVER').sum()) if not targets.empty else 0,
+        'current': current,
+        'stream_target_only': target,
+        'stream_target_guard': guarded,
+        'target_diff': _advice_diff_summary(work, '_stream_target_current', '_stream_target_only'),
+        'guard_diff': _advice_diff_summary(work, '_stream_target_current', '_stream_target_guard'),
+        'note': 'Analysis only. Stream-target badges and backtests do not change scoring, predictions, tiers, or filters.',
+    }
 
 
 def analyze_streamer_upside():
@@ -7298,6 +7435,34 @@ def analyze_streamer_upside():
                 f"{row['good_rate']:>6.1f}% {row['smash_rate']:>6.1f}% "
                 f"{row['bust_rate']:>6.1f}% {row['negative_rate']:>6.1f}%"
             )
+
+    backtest = build_stream_target_backtest_summary()
+    print("\nDecision layer comparison")
+    if not backtest.get('available'):
+        print(f"  {backtest.get('note') or 'Not available yet.'}")
+    else:
+        print(
+            f"  target starts: {backtest.get('target_rows', 0)} "
+            f"(GOLD {backtest.get('gold_rows', 0)}, SILVER {backtest.get('silver_rows', 0)})"
+        )
+        print(f"{'Layer':<24s} {'START bust':>11s} {'Neg rec':>8s} {'Good miss':>10s}")
+        for label, key in (
+            ('Current', 'current'),
+            ('Stream target only', 'stream_target_only'),
+            ('Stream target + guard', 'stream_target_guard'),
+        ):
+            metrics = backtest.get(key) or {}
+            print(
+                f"{label:<24s} {metrics.get('start_bust_rate', 0):>10.1f}% "
+                f"{metrics.get('negative_recommended', 0):>8d} "
+                f"{metrics.get('good_starts_missed', 0):>10d}"
+            )
+        diff = backtest.get('guard_diff') or {}
+        print(
+            "  stream target + guard changes vs current: "
+            f"{diff.get('changed', 0)} changed, "
+            f"{diff.get('helped', 0)}/{diff.get('hurt', 0)}/{diff.get('neutral', 0)} helped/hurt/neutral"
+        )
 
     print("\nTop historical daily stream hits")
     hits = scored[scored['actual_pts'] >= 18].sort_values(['actual_pts', '_stream_edge_score'], ascending=[False, False])
@@ -10223,6 +10388,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                 'count': 0,
                 'notes': [f'Hidden stream targets unavailable: {type(e).__name__}: {e}'],
             }
+    streaming_data = annotate_stream_target_badges(streaming_data, hidden_stream_targets_summary)
     if recommendation_change_summary is None:
         try:
             recommendation_change_summary = build_recommendation_change_summary(
@@ -10442,6 +10608,8 @@ tr.row-mine:hover { background: rgba(251, 191, 36, 0.14) !important; }
 .chip-role-watch { background: rgba(96, 165, 250, 0.15); color: #93c5fd; }
 .chip-role-warn { background: rgba(251, 191, 36, 0.16); color: #fcd34d; }
 .chip-role-bad { background: rgba(248, 113, 113, 0.16); color: #fca5a5; }
+.chip-stream-gold { background: rgba(251, 191, 36, 0.18); color: #fde68a; }
+.chip-stream-silver { background: rgba(148, 163, 184, 0.22); color: #cbd5e1; }
 .stream-row2 { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-size: 11px; color: #666; align-items: center; }
 .stream-row2 span { display: inline-flex; align-items: center; gap: 2px; }
 .opp-easy { color: #34d399; }
@@ -11640,6 +11808,10 @@ function renderPitcherEntry(s, allReal) {
   if (isMine) tagHtml += '<span class="chip chip-mine">ROSTER</span>';
   if (s.emerging) tagHtml += '<span class="chip chip-emerging" title="Based on L14D stats through $HOLD_ASOF">HOLD</span>';
   if (s.risk_guard_applied) tagHtml += '<span class="chip chip-upside" title="Visible recommendation downgraded by the risk guard; points unchanged.">RISK GUARD</span>';
+  if (s.stream_target_label) {
+    var streamTargetCls = s.stream_target_grade === 'DIAMOND' || s.stream_target_grade === 'GOLD' ? 'chip-stream-gold' : 'chip-stream-silver';
+    tagHtml += '<span class="chip ' + streamTargetCls + '" title="' + escHtml(s.stream_target_note || 'Daily stream target for this date/opponent; points unchanged.') + '">' + escHtml(s.stream_target_label) + '</span>';
+  }
   if (s.probable_confidence_label) {
     var roleChipCls = 'chip-role-' + (s.probable_confidence_severity || 'watch');
     tagHtml += '<span class="chip ' + roleChipCls + '" title="' + escHtml(s.probable_confidence_note || '') + '">' + escHtml(s.probable_confidence_label) + '</span>';
@@ -11716,6 +11888,9 @@ function renderPitcherEntry(s, allReal) {
   h += streamingRoleWarning(s);
   h += streamingProjectionSanityWarning(s);
   h += streamingRiskGuardWarning(s);
+  if (s.stream_target_note) {
+    h += '<div class="stream-caution"><b>Stream target:</b> ' + escHtml(s.stream_target_note) + '</div>';
+  }
 
   // Row 3: pitch arsenal matchup
   var pa = s.pitch_analysis;
@@ -12038,6 +12213,45 @@ function renderAccuracy() {
     return h2;
   }
   h += renderPolicyBacktest();
+
+  function renderStreamTargetBacktest() {
+    var b = (HIDDEN_STREAM_TARGETS && HIDDEN_STREAM_TARGETS.backtest) || {};
+    var h2 = '<div class="day-card accuracy-card">';
+    h2 += '<div class="day-header"><span>Daily Stream Target Backtest</span><span style="color:#777;font-size:11px">analysis only</span></div>';
+    if (!b.available) {
+      h2 += '<div class="stream-note" style="color:#777">' + escHtml(b.note || 'Daily stream target backtest is not available yet.') + '</div></div>';
+      return h2;
+    }
+    var current = b.current || {};
+    var target = b.stream_target_only || {};
+    var guarded = b.stream_target_guard || {};
+    var diff = b.guard_diff || {};
+    h2 += '<div class="decision-summary">';
+    h2 += '<span class="decision-pill">Rows <b>' + escHtml(b.labeled_rows || 0) + '</b></span>';
+    h2 += '<span class="decision-pill">Targets <b>' + escHtml(b.target_rows || 0) + '</b></span>';
+    h2 += '<span class="decision-pill">Gold/Silver <b>' + escHtml((b.gold_rows || 0) + '/' + (b.silver_rows || 0)) + '</b></span>';
+    h2 += '<span class="decision-pill">Guard changed <b>' + escHtml(diff.changed || 0) + '</b></span>';
+    h2 += '<span class="decision-pill">Helped/Hurt/Neutral <b>' + escHtml((diff.helped || 0) + '/' + (diff.hurt || 0) + '/' + (diff.neutral || 0)) + '</b></span>';
+    h2 += '</div>';
+    h2 += '<div class="accuracy-table-wrap"><table class="accuracy-table">';
+    h2 += '<tr style="color:#777;font-size:11px;text-transform:uppercase;letter-spacing:0.5px"><td style="padding:4px 16px">Layer</td><td style="padding:4px 16px;text-align:right">START bust</td><td style="padding:4px 16px;text-align:right">Negative starts</td><td style="padding:4px 16px;text-align:right">Good starts missed</td></tr>';
+    [
+      ['Current', current],
+      ['Stream target only', target],
+      ['Stream target + guard', guarded]
+    ].forEach(function(row) {
+      var m = row[1] || {};
+      h2 += '<tr><td style="padding:6px 16px"><b>' + escHtml(row[0]) + '</b></td>';
+      h2 += '<td style="padding:6px 16px;text-align:right">' + Number(m.start_bust_rate || 0).toFixed(1) + '%</td>';
+      h2 += '<td style="padding:6px 16px;text-align:right">' + escHtml(m.negative_recommended == null ? '--' : m.negative_recommended) + '</td>';
+      h2 += '<td style="padding:6px 16px;text-align:right">' + escHtml(m.good_starts_missed == null ? '--' : m.good_starts_missed) + '</td></tr>';
+    });
+    h2 += '</table></div>';
+    h2 += '<div class="stream-note" style="margin:0;color:#777">' + escHtml(b.note || 'Analysis only. Current recommendations are unchanged.') + '</div>';
+    h2 += '</div>';
+    return h2;
+  }
+  h += renderStreamTargetBacktest();
 
   function renderRiskGuardWindow(w) {
     if (!w) return '';
