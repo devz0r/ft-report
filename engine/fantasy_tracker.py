@@ -7331,6 +7331,201 @@ def _advice_diff_summary(work, from_col, to_col):
     }
 
 
+def _stream_target_walk_forward_summary(work, min_train_rows=150, test_days=14):
+    """Evaluate stream-target advice chronologically without future outcomes."""
+    if work.empty or 'game_date' not in work.columns:
+        return {
+            'available': False,
+            'note': 'Walk-forward validation needs dated labeled starts.',
+        }
+
+    dated = work.copy()
+    dated['_walk_date'] = pd.to_datetime(dated['game_date'], errors='coerce')
+    dated = dated.dropna(subset=['_walk_date']).sort_values('_walk_date')
+    if len(dated) < min_train_rows + 25:
+        return {
+            'available': False,
+            'rows': int(len(dated)),
+            'note': (
+                f'Walk-forward validation needs at least {min_train_rows + 25} '
+                'dated starts for a useful train/test split.'
+            ),
+        }
+
+    advice_cols = {
+        'current': '_stream_target_current',
+        'stream_target_only': '_stream_target_only',
+        'stream_target_guard': '_stream_target_guard',
+    }
+    for key, col in advice_cols.items():
+        if col in dated.columns:
+            continue
+        if key == 'current':
+            dated[col] = [_start_sit_policy_advice(row, 'current') for _, row in dated.iterrows()]
+        else:
+            dated[col] = [
+                _stream_target_policy_advice(row, use_guard=(key == 'stream_target_guard'))
+                for _, row in dated.iterrows()
+            ]
+
+    cumulative = dated.groupby('_walk_date').size().cumsum()
+    eligible_dates = cumulative[cumulative >= min_train_rows]
+    if eligible_dates.empty:
+        return {
+            'available': False,
+            'rows': int(len(dated)),
+            'note': 'No date leaves enough prior starts for walk-forward validation.',
+        }
+
+    first_test_date = eligible_dates.index[0] + pd.Timedelta(days=1)
+    max_date = dated['_walk_date'].max()
+    folds = []
+    test_frames = []
+    selected_frames = []
+    cursor = first_test_date
+    fold_number = 1
+
+    while cursor <= max_date:
+        test_end = cursor + pd.Timedelta(days=test_days - 1)
+        train = dated[dated['_walk_date'] < cursor]
+        test = dated[(dated['_walk_date'] >= cursor) & (dated['_walk_date'] <= test_end)].copy()
+        cursor = test_end + pd.Timedelta(days=1)
+        if len(train) < min_train_rows or test.empty:
+            continue
+
+        train_metrics = {
+            key: _decision_policy_metrics(train, col)
+            for key, col in advice_cols.items()
+        }
+        selected_key = max(
+            advice_cols,
+            key=lambda key: (
+                train_metrics[key]['utility_score'],
+                -train_metrics[key]['negative_recommended'],
+                -train_metrics[key]['start_bust_rate'],
+                -train_metrics[key]['good_starts_missed'],
+            ),
+        )
+        selected_col = advice_cols[selected_key]
+        test['_walk_selected'] = test[selected_col]
+        selected_metrics = _decision_policy_metrics(test, '_walk_selected')
+        current_metrics = _decision_policy_metrics(test, advice_cols['current'])
+        folds.append({
+            'fold': fold_number,
+            'train_rows': int(len(train)),
+            'test_rows': int(len(test)),
+            'train_through': (cursor - pd.Timedelta(days=test_days + 1)).strftime('%Y-%m-%d'),
+            'test_start': test['_walk_date'].min().strftime('%Y-%m-%d'),
+            'test_end': test['_walk_date'].max().strftime('%Y-%m-%d'),
+            'selected_key': selected_key,
+            'selected_label': {
+                'current': 'Current advice',
+                'stream_target_only': 'Stream target only',
+                'stream_target_guard': 'Stream target + guard',
+            }[selected_key],
+            'current_start_bust_rate': round(current_metrics['start_bust_rate'], 1),
+            'selected_start_bust_rate': round(selected_metrics['start_bust_rate'], 1),
+            'current_negative': int(current_metrics['negative_recommended']),
+            'selected_negative': int(selected_metrics['negative_recommended']),
+            'current_good_missed': int(current_metrics['good_starts_missed']),
+            'selected_good_missed': int(selected_metrics['good_starts_missed']),
+        })
+        fold_number += 1
+        test_frames.append(test)
+        selected_frames.append(test[['_walk_selected']].copy())
+
+    if not test_frames:
+        return {
+            'available': False,
+            'rows': int(len(dated)),
+            'note': 'No usable chronological test folds were available.',
+        }
+
+    test_rows = pd.concat(test_frames).sort_values('_walk_date')
+    selected_rows = test_rows.copy()
+    selected_rows['_walk_selected'] = pd.concat(selected_frames).sort_index()['_walk_selected']
+    metrics = {
+        key: _decision_policy_metrics(test_rows, col)
+        for key, col in advice_cols.items()
+    }
+    metrics['prior_selected'] = _decision_policy_metrics(selected_rows, '_walk_selected')
+    selected_diff = _advice_diff_summary(
+        selected_rows,
+        advice_cols['current'],
+        '_walk_selected',
+    )
+    guard_diff = _advice_diff_summary(
+        test_rows,
+        advice_cols['current'],
+        advice_cols['stream_target_guard'],
+    )
+
+    current = metrics['current']
+    guarded = metrics['stream_target_guard']
+    negative_delta = guarded['negative_recommended'] - current['negative_recommended']
+    bust_delta = guarded['start_bust_rate'] - current['start_bust_rate']
+    good_missed_delta = guarded['good_starts_missed'] - current['good_starts_missed']
+    if len(test_rows) < 100:
+        status = 'INSUFFICIENT'
+        interpretation = 'The unseen test sample is still too small to trust for recommendation changes.'
+    elif negative_delta < 0 and bust_delta < 0 and guard_diff['helped'] > guard_diff['hurt']:
+        status = 'PROMISING'
+        interpretation = (
+            'On later unseen games, the guarded stream-target layer reduced both bust rate '
+            'and negative recommended starts. The missed-upside cost still matters.'
+        )
+    elif negative_delta < 0 or bust_delta < 0:
+        status = 'MIXED'
+        interpretation = (
+            'The unseen-game result improved one downside metric but not the full tradeoff. '
+            'Keep collecting labels before changing recommendations.'
+        )
+    else:
+        status = 'NOT SUPPORTED'
+        interpretation = (
+            'The stream-target layer did not reduce downside on later unseen games. '
+            'It should remain analysis-only.'
+        )
+
+    selection_counts = {}
+    for fold in folds:
+        key = fold['selected_key']
+        selection_counts[key] = selection_counts.get(key, 0) + 1
+    target_mask = (
+        test_rows.get('_stream_edge_hidden', pd.Series(False, index=test_rows.index)).fillna(False)
+        & (pd.to_numeric(test_rows.get('_stream_edge_score'), errors='coerce').fillna(0) >= 3.25)
+    )
+    return {
+        'available': True,
+        'status': status,
+        'interpretation': interpretation,
+        'rows': int(len(test_rows)),
+        'fold_count': int(len(folds)),
+        'min_train_rows': int(min_train_rows),
+        'test_days': int(test_days),
+        'test_start': test_rows['_walk_date'].min().strftime('%Y-%m-%d'),
+        'test_end': test_rows['_walk_date'].max().strftime('%Y-%m-%d'),
+        'target_rows': int(target_mask.sum()),
+        'selection_counts': selection_counts,
+        'current': current,
+        'stream_target_only': metrics['stream_target_only'],
+        'stream_target_guard': guarded,
+        'prior_selected': metrics['prior_selected'],
+        'guard_diff': guard_diff,
+        'selected_diff': selected_diff,
+        'guard_deltas': {
+            'start_bust_rate': round(bust_delta, 1),
+            'negative_recommended': int(negative_delta),
+            'good_starts_missed': int(good_missed_delta),
+        },
+        'folds': folds,
+        'note': (
+            'Each test block was evaluated only after its policy layer was selected '
+            'from earlier completed starts. Analysis only; recommendations are unchanged.'
+        ),
+    }
+
+
 def build_stream_target_backtest_summary():
     """Read-only comparison of target grades with and without disaster guard."""
     try:
@@ -7353,6 +7548,7 @@ def build_stream_target_backtest_summary():
     work['_stream_edge_score'] = [e.get('score') for e in edges]
     work['_stream_edge_hidden'] = [bool(e.get('hidden_candidate')) for e in edges]
     targets = work[(work['_stream_edge_hidden']) & (work['_stream_edge_score'] >= 3.25)]
+    walk_forward = _stream_target_walk_forward_summary(work)
 
     current = _decision_policy_metrics(work, '_stream_target_current')
     target = _decision_policy_metrics(work, '_stream_target_only')
@@ -7370,8 +7566,81 @@ def build_stream_target_backtest_summary():
         'stream_target_guard': guarded,
         'target_diff': _advice_diff_summary(work, '_stream_target_current', '_stream_target_only'),
         'guard_diff': _advice_diff_summary(work, '_stream_target_current', '_stream_target_guard'),
+        'walk_forward': walk_forward,
         'note': 'Analysis only. Stream-target badges and backtests do not change scoring, predictions, tiers, or filters.',
     }
+
+
+def _print_stream_target_walk_forward(walk_forward):
+    print("\nWalk-forward validation")
+    if not walk_forward or not walk_forward.get('available'):
+        print(f"  {walk_forward.get('note') if walk_forward else 'Not available yet.'}")
+        return
+    print(
+        f"  verdict: {walk_forward.get('status')} | "
+        f"{walk_forward.get('rows', 0)} unseen rows across "
+        f"{walk_forward.get('fold_count', 0)} chronological folds"
+    )
+    print(
+        f"  test range: {walk_forward.get('test_start')} to {walk_forward.get('test_end')} | "
+        f"target rows: {walk_forward.get('target_rows', 0)}"
+    )
+    print(f"{'Layer':<24s} {'START bust':>11s} {'Neg rec':>8s} {'Good miss':>10s}")
+    for label, key in (
+        ('Current', 'current'),
+        ('Stream target only', 'stream_target_only'),
+        ('Stream target + guard', 'stream_target_guard'),
+        ('Prior-only selected', 'prior_selected'),
+    ):
+        metrics = walk_forward.get(key) or {}
+        print(
+            f"{label:<24s} {metrics.get('start_bust_rate', 0):>10.1f}% "
+            f"{metrics.get('negative_recommended', 0):>8d} "
+            f"{metrics.get('good_starts_missed', 0):>10d}"
+        )
+    deltas = walk_forward.get('guard_deltas') or {}
+    print(
+        "  guarded layer vs current: "
+        f"bust {deltas.get('start_bust_rate', 0):+.1f} pts, "
+        f"negative starts {deltas.get('negative_recommended', 0):+d}, "
+        f"good starts missed {deltas.get('good_starts_missed', 0):+d}"
+    )
+    print(f"  {walk_forward.get('interpretation')}")
+    print(f"  {walk_forward.get('note')}")
+
+
+def analyze_stream_target_walk_forward():
+    """Read-only chronological validation of daily stream-target advice."""
+    print("DAILY STREAM TARGET WALK-FORWARD VALIDATION")
+    print("=" * 60)
+    print("Analysis only: no scoring, predictions, tiers, or recommendations are changed.")
+    work, source, skipped_source = _load_start_sit_analysis_rows()
+    if skipped_source:
+        print(f"Warehouse source skipped: {skipped_source}")
+    print(f"Source: {source}")
+    if work.empty:
+        print("No labeled starts with actual fantasy points are available yet.")
+        return {'available': False}
+
+    work = work.copy()
+    work['_stream_target_current'] = [_start_sit_policy_advice(row, 'current') for _, row in work.iterrows()]
+    work['_stream_target_only'] = [_stream_target_policy_advice(row, use_guard=False) for _, row in work.iterrows()]
+    work['_stream_target_guard'] = [_stream_target_policy_advice(row, use_guard=True) for _, row in work.iterrows()]
+    edges = [_streamer_edge_signal_score(row) for _, row in work.iterrows()]
+    work['_stream_edge_grade'] = [e.get('grade') for e in edges]
+    work['_stream_edge_score'] = [e.get('score') for e in edges]
+    work['_stream_edge_hidden'] = [bool(e.get('hidden_candidate')) for e in edges]
+    summary = _stream_target_walk_forward_summary(work)
+    _print_stream_target_walk_forward(summary)
+    if summary.get('available'):
+        print("\nFold choices (chosen using prior results only)")
+        for fold in summary.get('folds', []):
+            print(
+                f"  - {fold['test_start']} to {fold['test_end']}: "
+                f"{fold['selected_label']} "
+                f"(train n={fold['train_rows']}, test n={fold['test_rows']})"
+            )
+    return summary
 
 
 def analyze_streamer_upside():
@@ -7463,6 +7732,7 @@ def analyze_streamer_upside():
             f"{diff.get('changed', 0)} changed, "
             f"{diff.get('helped', 0)}/{diff.get('hurt', 0)}/{diff.get('neutral', 0)} helped/hurt/neutral"
         )
+        _print_stream_target_walk_forward(backtest.get('walk_forward'))
 
     print("\nTop historical daily stream hits")
     hits = scored[scored['actual_pts'] >= 18].sort_values(['actual_pts', '_stream_edge_score'], ascending=[False, False])
@@ -12247,6 +12517,23 @@ function renderAccuracy() {
       h2 += '<td style="padding:6px 16px;text-align:right">' + escHtml(m.good_starts_missed == null ? '--' : m.good_starts_missed) + '</td></tr>';
     });
     h2 += '</table></div>';
+    var wf = b.walk_forward || {};
+    h2 += '<div class="accuracy-list" style="margin-top:8px">';
+    h2 += '<div class="accuracy-row">';
+    h2 += '<div class="accuracy-row-main"><b>Walk-forward: ' + escHtml(wf.available ? (wf.status || 'UNKNOWN') : 'NOT AVAILABLE') + '</b></div>';
+    if (wf.available) {
+      var wfCurrent = wf.current || {};
+      var wfGuard = wf.stream_target_guard || {};
+      var wfDelta = wf.guard_deltas || {};
+      h2 += '<div class="accuracy-row-detail">' + escHtml(wf.rows || 0) + ' later unseen starts across ' + escHtml(wf.fold_count || 0) + ' folds';
+      h2 += ' &middot; START bust ' + Number(wfCurrent.start_bust_rate || 0).toFixed(1) + '%→' + Number(wfGuard.start_bust_rate || 0).toFixed(1) + '%';
+      h2 += ' &middot; negative starts ' + escHtml(wfCurrent.negative_recommended || 0) + '→' + escHtml(wfGuard.negative_recommended || 0);
+      h2 += ' &middot; good missed ' + escHtml(wfCurrent.good_starts_missed || 0) + '→' + escHtml(wfGuard.good_starts_missed || 0) + '</div>';
+      h2 += '<div class="accuracy-row-detail">' + escHtml(wf.interpretation || '') + '</div>';
+    } else {
+      h2 += '<div class="accuracy-row-detail">' + escHtml(wf.note || 'Not enough chronological labels yet.') + '</div>';
+    }
+    h2 += '</div></div>';
     h2 += '<div class="stream-note" style="margin:0;color:#777">' + escHtml(b.note || 'Analysis only. Current recommendations are unchanged.') + '</div>';
     h2 += '</div>';
     return h2;
@@ -17692,6 +17979,7 @@ def main():
     parser.add_argument('--analyze-start-sit-policy-backtest', action='store_true', help='Read-only comparison of alternate start/sit decision policies')
     parser.add_argument('--analyze-risk-guard-weights', action='store_true', help='Read-only comparison of weighted risk-guard overlays')
     parser.add_argument('--analyze-streamer-upside', action='store_true', help='Read-only hidden-stream upside signal analysis')
+    parser.add_argument('--analyze-stream-target-walk-forward', action='store_true', help='Read-only chronological validation of daily stream-target advice')
     parser.add_argument('--audit-recommendation-policy', action='store_true', help='Read-only audit of raw model tiers vs visible recommendation overlay')
     parser.add_argument('--daily-decision-audit', action='store_true', help='Read-only daily pitching decision summary from existing prediction logs')
     parser.add_argument('--matchup-snapshot', action='store_true', help='Read-only ESPN head-to-head matchup snapshot')
@@ -17792,6 +18080,10 @@ def main():
 
     if args.analyze_streamer_upside:
         analyze_streamer_upside()
+        return
+
+    if args.analyze_stream_target_walk_forward:
+        analyze_stream_target_walk_forward()
         return
 
     if args.audit_recommendation_policy:
