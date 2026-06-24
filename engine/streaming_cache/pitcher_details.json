@@ -11814,5 +11814,22 @@
   "683352": {
     "mlb_id": 683352,
     "pitcher_hand": "L"
+  },
+  "676664": {
+    "mlb_id": 676664,
+    "career_vs_l": {
+      "ops": "0.715",
+      "whip": "1.09",
+      "k9": "8.05",
+      "ip": "60.3"
+    },
+    "career_vs_r": {
+      "ops": "0.798",
+      "whip": "1.31",
+      "k9": "7.06",
+      "ip": "255.0"
+    },
+    "splits_window_years": 2,
+    "pitcher_hand": "L"
   }
 }
