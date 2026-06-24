@@ -11832,5 +11832,16 @@
     },
     "splits_window_years": 2,
     "pitcher_hand": "L"
+  },
+  "687223": {
+    "mlb_id": 687223,
+    "career_vs_r": {
+      "ops": "0.976",
+      "whip": "1.88",
+      "k9": "5.19",
+      "ip": "26.0"
+    },
+    "splits_window_years": 1,
+    "pitcher_hand": "L"
   }
 }
