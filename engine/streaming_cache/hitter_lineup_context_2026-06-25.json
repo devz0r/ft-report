@@ -1,15 +1,15 @@
 {
   "date": "2026-06-25",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-06-25T00:06:32",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-06-25T11:18:19",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (16.1h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.9h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-06-25T16:10:00+00:00",
-    "hours_to_first_game": 16.06,
+    "hours_to_first_game": 4.86,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.11
   },
   "players": {
     "cj abrams": {
@@ -760,6 +760,17 @@
       "batting_order_raw": null,
       "position": "2B"
     },
+    "josh rojas": {
+      "name": "Josh Rojas",
+      "mlb_id": 668942,
+      "team": "KC",
+      "game_pk": 822961,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "3B"
+    },
     "isaac collins": {
       "name": "Isaac Collins",
       "mlb_id": 686555,
@@ -825,17 +836,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
-    },
-    "maikel garcia": {
-      "name": "Maikel Garcia",
-      "mlb_id": 672580,
-      "team": "KC",
-      "game_pk": 822961,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
     },
     "lane thomas": {
       "name": "Lane Thomas",
