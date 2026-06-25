@@ -1,6 +1,6 @@
 {
   "date": "2026-06-25",
-  "timestamp": "2026-06-25T04:40:37.554795",
+  "timestamp": "2026-06-25T08:18:16.462842",
   "players": [
     {
       "rank": 1,
@@ -9408,6 +9408,7 @@
       "rank": 637,
       "name": "Tyler Callihan",
       "positions": [
+        "1B",
         "2B",
         "3B",
         "OF"
@@ -12490,8 +12491,7 @@
       "rank": 845,
       "name": "Spencer Jones",
       "positions": [
-        "OF",
-        "DH"
+        "OF"
       ],
       "displayPos": "OF",
       "team": "NYY",
@@ -12939,7 +12939,8 @@
       "positions": [
         "2B",
         "3B",
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "2B",
       "team": "STL",
