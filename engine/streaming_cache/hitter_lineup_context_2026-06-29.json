@@ -1,15 +1,15 @@
 {
   "date": "2026-06-29",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-06-29T00:11:51",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-06-29T17:35:52",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (22.4h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (5.0h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-06-29T22:35:00+00:00",
-    "hours_to_first_game": 22.39,
+    "hours_to_first_game": 4.99,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.11
   },
   "players": {
     "luis urias": {
