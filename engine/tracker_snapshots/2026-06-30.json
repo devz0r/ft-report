@@ -1,6 +1,6 @@
 {
   "date": "2026-06-30",
-  "timestamp": "2026-06-30T10:27:25.274337",
+  "timestamp": "2026-06-30T12:28:45.400001",
   "players": [
     {
       "rank": 1,
@@ -10506,7 +10506,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "HOU",
       "dollars": -30.4,
       "rpts": 45.0,
       "type": "pitcher",
@@ -11628,7 +11628,7 @@
         "2B"
       ],
       "displayPos": "2B",
-      "team": "",
+      "team": "TEX",
       "dollars": -32.2,
       "rpts": 38.9,
       "type": "hitter",
@@ -13760,7 +13760,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "",
+      "team": "TEX",
       "dollars": -36.2,
       "rpts": 29.0,
       "type": "pitcher",
@@ -14411,7 +14411,7 @@
         "SS"
       ],
       "displayPos": "SS",
-      "team": "",
+      "team": "OAK",
       "dollars": -37.3,
       "rpts": 23.9,
       "type": "hitter",
