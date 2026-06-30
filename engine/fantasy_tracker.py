@@ -146,6 +146,11 @@ RECENT_TREND_MIN_IP_FALLBACK = 15.0
 RECENT_TREND_SEVERE_COLD_MIN_STARTS = 2
 RECENT_TREND_SEVERE_COLD_MIN_IP = 8.0
 RECENT_TREND_SEVERE_COLD_ERA = 7.0
+RECENT_TREND_HOT_VETO_LAST_TWO_MIN_IP = 8.0
+RECENT_TREND_HOT_VETO_ERA = 5.25
+RECENT_TREND_HOT_VETO_PROJ_GAP = 0.75
+RECENT_TREND_HOT_VETO_RECENT_GAP = 1.50
+RECENT_TREND_HOT_MAX_WHIP = 1.45
 
 NAME_OVERRIDES = {}
 
@@ -3101,8 +3106,42 @@ def _recent_form_from_workload(workload_entry, target_game_date, window_days=14)
         'ERA': (total_er / total_ip) * 9.0,
         'WHIP': ((total_bb + total_h) / total_ip) if has_whip_parts else None,
         'K9': (total_k / total_ip) * 9.0 if has_k else None,
+        'starts': recent_starts,
         'source': 'workload_actual_recent',
     }
+
+
+def _recent_actual_starts_for_trend(workload_entry, target_game_date, limit=3, lookback_days=21):
+    """Pregame-safe recent actual starts used only to sanity-check trend tags."""
+    starts = list((workload_entry or {}).get('starts') or [])
+    try:
+        target_dt = date.fromisoformat(str(target_game_date)[:10])
+    except Exception:
+        return []
+    cutoff_dt = target_dt - timedelta(days=lookback_days)
+    out = []
+    for start in starts:
+        try:
+            start_dt = date.fromisoformat(str(start.get('date') or '')[:10])
+        except Exception:
+            continue
+        if not (cutoff_dt <= start_dt < target_dt):
+            continue
+        ip = _safe_float(start.get('ip'))
+        er = _safe_int(start.get('er'))
+        if ip is None or ip <= 0 or er is None:
+            continue
+        out.append({
+            'date': start_dt.isoformat(),
+            'ip': ip,
+            'er': er,
+            'bb': _safe_int(start.get('bb')),
+            'h': _safe_int(start.get('h')),
+            'k': _safe_int(start.get('k')),
+            'source': start.get('source') or 'workload_history',
+        })
+    out.sort(key=lambda s: s.get('date') or '', reverse=True)
+    return out[:limit]
 
 
 def compute_pitcher_workload(predictions_dir, outcomes_log, pitcher_ids_by_name=None):
@@ -3736,8 +3775,34 @@ def classify_pitcher(proj):
     return ''
 
 
-def assess_trend(proj, recent):
-    """Assess recent form vs projection. Returns 'hot', 'cold', or ''.
+def _recent_hot_veto_note(proj_era, recent_era, recent_actual_starts):
+    """Return a short note when last-start direction argues against HOT."""
+    starts = list(recent_actual_starts or [])
+    if len(starts) < 2:
+        return ''
+    last_two = starts[:2]
+    total_ip = sum((_safe_float(s.get('ip')) or 0.0) for s in last_two)
+    total_er = sum((_safe_int(s.get('er')) or 0) for s in last_two)
+    if total_ip < RECENT_TREND_HOT_VETO_LAST_TWO_MIN_IP:
+        return ''
+    last_two_era = (total_er / total_ip) * 9.0 if total_ip else None
+    if last_two_era is None:
+        return ''
+    if (
+        last_two_era >= RECENT_TREND_HOT_VETO_ERA
+        and last_two_era >= proj_era + RECENT_TREND_HOT_VETO_PROJ_GAP
+        and last_two_era >= recent_era + RECENT_TREND_HOT_VETO_RECENT_GAP
+    ):
+        dates = ', '.join(s.get('date') or '?' for s in last_two)
+        return (
+            f"mixed recent form: last two actual starts {last_two_era:.2f} ERA "
+            f"({dates}), so HOT boost withheld"
+        )
+    return ''
+
+
+def assess_trend_detail(proj, recent, recent_actual_starts=None):
+    """Assess recent form vs projection. Returns (trend, note).
 
     Bug fix: previously a high recent K/9 would trigger HOT even if ERA
     was much worse than projection (Senga had 8.83 L14D ERA but high K/9 ->
@@ -3745,7 +3810,7 @@ def assess_trend(proj, recent):
     K/9 alone can only signal HOT when ERA is at least near projection.
     """
     if not recent:
-        return ''
+        return '', ''
     try:
         recent_ip = float(recent.get('IP') or 0.0)
     except Exception:
@@ -3756,6 +3821,7 @@ def assess_trend(proj, recent):
         recent_starts = None
     proj_era = _safe_float(proj.get('ERA'), 4.0)
     recent_era = _safe_float(recent.get('ERA'), proj_era)
+    recent_whip = _safe_float(recent.get('WHIP'))
     proj_k9 = _safe_float(proj.get('K9'), 8.0)
     recent_k9 = _safe_float(recent.get('K9'), proj_k9)
 
@@ -3770,20 +3836,31 @@ def assess_trend(proj, recent):
         and recent_era >= max(RECENT_TREND_SEVERE_COLD_ERA, proj_era + 3.0)
     )
     if not sample_ok and not severe_cold_ok:
-        return ''
+        return '', ''
 
     # COLD takes priority — if recent ERA is significantly worse, label cold
     # even if K/9 is up.
     if recent_era >= proj_era + 1.5:
-        return 'cold'
+        return 'cold', ''
     if not sample_ok:
-        return ''
+        return '', ''
     # HOT only when recent ERA is at or below projection (with small slack)
     if recent_era <= proj_era + 0.3 and (
         recent_era <= proj_era - 1.0 or recent_k9 >= proj_k9 + 2.0
     ):
-        return 'hot'
-    return ''
+        if recent_whip is not None and recent_whip >= RECENT_TREND_HOT_MAX_WHIP:
+            return '', f"mixed recent form: {recent_whip:.2f} WHIP L14D, so HOT boost withheld"
+        veto_note = _recent_hot_veto_note(proj_era, recent_era, recent_actual_starts)
+        if veto_note:
+            return '', veto_note
+        return 'hot', ''
+    return '', ''
+
+
+def assess_trend(proj, recent, recent_actual_starts=None):
+    """Backward-compatible trend label helper."""
+    trend, _note = assess_trend_detail(proj, recent, recent_actual_starts)
+    return trend
 
 
 def assess_emerging(proj, recent, base_pts):
@@ -4786,13 +4863,15 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
 
         # Tags and context
         tag = classify_pitcher(proj)
+        wl_for_form = (pitcher_workload or {}).get(normalize_name(fg_name), {}) if pitcher_workload else {}
         recent = recent_form.get(norm_key) or recent_form.get(normalize_name(pitcher_name))
         if not recent and pitcher_workload:
             recent = _recent_form_from_workload(
-                (pitcher_workload or {}).get(normalize_name(fg_name), {}),
+                wl_for_form,
                 game['date'],
             )
-        trend = assess_trend(proj, recent)
+        recent_actual_starts = _recent_actual_starts_for_trend(wl_for_form, game['date'])
+        trend, trend_note = assess_trend_detail(proj, recent, recent_actual_starts)
         # Use global emerging map if available (covers all FA + roster SPs)
         # so per-game streaming display matches the global HOLD assessment.
         if global_emerging is not None:
@@ -4884,9 +4963,11 @@ def build_streaming_data(schedule, fg_proj, recent_form, team_offense,
             'splits_window_years': details.get('splits_window_years'),
             'tag': tag,
             'trend': trend,
+            'trend_note': trend_note,
             'recent_era': round(recent['ERA'], 2) if recent else None,
             'recent_ip': round(recent.get('IP'), 1) if recent and recent.get('IP') is not None else None,
             'recent_k9': round(recent.get('K9'), 1) if recent and recent.get('K9') is not None else None,
+            'recent_whip': round(recent.get('WHIP'), 2) if recent and recent.get('WHIP') is not None else None,
             'fb_velo': details.get('fb_velo'),
             'pitch_count': details.get('pitch_count', 0),
             'status': status,
@@ -5078,7 +5159,9 @@ def _fast_preview_streaming_entry(record):
         'splits_window_years': features.get('splits_window_years'),
         'tag': features.get('tag') or '',
         'trend': features.get('trend') or '',
+        'trend_note': features.get('trend_note') or '',
         'recent_era': _fast_preview_float(recent_era, None) if recent_era is not None else None,
+        'recent_whip': _fast_preview_float(features.get('recent_whip'), None) if features.get('recent_whip') is not None else None,
         'emerging': bool(features.get('emerging')),
         'fb_velo': _fast_preview_float(features.get('fb_velo'), None) if features.get('fb_velo') is not None else None,
         'pitch_count': features.get('pitch_count'),
@@ -5246,6 +5329,7 @@ def _decision_risk_boost_flags(record):
     opp_rank = _feature_float(features, 'opp_rank')
     park_factor = _feature_float(features, 'park_factor')
     recent_era = _feature_float(features, 'recent_era')
+    recent_whip = _feature_float(features, 'recent_whip')
     workload_risk = _feature_float(features, 'workload_risk_score')
     pitch_matchup = _feature_float(features, 'pitch_matchup_score')
     opp_il_count = _feature_float(features, 'opp_il_count', 0) or 0
@@ -5273,11 +5357,15 @@ def _decision_risk_boost_flags(record):
         risks.append('cold recent trend')
     elif features.get('trend') == 'hot':
         boosts.append('hot recent trend')
+    elif features.get('trend_note'):
+        risks.append(_compact_decision_text(features.get('trend_note'), 64))
     if recent_era is not None:
         if recent_era >= 5.0:
             risks.append(f'recent ERA {recent_era:.2f}')
         elif recent_era <= 3.5:
             boosts.append(f'recent ERA {recent_era:.2f}')
+    if recent_whip is not None and recent_whip >= RECENT_TREND_HOT_MAX_WHIP:
+        risks.append(f'recent WHIP {recent_whip:.2f}')
     if workload_risk is not None and workload_risk >= 0.6:
         risks.append(f'workload risk {workload_risk:.2f}')
     if features.get('workload_note') and workload_risk is not None and workload_risk >= 0.4:
@@ -5571,7 +5659,9 @@ def _decision_record_from_streaming_entry(entry):
         'splits_window_years': entry.get('splits_window_years'),
         'tag': entry.get('tag'),
         'trend': entry.get('trend'),
+        'trend_note': entry.get('trend_note'),
         'recent_era': entry.get('recent_era'),
+        'recent_whip': entry.get('recent_whip'),
         'fb_velo': entry.get('fb_velo'),
         'pitch_count': entry.get('pitch_count'),
         'emerging': entry.get('emerging'),
@@ -11874,6 +11964,7 @@ function streamingRiskGuardSignals(s) {
   var signals = [];
   var score = 0;
   var recentEra = Number(s.recent_era);
+  var recentWhip = Number(s.recent_whip);
   var oppRank = Number(s.opp_rank || 15);
   var parkFactor = Number(s.park_factor || 0);
   var k9 = Number(s.k9 || s.proj_k9 || 0);
@@ -11885,9 +11976,17 @@ function streamingRiskGuardSignals(s) {
     score += 2;
     signals.push('ERA trend down');
   }
+  if (s.trend_note) {
+    score += 1;
+    signals.push('mixed recent form');
+  }
   if (isFinite(recentEra) && recentEra >= 5.14) {
     score += 1;
     signals.push('recent ERA >= 5.14');
+  }
+  if (isFinite(recentWhip) && recentWhip >= 1.45) {
+    score += 1;
+    signals.push('high recent WHIP');
   }
   if (isFinite(oppRank) && oppRank <= 10) {
     score += 1;
@@ -12023,6 +12122,7 @@ function streamingExplanation(s) {
 
   if (s.trend === 'hot') pushUnique(reasons, 'recent ERA is beating projection');
   else if (s.trend === 'cold') pushUnique(risks, 'ERA trend down: L14D ERA is 1.5+ runs worse than projection');
+  else if (s.trend_note) pushUnique(risks, shortReason(s.trend_note, 70));
 
   var goodPitch = pitchFitPhrase(s, 'good');
   var badPitch = pitchFitPhrase(s, 'bad');
@@ -12137,6 +12237,7 @@ function renderPitcherEntry(s, allReal) {
   }
   if (s.trend === 'hot') h += '<span>\u2022 <span class="trend-hot">\u25B2 ERA trend up</span> (' + (s.recent_era !== null ? s.recent_era.toFixed(2) + ' ERA L14D' : '') + ')</span>';
   else if (s.trend === 'cold') h += '<span>\u2022 <span class="trend-cold">\u25BC ERA trend down</span> (' + (s.recent_era !== null ? s.recent_era.toFixed(2) + ' ERA L14D' : '') + ')</span>';
+  else if (s.trend_note) h += '<span>\u2022 \u26A0 ' + escHtml(shortReason(s.trend_note, 110)) + '</span>';
   // Opponent IL: notable hitters missing from opponent lineup
   if (s.opp_il && s.opp_il.length > 0) {
     var ilNames = s.opp_il.map(function(il) {
@@ -16564,7 +16665,7 @@ _register_features([
 ], 'matchup', ['base_projection', 'learned_bias_scan', 'prediction_log'])
 
 _register_features([
-    'tag', 'trend', 'recent_era', 'recent_ip', 'recent_k9',
+    'tag', 'trend', 'trend_note', 'recent_era', 'recent_ip', 'recent_k9', 'recent_whip',
     'fb_velo', 'pitch_count', 'emerging',
 ], 'form_and_pitcher_context', ['base_projection', 'learned_bias_scan', 'prediction_log'])
 
@@ -16780,9 +16881,11 @@ def log_prediction(entry):
             ) if entry.get('vs_l_ops') and entry.get('vs_r_ops') else None,
             'tag': entry.get('tag'),
             'trend': entry.get('trend'),
+            'trend_note': entry.get('trend_note'),
             'recent_era': entry.get('recent_era'),
             'recent_ip': entry.get('recent_ip'),
             'recent_k9': entry.get('recent_k9'),
+            'recent_whip': entry.get('recent_whip'),
             'fb_velo': entry.get('fb_velo'),
             'pitch_count': entry.get('pitch_count'),
             'emerging': entry.get('emerging'),
