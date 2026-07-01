@@ -12120,5 +12120,22 @@
     },
     "splits_window_years": 3,
     "pitcher_hand": "R"
+  },
+  "668881": {
+    "mlb_id": 668881,
+    "career_vs_l": {
+      "ops": "0.601",
+      "whip": "0.99",
+      "k9": "11.74",
+      "ip": "125.0"
+    },
+    "career_vs_r": {
+      "ops": "0.589",
+      "whip": "0.99",
+      "k9": "9.53",
+      "ip": "130.3"
+    },
+    "splits_window_years": 2,
+    "pitcher_hand": "R"
   }
 }
