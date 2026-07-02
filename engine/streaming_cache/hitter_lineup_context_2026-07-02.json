@@ -1,15 +1,15 @@
 {
   "date": "2026-07-02",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-02T02:38:01",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-02T12:08:22",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (13.9h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.4h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-02T16:35:00+00:00",
-    "hours_to_first_game": 13.95,
+    "hours_to_first_game": 4.44,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.08
   },
   "players": {
     "evan carter": {
@@ -1937,17 +1937,6 @@
       "batting_order_raw": null,
       "position": "2B"
     },
-    "graham pauley": {
-      "name": "Graham Pauley",
-      "mlb_id": 688363,
-      "team": "MIA",
-      "game_pk": 824335,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
-    },
     "kyle stowers": {
       "name": "Kyle Stowers",
       "mlb_id": 669065,
@@ -1958,6 +1947,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "LF"
+    },
+    "liam hicks": {
+      "name": "Liam Hicks",
+      "mlb_id": 689414,
+      "team": "MIA",
+      "game_pk": 824335,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
     },
     "owen caissie": {
       "name": "Owen Caissie",
