@@ -1,15 +1,15 @@
 {
   "date": "2026-07-03",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-03T16:24:56",
+  "refreshed_at": "2026-07-03T17:57:27",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (3.7h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (2.1h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-03T20:05:00+00:00",
-    "hours_to_first_game": 3.67,
+    "hours_to_first_game": 2.13,
     "cached_posted_teams": 0,
-    "cache_age_hours": 0.09
+    "cache_age_hours": 0.05
   },
   "players": {
     "cj abrams": {
@@ -2591,10 +2591,10 @@
       "mlb_id": 624424,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
       "position": "DH"
     },
     "ian happ": {
@@ -2602,10 +2602,10 @@
       "mlb_id": 664023,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "LF"
     },
     "alex bregman": {
@@ -2613,10 +2613,10 @@
       "mlb_id": 608324,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "3B"
     },
     "pedro ramirez": {
@@ -2624,8 +2624,8 @@
       "mlb_id": 699393,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
@@ -2635,10 +2635,10 @@
       "mlb_id": 683737,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "1B"
     },
     "carson kelly": {
@@ -2646,10 +2646,10 @@
       "mlb_id": 608348,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
       "position": "C"
     },
     "pete crow-armstrong": {
@@ -2657,10 +2657,10 @@
       "mlb_id": 691718,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
       "position": "CF"
     },
     "miguel amaya": {
@@ -2668,8 +2668,8 @@
       "mlb_id": 665804,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -2679,10 +2679,10 @@
       "mlb_id": 673548,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "RF"
     },
     "justin dean": {
@@ -2690,8 +2690,8 @@
       "mlb_id": 681909,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "CF"
@@ -2701,8 +2701,8 @@
       "mlb_id": 682634,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "DH"
@@ -2712,10 +2712,10 @@
       "mlb_id": 621020,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "SS"
     },
     "nico hoerner": {
@@ -2723,10 +2723,10 @@
       "mlb_id": 663538,
       "team": "CHC",
       "game_pk": 824659,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "2B"
     },
     "bryan torres": {
@@ -3720,7 +3720,9 @@
       "position": "C"
     }
   },
-  "teams_with_posted_lineups": [],
+  "teams_with_posted_lineups": [
+    "CHC"
+  ],
   "game_pks": [
     822714,
     823120,
