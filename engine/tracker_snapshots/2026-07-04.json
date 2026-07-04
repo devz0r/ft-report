@@ -1,6 +1,6 @@
 {
   "date": "2026-07-04",
-  "timestamp": "2026-07-04T05:02:47.892796",
+  "timestamp": "2026-07-04T08:08:19.549182",
   "players": [
     {
       "rank": 1,
@@ -6756,6 +6756,20 @@
     },
     {
       "rank": 459,
+      "name": "Denzer Guzman",
+      "positions": [
+        "3B"
+      ],
+      "displayPos": "3B",
+      "team": "LAA",
+      "dollars": -19.6,
+      "rpts": 73.1,
+      "type": "hitter",
+      "fg_id": "28816",
+      "espn_id": 4917822
+    },
+    {
+      "rank": 460,
       "name": "Griffin Conine",
       "positions": [
         "OF"
@@ -6769,7 +6783,7 @@
       "espn_id": 41295
     },
     {
-      "rank": 460,
+      "rank": 461,
       "name": "Adrian Morejon",
       "positions": [
         "P"
@@ -6784,7 +6798,7 @@
       "espn_id": 40917
     },
     {
-      "rank": 461,
+      "rank": 462,
       "name": "Dylan Lee",
       "positions": [
         "P"
@@ -6799,7 +6813,7 @@
       "espn_id": 41455
     },
     {
-      "rank": 462,
+      "rank": 463,
       "name": "Garrett Cleavinger",
       "positions": [
         "P"
@@ -6814,7 +6828,7 @@
       "espn_id": 36429
     },
     {
-      "rank": 463,
+      "rank": 464,
       "name": "Jeff Hoffman",
       "positions": [
         "P"
@@ -6829,7 +6843,7 @@
       "espn_id": 33841
     },
     {
-      "rank": 464,
+      "rank": 465,
       "name": "Josh Lowe",
       "positions": [
         "OF"
@@ -6843,7 +6857,7 @@
       "espn_id": 40557
     },
     {
-      "rank": 465,
+      "rank": 466,
       "name": "Samad Taylor",
       "positions": [
         "OF"
@@ -6857,7 +6871,7 @@
       "espn_id": 39710
     },
     {
-      "rank": 466,
+      "rank": 467,
       "name": "Brayan Bello",
       "positions": [
         "P"
@@ -6872,7 +6886,7 @@
       "espn_id": 4720856
     },
     {
-      "rank": 467,
+      "rank": 468,
       "name": "Dennis Santana",
       "positions": [
         "P"
@@ -6885,21 +6899,6 @@
       "fg_id": "17878",
       "pitcherRole": "RP",
       "espn_id": 39801
-    },
-    {
-      "rank": 468,
-      "name": "Denzer Guzman",
-      "positions": [
-        "3B",
-        "SS"
-      ],
-      "displayPos": "SS",
-      "team": "LAA",
-      "dollars": -20.1,
-      "rpts": 73.1,
-      "type": "hitter",
-      "fg_id": "28816",
-      "espn_id": 4917822
     },
     {
       "rank": 469,
@@ -12499,7 +12498,8 @@
       "rank": 846,
       "name": "Kyler Fedko",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "MIN",
