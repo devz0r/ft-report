@@ -1,15 +1,15 @@
 {
   "date": "2026-07-04",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-04T05:07:23",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-04T10:39:13",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (10.0h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.4h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-04T15:05:00+00:00",
-    "hours_to_first_game": 9.96,
+    "hours_to_first_game": 4.43,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.14
   },
   "players": {
     "cj abrams": {
@@ -1816,17 +1816,6 @@
       "batting_order_raw": null,
       "position": "3B"
     },
-    "john rave": {
-      "name": "John Rave",
-      "mlb_id": 670231,
-      "team": "KC",
-      "game_pk": 824092,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
-    },
     "michael massey": {
       "name": "Michael Massey",
       "mlb_id": 686681,
@@ -1848,6 +1837,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
+    },
+    "luke maile": {
+      "name": "Luke Maile",
+      "mlb_id": 571912,
+      "team": "KC",
+      "game_pk": 824092,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
     },
     "lane thomas": {
       "name": "Lane Thomas",
