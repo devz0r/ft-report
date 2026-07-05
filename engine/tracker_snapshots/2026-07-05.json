@@ -1,6 +1,6 @@
 {
   "date": "2026-07-05",
-  "timestamp": "2026-07-05T05:31:01.586631",
+  "timestamp": "2026-07-05T08:42:49.642565",
   "players": [
     {
       "rank": 1,
@@ -4601,7 +4601,8 @@
       "name": "Zack Gelof",
       "positions": [
         "2B",
-        "3B"
+        "3B",
+        "OF"
       ],
       "displayPos": "2B",
       "team": "OAK",
@@ -8425,6 +8426,21 @@
     },
     {
       "rank": 571,
+      "name": "Ryan Kreidler",
+      "positions": [
+        "SS",
+        "OF"
+      ],
+      "displayPos": "SS",
+      "team": "MIN",
+      "dollars": -26.1,
+      "rpts": 56.8,
+      "type": "hitter",
+      "fg_id": "25867",
+      "espn_id": 42701
+    },
+    {
+      "rank": 572,
       "name": "Andrew Painter",
       "positions": [
         "P"
@@ -8439,7 +8455,7 @@
       "espn_id": 4872683
     },
     {
-      "rank": 572,
+      "rank": 573,
       "name": "Will Klein",
       "positions": [
         "P"
@@ -8454,7 +8470,7 @@
       "espn_id": 4313163
     },
     {
-      "rank": 573,
+      "rank": 574,
       "name": "Anthony Nunez",
       "positions": [
         "P"
@@ -8469,7 +8485,7 @@
       "espn_id": 5275196
     },
     {
-      "rank": 574,
+      "rank": 575,
       "name": "Daniel Lynch IV",
       "positions": [
         "P"
@@ -8484,7 +8500,7 @@
       "espn_id": 41227
     },
     {
-      "rank": 575,
+      "rank": 576,
       "name": "Calvin Faucher",
       "positions": [
         "P"
@@ -8499,7 +8515,7 @@
       "espn_id": 3978173
     },
     {
-      "rank": 576,
+      "rank": 577,
       "name": "Brad Keller",
       "positions": [
         "P"
@@ -8514,7 +8530,7 @@
       "espn_id": 35292
     },
     {
-      "rank": 577,
+      "rank": 578,
       "name": "Steven Okert",
       "positions": [
         "P"
@@ -8529,7 +8545,7 @@
       "espn_id": 33716
     },
     {
-      "rank": 578,
+      "rank": 579,
       "name": "Chris Bassitt",
       "positions": [
         "P"
@@ -8544,7 +8560,7 @@
       "espn_id": 33148
     },
     {
-      "rank": 579,
+      "rank": 580,
       "name": "Miguel Amaya",
       "positions": [
         "C"
@@ -8558,7 +8574,7 @@
       "espn_id": 38905
     },
     {
-      "rank": 580,
+      "rank": 581,
       "name": "Jose Trevino",
       "positions": [
         "C"
@@ -8570,20 +8586,6 @@
       "type": "hitter",
       "fg_id": "16725",
       "espn_id": 35268
-    },
-    {
-      "rank": 581,
-      "name": "Ryan Kreidler",
-      "positions": [
-        "OF"
-      ],
-      "displayPos": "OF",
-      "team": "MIN",
-      "dollars": -26.3,
-      "rpts": 56.8,
-      "type": "hitter",
-      "fg_id": "25867",
-      "espn_id": 42701
     },
     {
       "rank": 582,
@@ -11801,7 +11803,6 @@
       "rank": 798,
       "name": "Victor Bericoto",
       "positions": [
-        "1B",
         "OF"
       ],
       "displayPos": "OF",
