@@ -1,6 +1,6 @@
 {
   "date": "2026-07-06",
-  "timestamp": "2026-07-06T03:49:44.267668",
+  "timestamp": "2026-07-06T08:12:29.535009",
   "players": [
     {
       "rank": 1,
@@ -2912,7 +2912,8 @@
       "rank": 199,
       "name": "Dillon Dingler",
       "positions": [
-        "C"
+        "C",
+        "DH"
       ],
       "displayPos": "C",
       "team": "DET",
@@ -6003,8 +6004,7 @@
       "rank": 408,
       "name": "Luis Campusano",
       "positions": [
-        "C",
-        "DH"
+        "C"
       ],
       "displayPos": "C",
       "team": "SD",
@@ -6119,23 +6119,6 @@
     },
     {
       "rank": 416,
-      "name": "Vaughn Grissom",
-      "positions": [
-        "1B",
-        "2B",
-        "3B",
-        "DH"
-      ],
-      "displayPos": "2B",
-      "team": "LAA",
-      "dollars": -16.8,
-      "rpts": 83.5,
-      "type": "hitter",
-      "fg_id": "26031",
-      "espn_id": 42503
-    },
-    {
-      "rank": 417,
       "name": "Anthony Volpe",
       "positions": [
         "SS"
@@ -6149,7 +6132,7 @@
       "espn_id": 42547
     },
     {
-      "rank": 418,
+      "rank": 417,
       "name": "Mark Vientos",
       "positions": [
         "1B",
@@ -6165,7 +6148,7 @@
       "espn_id": 41034
     },
     {
-      "rank": 419,
+      "rank": 418,
       "name": "Tristan Peters",
       "positions": [
         "OF"
@@ -6179,7 +6162,7 @@
       "espn_id": 5085893
     },
     {
-      "rank": 420,
+      "rank": 419,
       "name": "Zach McKinstry",
       "positions": [
         "2B",
@@ -6196,7 +6179,7 @@
       "espn_id": 38420
     },
     {
-      "rank": 421,
+      "rank": 420,
       "name": "Carlos Rodon",
       "positions": [
         "P"
@@ -6211,7 +6194,7 @@
       "espn_id": 33696
     },
     {
-      "rank": 422,
+      "rank": 421,
       "name": "Matt Vierling",
       "positions": [
         "OF"
@@ -6223,6 +6206,20 @@
       "type": "hitter",
       "fg_id": "21558",
       "espn_id": 41636
+    },
+    {
+      "rank": 422,
+      "name": "Vaughn Grissom",
+      "positions": [
+        "1B"
+      ],
+      "displayPos": "1B",
+      "team": "LAA",
+      "dollars": -17.2,
+      "rpts": 83.5,
+      "type": "hitter",
+      "fg_id": "26031",
+      "espn_id": 42503
     },
     {
       "rank": 423,
@@ -6364,7 +6361,8 @@
       "name": "Coby Mayo",
       "positions": [
         "1B",
-        "3B"
+        "3B",
+        "DH"
       ],
       "displayPos": "3B",
       "team": "BAL",
