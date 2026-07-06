@@ -5424,6 +5424,7 @@ def _risk_guard_policy_features(record):
         'opp_rank': record.get('opp_rank'),
         'park_factor': record.get('park_factor'),
         'recent_era': record.get('recent_era'),
+        'recent_whip': record.get('recent_whip'),
         'proj_k9': record.get('proj_k9') or record.get('k9'),
         'k9': record.get('k9'),
         'workload_risk_score': record.get('workload_risk_score'),
@@ -5432,6 +5433,8 @@ def _risk_guard_policy_features(record):
         'adj_total': record.get('adj_total'),
         'platoon': record.get('platoon'),
         'trend': record.get('trend'),
+        'trend_note': record.get('trend_note'),
+        'opp_il_returns_count': record.get('opp_il_returns_count') or len(record.get('opp_il_returns', []) or []),
     }
     pitch_analysis = record.get('pitch_analysis') or {}
     if isinstance(pitch_analysis, dict):
@@ -7917,6 +7920,7 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
     seen = set()
     posture = matchup_posture_from_edge(matchup_edge_summary)
     posture_mode = posture.get('mode')
+    playoff_mode = bool(recommendation_policy_meta().get('playoff_mode'))
 
     def add_action(kind, text, item, date_value, priority):
         item = dict(item or {})
@@ -7954,6 +7958,9 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
             if posture_mode == 'chasing' and not item.get('risk_guard_applied'):
                 text = f"Consider volume: {item.get('name')} today {matchup} ({pts:.1f} pts); chasing posture makes borderline innings more useful."
                 add_action('CONSIDER', text, item, (daily_summary or {}).get('date') or base_date, 24)
+            elif playoff_mode:
+                text = f"Playoff caution: {item.get('name')} is only a borderline stream today {matchup} ({pts:.1f} pts); use only if you need volume."
+                add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 29)
             elif posture_mode == 'protecting':
                 text = f"Avoid extra volatility: {item.get('name')} is only borderline today {matchup} ({pts:.1f} pts)."
                 add_action('CAUTION', text, item, (daily_summary or {}).get('date') or base_date, 32)
@@ -7982,6 +7989,8 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
             elif item.get('tier') in ('must_start', 'start'):
                 if posture_mode == 'chasing':
                     text = f"Queue upside/volume: {item.get('name')} for {date_text} {matchup} ({pts:.1f} pts)."
+                elif playoff_mode:
+                    text = f"Queue only if the role stays clean: {item.get('name')} for {date_text} {matchup} ({pts:.1f} pts)."
                 elif posture_mode == 'protecting':
                     text = f"Queue only if clearly needed: {item.get('name')} for {date_text} {matchup} ({pts:.1f} pts)."
                 else:
@@ -7998,6 +8007,9 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
                 if posture_mode == 'chasing':
                     text = f"Watch {item.get('name')} for {date_text}; borderline volume option {matchup} ({pts:.1f} pts)."
                     add_action('WATCH', text, item, day_date, 40)
+                elif playoff_mode:
+                    text = f"Watch only: {item.get('name')} is a borderline playoff stream for {date_text} {matchup} ({pts:.1f} pts), not a priority add."
+                    add_action('WATCH', text, item, day_date, 44)
                 else:
                     text = f"Watch {item.get('name')} for {date_text}; borderline stream, not a priority add {matchup} ({pts:.1f} pts)."
                     add_action('WATCH', text, item, day_date, 45)
@@ -8033,6 +8045,8 @@ def build_add_drop_priority_summary(base_date, daily_summary=None, watchlist_sum
         'items': actions,
         'count': len(actions),
         'matchup_posture': posture,
+        'playoff_mode': playoff_mode,
+        'note': 'Playoff Mode: actions prefer downside protection unless the matchup posture says you are chasing volume.' if playoff_mode else '',
     }
 
 
@@ -10397,6 +10411,9 @@ def build_matchup_edge_summary(snapshot=None, base_date=None, players_list=None,
         'Main edge uses active ESPN lineup slots only; bench and FA upside are shown separately.',
         'Hitter remaining points use current RoS rPTS as a simple daily approximation.',
     ]
+    playoff_mode = bool(recommendation_policy_meta().get('playoff_mode'))
+    if playoff_mode:
+        notes.append('Playoff Mode is active: use the matchup edge to decide whether to chase volume or protect floor.')
     if not games_by_team:
         notes.append('Team game coverage unavailable from prediction records.')
     return {
@@ -10415,6 +10432,7 @@ def build_matchup_edge_summary(snapshot=None, base_date=None, players_list=None,
         },
         'label': label,
         'confidence': confidence,
+        'playoff_mode': playoff_mode,
         'coverage': {
             'projected_players': projected_players,
             'total_players': total_players,
@@ -11543,6 +11561,9 @@ function renderMatchupEdge() {
     h += '<span class="decision-pill">Confidence <b>' + escHtml(e.confidence || 'low') + '</b></span>';
     h += '</div>';
     h += '<div class="matchup-small">Coverage: ' + (cov.projected_players || 0) + '/' + (cov.total_players || 0) + ' players projected (' + (cov.coverage_pct || 0) + '%). Rough projection only, not a win probability.</div>';
+    if (e.playoff_mode) {
+      h += '<div class="matchup-small"><b>Playoff Mode:</b> Use this posture to decide whether to chase pitcher volume or protect floor.</div>';
+    }
     var bench = e.bench_upside || {};
     var myBench = (bench.mine && Number(bench.mine.remaining_points || 0)) || 0;
     var oppBench = (bench.opponent && Number(bench.opponent.remaining_points || 0)) || 0;
@@ -11729,6 +11750,9 @@ function renderAddDropPriority() {
   if (ADD_DROP_PRIORITY.matchup_posture && ADD_DROP_PRIORITY.matchup_posture.note) {
     h += '<div class="matchup-small"><b>Matchup posture:</b> ' + escHtml(ADD_DROP_PRIORITY.matchup_posture.label || '') + ' &bull; ' + escHtml(ADD_DROP_PRIORITY.matchup_posture.note || '') + '</div>';
   }
+  if (ADD_DROP_PRIORITY.playoff_mode && ADD_DROP_PRIORITY.note) {
+    h += '<div class="matchup-small"><b>Playoff Mode:</b> ' + escHtml(ADD_DROP_PRIORITY.note) + '</div>';
+  }
   if (!items.length) {
     h += '<div class="decision-empty">No priority add/drop actions from the current prediction set.</div>';
   } else {
@@ -11884,6 +11908,9 @@ function renderStreaming() {
   var html = '';
   if (RECOMMENDATION_POLICY_META) {
     var policyNote = RECOMMENDATION_POLICY_META.note || 'Projected points are unchanged.';
+    if (RECOMMENDATION_POLICY_META.playoff_mode) {
+      html += '<div class="stream-note"><b>Playoff Mode:</b> protect the week first. Borderline and risky START calls are treated more conservatively; projected points and raw model scores are unchanged.</div>';
+    }
     html += '<div class="stream-note"><b>Recommendation policy:</b> ' +
       escHtml(RECOMMENDATION_POLICY_META.label || 'Raw model tiers') +
       ' &bull; ' + escHtml(policyNote) + '</div>';
@@ -15214,6 +15241,7 @@ def _decision_policy_risk_signals(row):
     opp_rank = _safe_float(row.get('opp_rank'))
     park_factor = _safe_float(row.get('park_factor'))
     recent_era = _safe_float(row.get('recent_era'))
+    recent_whip = _safe_float(row.get('recent_whip'))
     proj_k9 = _safe_float(row.get('proj_k9') or row.get('k9'))
     workload = _safe_float(row.get('workload_risk_score'))
     last_start_ip = _safe_float(row.get('last_start_ip'))
@@ -15221,14 +15249,21 @@ def _decision_policy_risk_signals(row):
     predicted_pts_raw = _safe_float(row.get('predicted_pts_raw') or row.get('pts_pre_adj'))
     adj_total = _safe_float(row.get('adj_total'))
     pitch_matchup = _safe_float(row.get('pitch_matchup_score'))
+    opp_il_returns = _safe_float(row.get('opp_il_returns_count'))
     platoon = str(row.get('platoon') or '').lower()
     trend = str(row.get('trend') or '').lower()
     if trend == 'cold':
         signals['cold'] = True
+    if row.get('trend_note'):
+        signals['mixed recent form'] = True
     if recent_era is not None and recent_era >= 5.14:
         signals['recent_era>=5.14'] = True
+    if recent_whip is not None and recent_whip >= RECENT_TREND_HOT_MAX_WHIP:
+        signals['high recent WHIP'] = True
     if opp_rank is not None and opp_rank <= 10:
         signals['top-10 offense'] = True
+    if opp_il_returns is not None and opp_il_returns >= 1:
+        signals['opponent bats returning'] = True
     if park_factor is not None and park_factor >= 1.05:
         signals['hitter park'] = True
     if platoon == 'risk':
@@ -15260,8 +15295,9 @@ def _decision_policy_risk_score(row):
         score += 2
         reasons.append('cold')
     for reason in (
-        'recent_era>=5.14', 'top-10 offense', 'hitter park', 'platoon risk',
-        'low K/9', 'workload risk', 'negative pitch matchup',
+        'mixed recent form', 'recent_era>=5.14', 'high recent WHIP',
+        'top-10 offense', 'opponent bats returning', 'hitter park',
+        'platoon risk', 'low K/9', 'workload risk', 'negative pitch matchup',
     ):
         if signals.get(reason):
             score += 1
@@ -15277,8 +15313,11 @@ RISK_GUARD_WEIGHT_PRESETS = [
         'threshold': 2.0,
         'weights': {
             'cold': 2.0,
+            'mixed recent form': 1.0,
             'recent_era>=5.14': 1.0,
+            'high recent WHIP': 1.0,
             'top-10 offense': 1.0,
+            'opponent bats returning': 0.75,
             'hitter park': 1.0,
             'platoon risk': 1.0,
             'low K/9': 1.0,
@@ -15295,8 +15334,11 @@ RISK_GUARD_WEIGHT_PRESETS = [
         'threshold': 3.0,
         'weights': {
             'cold': 2.0,
+            'mixed recent form': 1.5,
             'recent_era>=5.14': 2.0,
+            'high recent WHIP': 1.5,
             'top-10 offense': 1.0,
+            'opponent bats returning': 0.75,
             'hitter park': 1.0,
             'platoon risk': 1.0,
             'low K/9': 1.0,
@@ -15313,8 +15355,11 @@ RISK_GUARD_WEIGHT_PRESETS = [
         'threshold': 4.0,
         'weights': {
             'cold': 2.0,
+            'mixed recent form': 1.5,
             'recent_era>=5.14': 2.0,
+            'high recent WHIP': 1.5,
             'top-10 offense': 1.0,
+            'opponent bats returning': 0.75,
             'hitter park': 1.0,
             'platoon risk': 1.0,
             'low K/9': 1.0,
@@ -15331,8 +15376,11 @@ RISK_GUARD_WEIGHT_PRESETS = [
         'threshold': 3.0,
         'weights': {
             'cold': 2.5,
+            'mixed recent form': 1.75,
             'recent_era>=5.14': 2.0,
+            'high recent WHIP': 1.5,
             'top-10 offense': 0.75,
+            'opponent bats returning': 0.75,
             'hitter park': 0.75,
             'platoon risk': 0.75,
             'low K/9': 0.75,
@@ -15349,15 +15397,39 @@ RISK_GUARD_WEIGHT_PRESETS = [
         'threshold': 3.0,
         'weights': {
             'cold': 2.5,
+            'mixed recent form': 1.75,
             'recent_era>=5.14': 2.25,
+            'high recent WHIP': 1.5,
             'hot bump from low raw projection': 2.5,
             'short last start': 1.5,
             'workload risk': 1.25,
             'negative pitch matchup': 1.0,
             'top-10 offense': 0.75,
+            'opponent bats returning': 0.75,
             'platoon risk': 0.75,
             'hitter park': 0.5,
             'low K/9': 0.5,
+        },
+    },
+    {
+        'key': 'playoff_guard',
+        'label': 'Playoff Guard',
+        'description': 'Prioritize avoiding negative pitcher days; demote when risk flags stack at playoff sensitivity.',
+        'threshold': 2.5,
+        'weights': {
+            'cold': 2.75,
+            'recent_era>=5.14': 2.5,
+            'mixed recent form': 2.0,
+            'high recent WHIP': 1.75,
+            'hot bump from low raw projection': 2.5,
+            'short last start': 1.75,
+            'workload risk': 1.5,
+            'negative pitch matchup': 1.25,
+            'top-10 offense': 1.0,
+            'opponent bats returning': 1.0,
+            'platoon risk': 1.0,
+            'hitter park': 0.75,
+            'low K/9': 1.0,
         },
     },
 ]
@@ -15369,7 +15441,7 @@ RISK_GUARD_WEIGHT_PRESETS_BY_KEY = {
 # Formal report recommendation policy. This affects visible START /
 # BORDERLINE / SIT guidance only; projected points and learned corrections
 # stay untouched. Set to "raw_model" to disable the risk-guard display layer.
-RECOMMENDATION_POLICY_MODE = 'disaster_guard'
+RECOMMENDATION_POLICY_MODE = 'playoff_guard'
 RECOMMENDATION_POLICY_MODES = {
     'raw_model': {
         'mode': 'raw_model',
@@ -15391,6 +15463,14 @@ RECOMMENDATION_POLICY_MODES = {
         'policy_key': 'disaster_risk_guard',
         'uses_risk_guard': True,
         'note': 'Visible recommendations demote only when blowup-risk signals stack; projected points are unchanged.',
+    },
+    'playoff_guard': {
+        'mode': 'playoff_guard',
+        'label': 'Playoff Guard',
+        'policy_key': 'playoff_guard',
+        'uses_risk_guard': True,
+        'playoff_mode': True,
+        'note': 'Playoff Mode: visible recommendations prioritize downside protection. Projected points are unchanged.',
     },
 }
 
@@ -15727,6 +15807,11 @@ def build_start_sit_policy_backtest_summary():
             'disaster_risk_guard',
             'Disaster-focused risk guard',
             'Demote only when blowup-risk signals stack; low-ceiling matchup concerns count less by themselves.',
+        ),
+        (
+            'playoff_guard',
+            'Playoff Guard',
+            'Demote START/BORDERLINE when playoff downside-risk flags stack; projected points stay unchanged.',
         ),
         ('streamer_conservative', 'FA/waiver conservative', 'Demote FA/WAIVER streams with any risk flag or projection below 10.'),
     ]
