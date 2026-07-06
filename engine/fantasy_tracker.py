@@ -120,6 +120,9 @@ _open_meteo_weather_cache = None
 PITCHER_WORKLOAD_HISTORY_CACHE_FILE = 'pitcher_workload_history.json'
 CURRENT_PREDICTION_LOG_MAX_AGE_HOURS = 18
 ACTIVE_HITTER_LINEUP_LOOKBACK_DAYS = 14
+PLAYOFF_MATCHUP_START_DATE = '2026-07-06'
+PLAYOFF_MATCHUP_END_DATE = '2026-07-19'
+PLAYOFF_ALL_STAR_GAME_DATE = '2026-07-14'
 
 # Pitching scoring weights (for per-start calculation)
 PIT_SCORING = {'IP': 3, 'H': -1, 'ER': -2, 'BB': -1, 'K': 1, 'W': 5, 'L': -5}
@@ -10491,6 +10494,236 @@ def matchup_posture_from_edge(summary):
     }
 
 
+def _date_range_list(start_iso, end_iso):
+    try:
+        start = date.fromisoformat(start_iso)
+        end = date.fromisoformat(end_iso)
+    except Exception:
+        return []
+    out = []
+    cur = start
+    while cur <= end:
+        out.append(cur.isoformat())
+        cur += timedelta(days=1)
+    return out
+
+
+def _prediction_records_for_date_range(start_iso, end_iso, records=None, source=None):
+    """Return existing prediction rows for a date range; never fetches or writes."""
+    wanted = set(_date_range_list(start_iso, end_iso))
+    latest = {}
+    if records:
+        for rec in records:
+            rec = dict(rec)
+            game_date = _matchup_record_date(rec)
+            if game_date not in wanted:
+                continue
+            rec['_matchup_source'] = _matchup_action_source_kind(source or 'current report prediction records')
+            rec['_matchup_snapshot_date'] = _matchup_record_snapshot_date(rec) or game_date
+            key = (
+                game_date,
+                normalize_name(rec.get('name') or rec.get('pitcher_name') or ''),
+                rec.get('team'),
+                rec.get('opponent'),
+                rec.get('home_away'),
+            )
+            latest[key] = rec
+    for game_date in wanted:
+        rows, _path = _latest_prediction_records_by_date(game_date)
+        for rec in rows:
+            rec = dict(rec)
+            rec['_matchup_source'] = rec.get('_matchup_source') or 'prediction_log_cache'
+            rec['_matchup_snapshot_date'] = _matchup_record_snapshot_date(rec) or game_date
+            key = (
+                game_date,
+                normalize_name(rec.get('name') or rec.get('pitcher_name') or ''),
+                rec.get('team'),
+                rec.get('opponent'),
+                rec.get('home_away'),
+            )
+            latest.setdefault(key, rec)
+    out = [
+        apply_visible_risk_guard_overlay(apply_probable_confidence(apply_probable_role_alert(dict(rec))))
+        for rec in latest.values()
+    ]
+    out.sort(key=lambda r: (_matchup_record_date(r) or '', TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_decision_points(r)))
+    return out
+
+
+def _roster_pitcher_names(rows):
+    return {
+        normalize_name(row.get('name') or '')
+        for row in rows or []
+        if normalize_name(row.get('name') or '') and _matchup_player_is_pitcher(row)
+    }
+
+
+def _playoff_start_item(rec):
+    tier = rec.get('tier') or 'unknown'
+    risk_reasons = rec.get('risk_guard_reasons') or rec.get('shadow_risk_guard_reasons') or []
+    role_verify = probable_confidence_needs_verify(rec)
+    risk_flags = []
+    if tier in ('borderline', 'avoid'):
+        risk_flags.append(TIER_LABELS.get(tier, tier))
+    if rec.get('risk_guard_applied'):
+        risk_flags.append('Playoff Guard')
+    if role_verify:
+        risk_flags.append(rec.get('probable_confidence_label') or 'Verify role')
+    risk_flags.extend(risk_reasons[:2])
+    return {
+        'date': _matchup_record_date(rec),
+        'name': rec.get('name') or rec.get('pitcher_name'),
+        'team': rec.get('team'),
+        'opponent': rec.get('opponent'),
+        'home_away': rec.get('home_away'),
+        'status': rec.get('status'),
+        'points': round(_decision_points(rec), 1),
+        'tier': tier,
+        'model_tier': rec.get('model_tier') or rec.get('risk_guard_original_tier') or tier,
+        'risk_guard_applied': bool(rec.get('risk_guard_applied')),
+        'risk_flags': [x for x in risk_flags if x][:4],
+        'role_verify': bool(role_verify),
+        'probable_confidence_label': rec.get('probable_confidence_label'),
+    }
+
+
+def _playoff_pitcher_plan(records, pitcher_names):
+    starts = []
+    seen = set()
+    for rec in records or []:
+        name_key = normalize_name(rec.get('name') or rec.get('pitcher_name') or '')
+        if name_key not in pitcher_names:
+            continue
+        key = (name_key, _matchup_record_date(rec), rec.get('team'), rec.get('opponent'))
+        if key in seen:
+            continue
+        seen.add(key)
+        starts.append(_playoff_start_item(rec))
+    projected_pts = round(sum(_safe_float(item.get('points'), 0.0) or 0.0 for item in starts), 1)
+    risky = [
+        item for item in starts
+        if item.get('tier') in ('borderline', 'avoid') or item.get('risk_guard_applied') or item.get('role_verify')
+    ]
+    starts.sort(key=lambda r: (r.get('date') or '', TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_safe_float(r.get('points'), 0)))
+    risky.sort(key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), _safe_float(r.get('points'), 0), r.get('date') or ''))
+    return {
+        'known_starts': len(starts),
+        'projected_points': projected_pts,
+        'risky_count': len(risky),
+        'starts': starts[:10],
+        'risky': risky[:8],
+    }
+
+
+def _playoff_available_streamers(records, limit=6):
+    rows = []
+    seen = set()
+    for rec in records or []:
+        if rec.get('status') not in ('FA', 'WAIVER'):
+            continue
+        if rec.get('tier') == 'avoid':
+            continue
+        if probable_confidence_needs_verify(rec):
+            continue
+        name_key = normalize_name(rec.get('name') or rec.get('pitcher_name') or '')
+        key = (name_key, _matchup_record_date(rec))
+        if not name_key or key in seen:
+            continue
+        seen.add(key)
+        rows.append(_playoff_start_item(rec))
+    rows.sort(key=lambda r: (TIER_ORDER.get(r.get('tier', 'avoid'), 3), -_safe_float(r.get('points'), 0), r.get('date') or ''))
+    return rows[:limit]
+
+
+def build_playoff_matchup_plan_summary(snapshot=None, matchup_edge_summary=None,
+                                       prediction_records=None, prediction_source=None,
+                                       start_date=None, end_date=None):
+    """Read-only playoff matchup war-room summary for the current H2H week."""
+    start_date = start_date or PLAYOFF_MATCHUP_START_DATE
+    end_date = end_date or PLAYOFF_MATCHUP_END_DATE
+    today_iso = date.today().isoformat()
+    effective_start = max(start_date, today_iso)
+    if effective_start > end_date:
+        effective_start = start_date
+    snapshot = snapshot or {}
+    records = _prediction_records_for_date_range(
+        effective_start,
+        end_date,
+        records=prediction_records,
+        source=prediction_source,
+    )
+    dates_with_records = sorted({_matchup_record_date(rec) for rec in records if _matchup_record_date(rec)})
+    my_pitchers = _roster_pitcher_names((snapshot.get('my_active') or []) + (snapshot.get('my_bench') or []))
+    opp_pitchers = _roster_pitcher_names((snapshot.get('opponent_active') or []) + (snapshot.get('opponent_bench') or []))
+    mine = _playoff_pitcher_plan(records, my_pitchers)
+    opponent = _playoff_pitcher_plan(records, opp_pitchers)
+    edge = matchup_edge_summary or {}
+    posture = matchup_posture_from_edge(edge)
+    score = (snapshot or {}).get('score') or {}
+    empty_slots = (snapshot or {}).get('empty_slots') or {}
+    injury_notes = (snapshot or {}).get('injury_notes') or []
+    available_streamers = _playoff_available_streamers(records)
+    start_gap = mine.get('known_starts', 0) - opponent.get('known_starts', 0)
+    projected_gap = round((mine.get('projected_points') or 0.0) - (opponent.get('projected_points') or 0.0), 1)
+    actions = []
+    if posture.get('mode') == 'chasing' or projected_gap < -8 or start_gap < 0:
+        actions.append('Chase useful volume, not desperation volume: prefer confirmed roles with positive Playoff Guard profile.')
+    else:
+        actions.append('Protect against blowups first: skip borderline pitcher volume unless the matchup turns against you.')
+    if mine.get('risky_count'):
+        actions.append(f"Review {mine['risky_count']} risky rostered projected start(s) before locking pitchers.")
+    if opponent.get('risky_count'):
+        actions.append(f"Opponent has {opponent['risky_count']} risky projected start(s); do not overreact before they absorb that risk.")
+    if available_streamers:
+        actions.append('Use the available-streamer list as a claim/watch queue, but keep avoiding role-verify and Playoff Guard traps.')
+    if empty_slots.get('mine') or any(note.startswith('MY') for note in injury_notes):
+        actions.append('Fix your active lineup health/empty-slot notes before chasing speculative upside.')
+    if not dates_with_records or (dates_with_records and dates_with_records[-1] < end_date):
+        actions.append('Post-break pitcher coverage is incomplete; rerun daily as rotations reset after the All-Star break.')
+    return {
+        'available': bool(snapshot and not snapshot.get('error') and not snapshot.get('low_confidence')),
+        'start_date': start_date,
+        'end_date': end_date,
+        'effective_start_date': effective_start,
+        'all_star_break_note': f"All-Star Game {PLAYOFF_ALL_STAR_GAME_DATE}; expect reduced MLB volume around the break.",
+        'my_team': (snapshot.get('my_team') or {}).get('name'),
+        'opponent': (snapshot.get('opponent') or {}).get('name'),
+        'current_score': {
+            'mine': score.get('mine'),
+            'opponent': score.get('opponent'),
+            'margin': score.get('margin'),
+        },
+        'matchup_posture': posture,
+        'prediction_coverage': {
+            'source': prediction_source or 'prediction logs/current report records',
+            'rows': len(records),
+            'dates_with_records': dates_with_records,
+            'date_range': (
+                f"{dates_with_records[0]} to {dates_with_records[-1]}"
+                if dates_with_records else 'no prediction dates available'
+            ),
+            'full_window_covered': bool(dates_with_records and dates_with_records[0] <= effective_start and dates_with_records[-1] >= end_date),
+        },
+        'known_pitching': {
+            'mine': mine,
+            'opponent': opponent,
+            'known_start_gap': start_gap,
+            'known_projected_pitching_gap': projected_gap,
+        },
+        'available_streamers': available_streamers,
+        'lineup_alerts': {
+            'my_empty_slots': empty_slots.get('mine') or [],
+            'opponent_empty_slots': empty_slots.get('opponent') or [],
+            'injury_notes': injury_notes[:8],
+        },
+        'actions': actions[:6],
+        'notes': [
+            'Read-only playoff plan. It does not make roster moves or change projected points.',
+            'Known pitching uses existing prediction records only; future/post-break rotations may be missing until refreshed.',
+        ],
+    }
+
+
 def print_matchup_edge(summary):
     print("\nMATCHUP EDGE")
     print("=" * 60)
@@ -10669,6 +10902,7 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                           hitter_decision_summary=None,
                           hitter_decision_audit_summary=None,
                           matchup_edge_summary=None,
+                          playoff_matchup_plan_summary=None,
                           decision_policy_summary=None,
                           risk_guard_results_summary=None,
                           recommendation_policy_audit_summary=None,
@@ -10724,6 +10958,22 @@ def generate_tracker_html(players_list, deltas, prev_date, snapshot_date, roster
                 'confidence': 'low',
                 'error': f'Matchup edge unavailable: {type(e).__name__}: {e}',
                 'recommendations': _matchup_edge_recommendations('High uncertainty', 0, 0),
+            }
+    if playoff_matchup_plan_summary is None:
+        try:
+            playoff_matchup_plan_summary = build_playoff_matchup_plan_summary(
+                matchup_snapshot_data,
+                matchup_edge_summary=matchup_edge_summary,
+                prediction_records=report_decision_records,
+                prediction_source=report_decision_source,
+            )
+        except Exception as e:
+            playoff_matchup_plan_summary = {
+                'available': False,
+                'start_date': PLAYOFF_MATCHUP_START_DATE,
+                'end_date': PLAYOFF_MATCHUP_END_DATE,
+                'actions': [f'Playoff matchup plan unavailable: {type(e).__name__}: {e}'],
+                'notes': ['The rest of the report is still usable.'],
             }
     if daily_decision_summary is None:
         decision_records = [
@@ -11209,6 +11459,7 @@ $TOP_BANNER_HTML
 <div class="stream-note">Quick decision tools for matchup context, roster checks, add/drop planning, and watchlist review. The main Streaming tab stays focused on the regular projection list.</div>
 <div id="matchupContent"></div>
 <div id="matchupEdgeContent"></div>
+<div id="playoffPlanContent"></div>
 <div id="hitterDecisionContent"></div>
 <div id="decisionContent"></div>
 <div id="addDropContent"></div>
@@ -11246,6 +11497,7 @@ var MATCHUP_ACTIONS = $MATCHUP_ACTIONS_JSON;
 var HITTER_DECISIONS = $HITTER_DECISIONS_JSON;
 var HITTER_DECISION_AUDIT = $HITTER_DECISION_AUDIT_JSON;
 var MATCHUP_EDGE = $MATCHUP_EDGE_JSON;
+var PLAYOFF_MATCHUP_PLAN = $PLAYOFF_MATCHUP_PLAN_JSON;
 
 /* ===== RoS Tracker logic ===== */
 var statusFilter = 'all';
@@ -11590,6 +11842,89 @@ function renderMatchupEdge() {
   }
   if (e.notes && e.notes.length) h += '<div class="decision-warning">' + e.notes.map(escHtml).join(' ') + '</div>';
   h += '</div>';
+  container.innerHTML = h;
+}
+
+function renderPlayoffMatchupPlan() {
+  var container = document.getElementById('playoffPlanContent');
+  if (!container || !PLAYOFF_MATCHUP_PLAN) return;
+  var p = PLAYOFF_MATCHUP_PLAN || {};
+  var score = p.current_score || {};
+  var coverage = p.prediction_coverage || {};
+  var pitching = p.known_pitching || {};
+  var mine = pitching.mine || {};
+  var opp = pitching.opponent || {};
+  var lineup = p.lineup_alerts || {};
+  var h = '<div class="day-card decision-card">';
+  h += '<div class="day-header"><span class="day-date">Playoff Matchup Plan</span><span class="day-count">' + escHtml((p.start_date || '?') + ' to ' + (p.end_date || '?')) + '</span></div>';
+  h += '<div class="decision-summary">';
+  h += '<span class="decision-pill">Opponent <b>' + escHtml(p.opponent || 'Unknown') + '</b></span>';
+  h += '<span class="decision-pill">Score <b>' + escHtml(score.mine) + ' - ' + escHtml(score.opponent) + '</b></span>';
+  h += '<span class="decision-pill">Margin <b>' + escHtml(score.margin) + '</b></span>';
+  h += '<span class="decision-pill">Posture <b>' + escHtml((p.matchup_posture || {}).label || 'Unknown') + '</b></span>';
+  h += '</div>';
+  if (p.all_star_break_note) {
+    h += '<div class="matchup-small"><b>Break:</b> ' + escHtml(p.all_star_break_note) + '</div>';
+  }
+  h += '<div class="matchup-small"><b>Known projection coverage:</b> ' + escHtml(coverage.date_range || 'unknown') + ' &bull; ' + (coverage.rows || 0) + ' rows';
+  if (!coverage.full_window_covered) h += ' &bull; post-break rotations may be incomplete';
+  h += '</div>';
+  h += '<div class="matchup-grid">';
+  h += '<div class="decision-section"><div class="decision-section-title">Known Pitching Volume</div>';
+  h += '<div class="decision-summary">';
+  h += '<span class="decision-pill">Mine <b>' + (mine.known_starts || 0) + ' starts / ' + Number(mine.projected_points || 0).toFixed(1) + ' pts</b></span>';
+  h += '<span class="decision-pill">Opponent <b>' + (opp.known_starts || 0) + ' starts / ' + Number(opp.projected_points || 0).toFixed(1) + ' pts</b></span>';
+  h += '<span class="decision-pill">Start gap <b>' + escHtml(pitching.known_start_gap || 0) + '</b></span>';
+  h += '<span class="decision-pill">Pitching gap <b>' + Number(pitching.known_projected_pitching_gap || 0).toFixed(1) + '</b></span>';
+  h += '</div>';
+  h += '</div>';
+  h += '<div class="decision-section"><div class="decision-section-title">Risk Watch</div>';
+  h += '<div class="decision-summary">';
+  h += '<span class="decision-pill">Mine risky <b>' + (mine.risky_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">Opponent risky <b>' + (opp.risky_count || 0) + '</b></span>';
+  h += '<span class="decision-pill">My empty slots <b>' + ((lineup.my_empty_slots || []).length) + '</b></span>';
+  h += '<span class="decision-pill">Notes <b>' + ((lineup.injury_notes || []).length) + '</b></span>';
+  h += '</div></div></div>';
+
+  function renderStartRows(title, rows, emptyText) {
+    var html = '<div class="decision-section"><div class="decision-section-title">' + escHtml(title) + '</div>';
+    if (!rows || !rows.length) return html + '<div class="decision-empty">' + escHtml(emptyText || 'None') + '</div></div>';
+    html += '<div class="action-list">';
+    rows.slice(0, 6).forEach(function(item) {
+      var kind = item.tier === 'avoid' ? 'AVOID' : item.risk_guard_applied ? 'CAUTION' : item.tier === 'borderline' ? 'WATCH' : 'LOCK IN';
+      var where = item.home_away === 'H' ? 'vs ' : '@ ';
+      var flags = (item.risk_flags || []).slice(0, 3).join(', ');
+      html += '<div class="action-row"><span class="action-kind ' + actionKindClass(kind) + '">' + escHtml(kind) + '</span>';
+      html += '<div class="action-text">' + escHtml((item.name || 'Unknown') + ' ' + (item.date || '') + ' ' + where + (item.opponent || '?')) + '</div>';
+      html += '<div class="action-meta">' + Number(item.points || 0).toFixed(1) + ' pts &bull; ' + escHtml(item.status || 'status unknown') + ' &bull; ' + escHtml(item.tier || 'unknown') + (flags ? ' &bull; ' + escHtml(flags) : '') + '</div></div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  h += '<div class="matchup-grid">';
+  h += renderStartRows('My Risky Starts', mine.risky || [], 'No risky known starts flagged.');
+  h += renderStartRows('Opponent Risky Starts', opp.risky || [], 'No opponent risky known starts flagged.');
+  h += '</div>';
+  h += renderStartRows('Available Stream Queue', p.available_streamers || [], 'No clean FA/waiver stream queue from known records.');
+
+  h += '<div class="decision-section"><div class="decision-section-title">Action Plan</div>';
+  if (p.actions && p.actions.length) {
+    h += '<div class="action-list">';
+    p.actions.forEach(function(action) {
+      h += '<div class="action-row"><span class="action-kind watch">PLAN</span><div class="action-text">' + escHtml(action) + '</div></div>';
+    });
+    h += '</div>';
+  } else {
+    h += '<div class="decision-empty">No playoff actions available yet.</div>';
+  }
+  if (lineup.injury_notes && lineup.injury_notes.length) {
+    h += '<div class="decision-warning">' + lineup.injury_notes.slice(0, 4).map(escHtml).join(' ') + '</div>';
+  }
+  if (p.notes && p.notes.length) {
+    h += '<div class="matchup-small">' + p.notes.map(escHtml).join(' ') + '</div>';
+  }
+  h += '</div></div>';
   container.innerHTML = h;
 }
 
@@ -12337,6 +12672,7 @@ function ordinal(n) {
 
 renderMatchupReport();
 renderMatchupEdge();
+renderPlayoffMatchupPlan();
 renderHitterDecisions();
 renderDailyDecisions();
 renderAddDropPriority();
@@ -12835,6 +13171,7 @@ renderAccuracy();
         HITTER_DECISIONS_JSON=json.dumps(hitter_decision_summary) if hitter_decision_summary else 'null',
         HITTER_DECISION_AUDIT_JSON=json.dumps(hitter_decision_audit_summary) if hitter_decision_audit_summary else 'null',
         MATCHUP_EDGE_JSON=json.dumps(matchup_edge_summary) if matchup_edge_summary else 'null',
+        PLAYOFF_MATCHUP_PLAN_JSON=json.dumps(playoff_matchup_plan_summary) if playoff_matchup_plan_summary else 'null',
         FEATURE_LOG_STATUS=feature_log_status_override or prediction_feature_log_status(),
         TOP_BANNER_HTML=top_banner_html or '',
     )
