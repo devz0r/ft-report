@@ -1,6 +1,6 @@
 {
   "date": "2026-07-07",
-  "timestamp": "2026-07-07T04:30:26.905035",
+  "timestamp": "2026-07-07T07:59:43.275733",
   "players": [
     {
       "rank": 1,
@@ -2058,7 +2058,8 @@
       "rank": 141,
       "name": "Lourdes Gurriel Jr.",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "AZ",
@@ -13497,8 +13498,7 @@
       "rank": 913,
       "name": "Jase Bowen",
       "positions": [
-        "OF",
-        "DH"
+        "OF"
       ],
       "displayPos": "OF",
       "team": "SD",
@@ -13733,7 +13733,8 @@
       "rank": 929,
       "name": "Braxton Fulford",
       "positions": [
-        "C"
+        "C",
+        "DH"
       ],
       "displayPos": "C",
       "team": "COL",
