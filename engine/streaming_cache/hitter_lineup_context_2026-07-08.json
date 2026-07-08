@@ -1,15 +1,15 @@
 {
   "date": "2026-07-08",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-08T02:02:06",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-08T15:02:11",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (17.7h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.7h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-08T19:45:00+00:00",
-    "hours_to_first_game": 17.71,
+    "hours_to_first_game": 4.71,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.15
   },
   "players": {
     "cj abrams": {
@@ -2124,16 +2124,16 @@
       "batting_order_raw": null,
       "position": "LF"
     },
-    "ronny mauricio": {
-      "name": "Ronny Mauricio",
-      "mlb_id": 677595,
+    "jorge polanco": {
+      "name": "Jorge Polanco",
+      "mlb_id": 593871,
       "team": "NYM",
       "game_pk": 823605,
       "lineup_status": "unknown",
       "batting_order_status": "unknown",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "SS"
+      "position": "1B"
     },
     "jared young": {
       "name": "Jared Young",
