@@ -1,6 +1,6 @@
 {
   "date": "2026-07-08",
-  "timestamp": "2026-07-08T10:09:07.320296",
+  "timestamp": "2026-07-08T12:01:03.381044",
   "players": [
     {
       "rank": 1,
@@ -10876,7 +10876,7 @@
         "OF"
       ],
       "displayPos": "OF",
-      "team": "",
+      "team": "MIL",
       "dollars": -32.0,
       "rpts": 39.4,
       "type": "hitter",
@@ -15579,7 +15579,7 @@
         "3B"
       ],
       "displayPos": "3B",
-      "team": "",
+      "team": "PIT",
       "dollars": -45.1,
       "rpts": 10.6,
       "type": "hitter",
