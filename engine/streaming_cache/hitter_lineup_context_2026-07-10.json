@@ -1,15 +1,15 @@
 {
   "date": "2026-07-10",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-10T03:32:57",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-10T17:43:50",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (19.1h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.9h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-10T22:40:00+00:00",
-    "hours_to_first_game": 19.12,
+    "hours_to_first_game": 4.94,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.04
   },
   "players": {
     "cj abrams": {
@@ -2245,6 +2245,17 @@
       "batting_order_raw": null,
       "position": "C"
     },
+    "nate eaton": {
+      "name": "Nate Eaton",
+      "mlb_id": 681987,
+      "team": "BOS",
+      "game_pk": 823604,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "OF"
+    },
     "jarren duran": {
       "name": "Jarren Duran",
       "mlb_id": 680776,
@@ -2355,17 +2366,6 @@
       "batting_order_raw": null,
       "position": "DH"
     },
-    "kyler fedko": {
-      "name": "Kyler Fedko",
-      "mlb_id": 693459,
-      "team": "MIN",
-      "game_pk": 823685,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "LF"
-    },
     "alan roden": {
       "name": "Alan Roden",
       "mlb_id": 702176,
@@ -2454,17 +2454,6 @@
       "batting_order_raw": null,
       "position": "CF"
     },
-    "donovan walton": {
-      "name": "Donovan Walton",
-      "mlb_id": 622268,
-      "team": "LAA",
-      "game_pk": 823685,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
-    },
     "zach neto": {
       "name": "Zach Neto",
       "mlb_id": 687263,
@@ -2486,6 +2475,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "DH"
+    },
+    "mike trout": {
+      "name": "Mike Trout",
+      "mlb_id": 545361,
+      "team": "LAA",
+      "game_pk": 823685,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "CF"
     },
     "jo adell": {
       "name": "Jo Adell",
