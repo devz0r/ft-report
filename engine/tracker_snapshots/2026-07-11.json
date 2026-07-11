@@ -1,6 +1,6 @@
 {
   "date": "2026-07-11",
-  "timestamp": "2026-07-11T09:05:07.043293",
+  "timestamp": "2026-07-11T10:39:40.113376",
   "players": [
     {
       "rank": 1,
@@ -12691,20 +12691,6 @@
     },
     {
       "rank": 858,
-      "name": "Anthony Seigler",
-      "positions": [
-        "3B"
-      ],
-      "displayPos": "3B",
-      "team": "BOS",
-      "dollars": -36.0,
-      "rpts": 27.9,
-      "type": "hitter",
-      "fg_id": "23802",
-      "espn_id": 41194
-    },
-    {
-      "rank": 859,
       "name": "Philip Abner",
       "positions": [
         "P"
@@ -12719,7 +12705,7 @@
       "espn_id": 4926295
     },
     {
-      "rank": 860,
+      "rank": 859,
       "name": "Garrett Stallings",
       "positions": [
         "P"
@@ -12734,7 +12720,7 @@
       "espn_id": 4686059
     },
     {
-      "rank": 861,
+      "rank": 860,
       "name": "Will Vest",
       "positions": [
         "P"
@@ -12749,7 +12735,7 @@
       "espn_id": 41606
     },
     {
-      "rank": 862,
+      "rank": 861,
       "name": "Trevor Richards",
       "positions": [
         "P"
@@ -12764,7 +12750,7 @@
       "espn_id": 39912
     },
     {
-      "rank": 863,
+      "rank": 862,
       "name": "Blake Treinen",
       "positions": [
         "P"
@@ -12779,7 +12765,7 @@
       "espn_id": 32185
     },
     {
-      "rank": 864,
+      "rank": 863,
       "name": "Rafael Marchan",
       "positions": [
         "C"
@@ -12793,7 +12779,7 @@
       "espn_id": 40816
     },
     {
-      "rank": 865,
+      "rank": 864,
       "name": "Joey Bart",
       "positions": [
         "C"
@@ -12807,7 +12793,7 @@
       "espn_id": 41168
     },
     {
-      "rank": 866,
+      "rank": 865,
       "name": "Randal Grichuk",
       "positions": [
         "OF",
@@ -12822,7 +12808,7 @@
       "espn_id": 31399
     },
     {
-      "rank": 867,
+      "rank": 866,
       "name": "Abimelec Ortiz",
       "positions": [
         "1B"
@@ -12836,7 +12822,7 @@
       "espn_id": 5194635
     },
     {
-      "rank": 868,
+      "rank": 867,
       "name": "Jordan Beck",
       "positions": [
         "OF"
@@ -12850,7 +12836,7 @@
       "espn_id": 4619460
     },
     {
-      "rank": 869,
+      "rank": 868,
       "name": "Jonathan Pintaro",
       "positions": [
         "P"
@@ -12865,7 +12851,7 @@
       "espn_id": 5291866
     },
     {
-      "rank": 870,
+      "rank": 869,
       "name": "Kade Morris",
       "positions": [
         "P"
@@ -12880,7 +12866,7 @@
       "espn_id": 4865840
     },
     {
-      "rank": 871,
+      "rank": 870,
       "name": "Jaden Hill",
       "positions": [
         "P"
@@ -12895,7 +12881,7 @@
       "espn_id": 4414362
     },
     {
-      "rank": 872,
+      "rank": 871,
       "name": "Brett Kerry",
       "positions": [
         "P"
@@ -12910,7 +12896,7 @@
       "espn_id": 5132003
     },
     {
-      "rank": 873,
+      "rank": 872,
       "name": "Alek Jacob",
       "positions": [
         "P"
@@ -12925,7 +12911,7 @@
       "espn_id": 4346118
     },
     {
-      "rank": 874,
+      "rank": 873,
       "name": "Antwone Kelly",
       "positions": [
         "P"
@@ -12940,7 +12926,7 @@
       "espn_id": 5134366
     },
     {
-      "rank": 875,
+      "rank": 874,
       "name": "Eiberson Castellano",
       "positions": [
         "P"
@@ -12955,7 +12941,7 @@
       "espn_id": 5259072
     },
     {
-      "rank": 876,
+      "rank": 875,
       "name": "Ryan Watson",
       "positions": [
         "P"
@@ -12970,7 +12956,7 @@
       "espn_id": 5125911
     },
     {
-      "rank": 877,
+      "rank": 876,
       "name": "Drey Jameson",
       "positions": [
         "P"
@@ -12985,7 +12971,7 @@
       "espn_id": 4415753
     },
     {
-      "rank": 878,
+      "rank": 877,
       "name": "Daniel Espino",
       "positions": [
         "P"
@@ -13000,7 +12986,7 @@
       "espn_id": 42438
     },
     {
-      "rank": 879,
+      "rank": 878,
       "name": "Adam Macko",
       "positions": [
         "P"
@@ -13015,7 +13001,7 @@
       "espn_id": 4918157
     },
     {
-      "rank": 880,
+      "rank": 879,
       "name": "Johan Oviedo",
       "positions": [
         "P"
@@ -13030,7 +13016,7 @@
       "espn_id": 41405
     },
     {
-      "rank": 881,
+      "rank": 880,
       "name": "Luis Gil",
       "positions": [
         "P"
@@ -13045,7 +13031,7 @@
       "espn_id": 40626
     },
     {
-      "rank": 882,
+      "rank": 881,
       "name": "Tony Santillan",
       "positions": [
         "P"
@@ -13060,7 +13046,7 @@
       "espn_id": 40950
     },
     {
-      "rank": 883,
+      "rank": 882,
       "name": "Max Muncy",
       "positions": [
         "2B",
@@ -13075,7 +13061,7 @@
       "espn_id": 33303
     },
     {
-      "rank": 884,
+      "rank": 883,
       "name": "Joey Loperfido",
       "positions": [
         "OF"
@@ -13089,7 +13075,7 @@
       "espn_id": 4297976
     },
     {
-      "rank": 885,
+      "rank": 884,
       "name": "Tyler Locklear",
       "positions": [
         "1B"
@@ -13103,7 +13089,7 @@
       "espn_id": 4866477
     },
     {
-      "rank": 886,
+      "rank": 885,
       "name": "Jacob Gonzalez",
       "positions": [
         "1B"
@@ -13117,7 +13103,7 @@
       "espn_id": 4720990
     },
     {
-      "rank": 887,
+      "rank": 886,
       "name": "Myles Straw",
       "positions": [
         "OF"
@@ -13129,6 +13115,21 @@
       "type": "hitter",
       "fg_id": "17620",
       "espn_id": 39105
+    },
+    {
+      "rank": 887,
+      "name": "Anthony Seigler",
+      "positions": [
+        "2B",
+        "3B"
+      ],
+      "displayPos": "2B",
+      "team": "BOS",
+      "dollars": -36.9,
+      "rpts": 27.9,
+      "type": "hitter",
+      "fg_id": "23802",
+      "espn_id": 41194
     },
     {
       "rank": 888,
