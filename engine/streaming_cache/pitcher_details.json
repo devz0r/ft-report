@@ -12590,5 +12590,31 @@
     },
     "splits_window_years": 2,
     "pitcher_hand": "R"
+  },
+  "700842": {
+    "mlb_id": 700842,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 95.14621110714283,
+        "pct": 0.68292683
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 87.83401224999999,
+        "pct": 0.09756097
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 85.35332088888889,
+        "pct": 0.2195122
+      }
+    ],
+    "fb_velo": 95.1,
+    "pitch_count": 3,
+    "pitcher_hand": "L"
   }
 }
