@@ -12667,5 +12667,38 @@
     },
     "splits_window_years": 3,
     "pitcher_hand": "R"
+  },
+  "664849": {
+    "mlb_id": 664849,
+    "pitches": [
+      {
+        "code": "ST",
+        "desc": "Sweeper",
+        "velo": 82.90321466666668,
+        "pct": 0.45652175
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 93.29753692,
+        "pct": 0.54347825
+      }
+    ],
+    "fb_velo": 93.3,
+    "pitch_count": 2,
+    "career_vs_l": {
+      "ops": "0.605",
+      "whip": "1.36",
+      "k9": "13.08",
+      "ip": "21.3"
+    },
+    "career_vs_r": {
+      "ops": "0.674",
+      "whip": "1.18",
+      "k9": "10.61",
+      "ip": "28.0"
+    },
+    "splits_window_years": 3,
+    "pitcher_hand": "L"
   }
 }
