@@ -1,6 +1,6 @@
 {
   "date": "2026-07-13",
-  "timestamp": "2026-07-13T04:32:16.736492",
+  "timestamp": "2026-07-13T08:10:52.761935",
   "players": [
     {
       "rank": 1,
@@ -1046,7 +1046,8 @@
       "rank": 72,
       "name": "Taylor Ward",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "BAL",
@@ -13625,20 +13626,6 @@
     },
     {
       "rank": 921,
-      "name": "Abimelec Ortiz",
-      "positions": [
-        "1B"
-      ],
-      "displayPos": "1B",
-      "team": "WSH",
-      "dollars": -37.6,
-      "rpts": 22.3,
-      "type": "hitter",
-      "fg_id": "sa3016926",
-      "espn_id": 5194635
-    },
-    {
-      "rank": 922,
       "name": "Victor Mederos",
       "positions": [
         "P"
@@ -13653,7 +13640,7 @@
       "espn_id": 4683391
     },
     {
-      "rank": 923,
+      "rank": 922,
       "name": "Jordan Wicks",
       "positions": [
         "P"
@@ -13668,7 +13655,7 @@
       "espn_id": 4420749
     },
     {
-      "rank": 924,
+      "rank": 923,
       "name": "Jeff Criswell",
       "positions": [
         "P"
@@ -13683,7 +13670,7 @@
       "espn_id": 4423332
     },
     {
-      "rank": 925,
+      "rank": 924,
       "name": "Daniel Espino",
       "positions": [
         "P"
@@ -13698,7 +13685,7 @@
       "espn_id": 42438
     },
     {
-      "rank": 926,
+      "rank": 925,
       "name": "Yovanny Cruz",
       "positions": [
         "P"
@@ -13713,7 +13700,7 @@
       "espn_id": 5196250
     },
     {
-      "rank": 927,
+      "rank": 926,
       "name": "Luis Gil",
       "positions": [
         "P"
@@ -13728,7 +13715,7 @@
       "espn_id": 40626
     },
     {
-      "rank": 928,
+      "rank": 927,
       "name": "Max Muncy",
       "positions": [
         "2B",
@@ -13743,7 +13730,7 @@
       "espn_id": 33303
     },
     {
-      "rank": 929,
+      "rank": 928,
       "name": "Ben Malgeri",
       "positions": [
         "OF"
@@ -13757,7 +13744,7 @@
       "espn_id": 4867327
     },
     {
-      "rank": 930,
+      "rank": 929,
       "name": "Alex Freeland",
       "positions": [
         "2B"
@@ -13771,7 +13758,7 @@
       "espn_id": 4727589
     },
     {
-      "rank": 931,
+      "rank": 930,
       "name": "Ali Sanchez",
       "positions": [
         "C"
@@ -13785,7 +13772,7 @@
       "espn_id": 37537
     },
     {
-      "rank": 932,
+      "rank": 931,
       "name": "Eduardo Valencia",
       "positions": [
         "C",
@@ -13800,7 +13787,7 @@
       "espn_id": 5133392
     },
     {
-      "rank": 933,
+      "rank": 932,
       "name": "Luis Morales",
       "positions": [
         "P"
@@ -13815,7 +13802,7 @@
       "espn_id": 5150939
     },
     {
-      "rank": 934,
+      "rank": 933,
       "name": "Jonathan Cannon",
       "positions": [
         "P"
@@ -13830,7 +13817,7 @@
       "espn_id": 4620398
     },
     {
-      "rank": 935,
+      "rank": 934,
       "name": "Chris Roycroft",
       "positions": [
         "P"
@@ -13845,7 +13832,7 @@
       "espn_id": 5201199
     },
     {
-      "rank": 936,
+      "rank": 935,
       "name": "Carson Seymour",
       "positions": [
         "P"
@@ -13860,7 +13847,7 @@
       "espn_id": 4420745
     },
     {
-      "rank": 937,
+      "rank": 936,
       "name": "Dax Fulton",
       "positions": [
         "P"
@@ -13875,7 +13862,7 @@
       "espn_id": 4917850
     },
     {
-      "rank": 938,
+      "rank": 937,
       "name": "Eric Orze",
       "positions": [
         "P"
@@ -13890,7 +13877,7 @@
       "espn_id": 4299966
     },
     {
-      "rank": 939,
+      "rank": 938,
       "name": "Anthony Molina",
       "positions": [
         "P"
@@ -13905,7 +13892,7 @@
       "espn_id": 5016983
     },
     {
-      "rank": 940,
+      "rank": 939,
       "name": "Angel Chivilli",
       "positions": [
         "P"
@@ -13920,7 +13907,7 @@
       "espn_id": 5185106
     },
     {
-      "rank": 941,
+      "rank": 940,
       "name": "Sam Aldegheri",
       "positions": [
         "P"
@@ -13935,7 +13922,7 @@
       "espn_id": 5221123
     },
     {
-      "rank": 942,
+      "rank": 941,
       "name": "Gavin Collyer",
       "positions": [
         "P"
@@ -13950,7 +13937,7 @@
       "espn_id": 5205875
     },
     {
-      "rank": 943,
+      "rank": 942,
       "name": "Eric Wagaman",
       "positions": [
         "1B",
@@ -13965,7 +13952,7 @@
       "espn_id": 4987650
     },
     {
-      "rank": 944,
+      "rank": 943,
       "name": "Alex Call",
       "positions": [
         "OF"
@@ -13979,7 +13966,7 @@
       "espn_id": 38994
     },
     {
-      "rank": 945,
+      "rank": 944,
       "name": "Rob Refsnyder",
       "positions": [
         "OF",
@@ -13994,7 +13981,7 @@
       "espn_id": 33411
     },
     {
-      "rank": 946,
+      "rank": 945,
       "name": "John Ingle",
       "positions": [
         "OF",
@@ -14009,7 +13996,7 @@
       "espn_id": 5272628
     },
     {
-      "rank": 947,
+      "rank": 946,
       "name": "Kaelen Culpepper",
       "positions": [
         "SS"
@@ -14023,7 +14010,7 @@
       "espn_id": 4935268
     },
     {
-      "rank": 948,
+      "rank": 947,
       "name": "Agustin Ramirez",
       "positions": [
         "C",
@@ -14038,7 +14025,7 @@
       "espn_id": 5132014
     },
     {
-      "rank": 949,
+      "rank": 948,
       "name": "Karson Milbrandt",
       "positions": [
         "P"
@@ -14053,7 +14040,7 @@
       "espn_id": 5080781
     },
     {
-      "rank": 950,
+      "rank": 949,
       "name": "Tyler Davis",
       "positions": [
         "P"
@@ -14068,7 +14055,7 @@
       "espn_id": 5270580
     },
     {
-      "rank": 951,
+      "rank": 950,
       "name": "George Klassen",
       "positions": [
         "P"
@@ -14083,7 +14070,7 @@
       "espn_id": 5134517
     },
     {
-      "rank": 952,
+      "rank": 951,
       "name": "Trevor Martin",
       "positions": [
         "P"
@@ -14098,7 +14085,7 @@
       "espn_id": 5201553
     },
     {
-      "rank": 953,
+      "rank": 952,
       "name": "Joe Rock",
       "positions": [
         "P"
@@ -14113,7 +14100,7 @@
       "espn_id": 4917788
     },
     {
-      "rank": 954,
+      "rank": 953,
       "name": "Jeremiah Jackson",
       "positions": [
         "2B",
@@ -14128,7 +14115,7 @@
       "espn_id": 41264
     },
     {
-      "rank": 955,
+      "rank": 954,
       "name": "Deyvison De Los Santos",
       "positions": [
         "1B",
@@ -14143,7 +14130,7 @@
       "espn_id": 4989046
     },
     {
-      "rank": 956,
+      "rank": 955,
       "name": "Will Wagner",
       "positions": [
         "3B"
@@ -14157,7 +14144,7 @@
       "espn_id": 4413898
     },
     {
-      "rank": 957,
+      "rank": 956,
       "name": "Yohendrick Pinango",
       "positions": [
         "OF"
@@ -14171,7 +14158,7 @@
       "espn_id": 4917684
     },
     {
-      "rank": 958,
+      "rank": 957,
       "name": "Mickey Gasper",
       "positions": [
         "C",
@@ -14186,7 +14173,7 @@
       "espn_id": 5132012
     },
     {
-      "rank": 959,
+      "rank": 958,
       "name": "Tyler Locklear",
       "positions": [
         "1B"
@@ -14200,7 +14187,7 @@
       "espn_id": 4866477
     },
     {
-      "rank": 960,
+      "rank": 959,
       "name": "Blake Dunn",
       "positions": [
         "OF"
@@ -14214,7 +14201,7 @@
       "espn_id": 5136428
     },
     {
-      "rank": 961,
+      "rank": 960,
       "name": "Elias Diaz",
       "positions": [
         "C"
@@ -14228,7 +14215,7 @@
       "espn_id": 33594
     },
     {
-      "rank": 962,
+      "rank": 961,
       "name": "Tyler Austin",
       "positions": [
         "1B"
@@ -14242,7 +14229,7 @@
       "espn_id": 32161
     },
     {
-      "rank": 963,
+      "rank": 962,
       "name": "Braxton Fulford",
       "positions": [
         "C",
@@ -14257,7 +14244,7 @@
       "espn_id": 5000931
     },
     {
-      "rank": 964,
+      "rank": 963,
       "name": "Quinn Mathews",
       "positions": [
         "P"
@@ -14272,7 +14259,7 @@
       "espn_id": 4837405
     },
     {
-      "rank": 965,
+      "rank": 964,
       "name": "Trey Gibson",
       "positions": [
         "P"
@@ -14287,7 +14274,7 @@
       "espn_id": 4867806
     },
     {
-      "rank": 966,
+      "rank": 965,
       "name": "Tyler Schweitzer",
       "positions": [
         "P"
@@ -14302,7 +14289,7 @@
       "espn_id": 5201509
     },
     {
-      "rank": 967,
+      "rank": 966,
       "name": "Carson Palmquist",
       "positions": [
         "P"
@@ -14317,7 +14304,7 @@
       "espn_id": 4621424
     },
     {
-      "rank": 968,
+      "rank": 967,
       "name": "Zach Agnos",
       "positions": [
         "P"
@@ -14332,7 +14319,7 @@
       "espn_id": 5207459
     },
     {
-      "rank": 969,
+      "rank": 968,
       "name": "Mitch Spence",
       "positions": [
         "P"
@@ -14347,7 +14334,7 @@
       "espn_id": 4987645
     },
     {
-      "rank": 970,
+      "rank": 969,
       "name": "Reiver Sanmartin",
       "positions": [
         "P"
@@ -14362,7 +14349,7 @@
       "espn_id": 39799
     },
     {
-      "rank": 971,
+      "rank": 970,
       "name": "Eric Haase",
       "positions": [
         "C"
@@ -14374,6 +14361,20 @@
       "type": "hitter",
       "fg_id": "14111",
       "espn_id": 33452
+    },
+    {
+      "rank": 971,
+      "name": "Abimelec Ortiz",
+      "positions": [
+        "DH"
+      ],
+      "displayPos": "DH",
+      "team": "WSH",
+      "dollars": -39.3,
+      "rpts": 22.3,
+      "type": "hitter",
+      "fg_id": "sa3016926",
+      "espn_id": 5194635
     },
     {
       "rank": 972,
