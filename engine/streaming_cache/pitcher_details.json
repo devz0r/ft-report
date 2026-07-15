@@ -12700,5 +12700,37 @@
     },
     "splits_window_years": 3,
     "pitcher_hand": "L"
+  },
+  "702566": {
+    "mlb_id": 702566,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 94.083837725,
+        "pct": 0.5970149
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 79.8416349090909,
+        "pct": 0.1641791
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 86.68688958333333,
+        "pct": 0.17910448
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 87.76486699999998,
+        "pct": 0.05970149
+      }
+    ],
+    "fb_velo": 94.1,
+    "pitch_count": 4,
+    "pitcher_hand": "R"
   }
 }
