@@ -1,6 +1,6 @@
 {
   "date": "2026-07-18",
-  "timestamp": "2026-07-18T08:44:13.315147",
+  "timestamp": "2026-07-18T10:11:49.556898",
   "players": [
     {
       "rank": 1,
@@ -10948,7 +10948,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "TOR",
       "dollars": -30.9,
       "rpts": 35.0,
       "type": "pitcher",
@@ -11680,7 +11680,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "OAK",
       "dollars": -32.6,
       "rpts": 31.0,
       "type": "pitcher",
@@ -12103,7 +12103,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "TEX",
       "dollars": -33.0,
       "rpts": 30.0,
       "type": "pitcher",
@@ -16124,7 +16124,7 @@
         "1B"
       ],
       "displayPos": "1B",
-      "team": "",
+      "team": "OAK",
       "dollars": -44.0,
       "rpts": 5.6,
       "type": "hitter",
