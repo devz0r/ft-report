@@ -9866,7 +9866,8 @@
       "k9": "11.02",
       "ip": "16.3"
     },
-    "splits_window_years": 3
+    "splits_window_years": 3,
+    "pitcher_hand": "R"
   },
   "680570": {
     "mlb_id": 680570,
