@@ -1,6 +1,6 @@
 {
   "date": "2026-07-21",
-  "timestamp": "2026-07-21T05:14:13.770049",
+  "timestamp": "2026-07-21T07:52:56.369779",
   "players": [
     {
       "rank": 1,
@@ -5696,6 +5696,21 @@
     },
     {
       "rank": 387,
+      "name": "Bryce Eldridge",
+      "positions": [
+        "1B",
+        "DH"
+      ],
+      "displayPos": "1B",
+      "team": "SF",
+      "dollars": -16.0,
+      "rpts": 77.0,
+      "type": "hitter",
+      "fg_id": "33390",
+      "espn_id": 5149064
+    },
+    {
+      "rank": 388,
       "name": "Josh Lowe",
       "positions": [
         "OF"
@@ -5709,7 +5724,7 @@
       "espn_id": 40557
     },
     {
-      "rank": 388,
+      "rank": 389,
       "name": "Spencer Miles",
       "positions": [
         "P"
@@ -5724,7 +5739,7 @@
       "espn_id": 4833671
     },
     {
-      "rank": 389,
+      "rank": 390,
       "name": "Garrett Crochet",
       "positions": [
         "P"
@@ -5739,7 +5754,7 @@
       "espn_id": 4297835
     },
     {
-      "rank": 390,
+      "rank": 391,
       "name": "Luke Weaver",
       "positions": [
         "P"
@@ -5754,7 +5769,7 @@
       "espn_id": 33770
     },
     {
-      "rank": 391,
+      "rank": 392,
       "name": "Matt Vierling",
       "positions": [
         "OF"
@@ -5768,7 +5783,7 @@
       "espn_id": 41636
     },
     {
-      "rank": 392,
+      "rank": 393,
       "name": "TJ Friedl",
       "positions": [
         "OF"
@@ -5782,7 +5797,7 @@
       "espn_id": 36020
     },
     {
-      "rank": 393,
+      "rank": 394,
       "name": "Luke Raley",
       "positions": [
         "1B",
@@ -5797,7 +5812,7 @@
       "espn_id": 40422
     },
     {
-      "rank": 394,
+      "rank": 395,
       "name": "Max Scherzer",
       "positions": [
         "P"
@@ -5812,7 +5827,7 @@
       "espn_id": 28976
     },
     {
-      "rank": 395,
+      "rank": 396,
       "name": "Andrew Alvarez",
       "positions": [
         "P"
@@ -5827,7 +5842,7 @@
       "espn_id": 4300668
     },
     {
-      "rank": 396,
+      "rank": 397,
       "name": "JP Sears",
       "positions": [
         "P"
@@ -5842,7 +5857,7 @@
       "espn_id": 39818
     },
     {
-      "rank": 397,
+      "rank": 398,
       "name": "A.J. Ewing",
       "positions": [
         "OF"
@@ -5856,7 +5871,7 @@
       "espn_id": 4081268
     },
     {
-      "rank": 398,
+      "rank": 399,
       "name": "Jack Leiter",
       "positions": [
         "P"
@@ -5871,7 +5886,7 @@
       "espn_id": 4622181
     },
     {
-      "rank": 399,
+      "rank": 400,
       "name": "Garrett Whitlock",
       "positions": [
         "P"
@@ -5886,7 +5901,7 @@
       "espn_id": 39674
     },
     {
-      "rank": 400,
+      "rank": 401,
       "name": "Matt McLain",
       "positions": [
         "2B",
@@ -5901,7 +5916,7 @@
       "espn_id": 4422899
     },
     {
-      "rank": 401,
+      "rank": 402,
       "name": "Vaughn Grissom",
       "positions": [
         "1B",
@@ -5916,7 +5931,7 @@
       "espn_id": 42503
     },
     {
-      "rank": 402,
+      "rank": 403,
       "name": "Jake Bennett",
       "positions": [
         "P"
@@ -5931,7 +5946,7 @@
       "espn_id": 4654024
     },
     {
-      "rank": 403,
+      "rank": 404,
       "name": "Brayan Bello",
       "positions": [
         "P"
@@ -5946,7 +5961,7 @@
       "espn_id": 4720856
     },
     {
-      "rank": 404,
+      "rank": 405,
       "name": "Walker Buehler",
       "positions": [
         "P"
@@ -5961,7 +5976,7 @@
       "espn_id": 39251
     },
     {
-      "rank": 405,
+      "rank": 406,
       "name": "Andrew Kittredge",
       "positions": [
         "P"
@@ -5974,20 +5989,6 @@
       "fg_id": "12828",
       "pitcherRole": "RP",
       "espn_id": 35872
-    },
-    {
-      "rank": 406,
-      "name": "Bryce Eldridge",
-      "positions": [
-        "DH"
-      ],
-      "displayPos": "DH",
-      "team": "SF",
-      "dollars": -17.8,
-      "rpts": 77.0,
-      "type": "hitter",
-      "fg_id": "33390",
-      "espn_id": 5149064
     },
     {
       "rank": 407,
@@ -14335,7 +14336,8 @@
       "rank": 968,
       "name": "Ben Malgeri",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "DET",
