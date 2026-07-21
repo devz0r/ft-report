@@ -1,15 +1,15 @@
 {
   "date": "2026-07-21",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-21T01:56:57",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-21T17:53:41",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (20.7h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.8h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-21T22:40:00+00:00",
-    "hours_to_first_game": 20.72,
+    "hours_to_first_game": 4.77,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.05
   },
   "players": {
     "luis urias": {
@@ -683,17 +683,6 @@
       "batting_order_raw": null,
       "position": "1B"
     },
-    "miles mastrobuoni": {
-      "name": "Miles Mastrobuoni",
-      "mlb_id": 670156,
-      "team": "SEA",
-      "game_pk": 823114,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
-    },
     "colt emerson": {
       "name": "Colt Emerson",
       "mlb_id": 806068,
@@ -715,6 +704,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
+    },
+    "julio rodriguez": {
+      "name": "Julio Rodr\u00edguez",
+      "mlb_id": 677594,
+      "team": "SEA",
+      "game_pk": 823114,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "CF"
     },
     "luke raley": {
       "name": "Luke Raley",
@@ -1902,7 +1902,7 @@
       "batting_order_status": "unknown",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "LF"
+      "position": "CF"
     },
     "lars nootbaar": {
       "name": "Lars Nootbaar",
@@ -3059,17 +3059,6 @@
       "batting_order_raw": null,
       "position": "RF"
     },
-    "tristan gray": {
-      "name": "Tristan Gray",
-      "mlb_id": 656484,
-      "team": "MIN",
-      "game_pk": 824409,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
-    },
     "josh bell": {
       "name": "Josh Bell",
       "mlb_id": 605137,
@@ -3135,6 +3124,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "LF"
+    },
+    "byron buxton": {
+      "name": "Byron Buxton",
+      "mlb_id": 621439,
+      "team": "MIN",
+      "game_pk": 824409,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "CF"
     },
     "alex jackson": {
       "name": "Alex Jackson",
@@ -3598,6 +3598,17 @@
       "batting_order_raw": null,
       "position": "2B"
     },
+    "chadwick tromp": {
+      "name": "Chadwick Tromp",
+      "mlb_id": 644433,
+      "team": "BAL",
+      "game_pk": 824735,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
+    },
     "samuel basallo": {
       "name": "Samuel Basallo",
       "mlb_id": 694212,
@@ -3653,17 +3664,6 @@
       "batting_order_raw": null,
       "position": "RF"
     },
-    "adley rutschman": {
-      "name": "Adley Rutschman",
-      "mlb_id": 668939,
-      "team": "BAL",
-      "game_pk": 824735,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
-    },
     "tyler oneill": {
       "name": "Tyler O'Neill",
       "mlb_id": 641933,
@@ -3685,6 +3685,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "1B"
+    },
+    "sam huff": {
+      "name": "Sam Huff",
+      "mlb_id": 669087,
+      "team": "BAL",
+      "game_pk": 824735,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
     },
     "jackson holliday": {
       "name": "Jackson Holliday",
@@ -4027,6 +4038,17 @@
       "batting_order_raw": null,
       "position": "LF"
     },
+    "adrian del castillo": {
+      "name": "Adrian Del Castillo",
+      "mlb_id": 680728,
+      "team": "AZ",
+      "game_pk": 825056,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "DH"
+    },
     "nolan arenado": {
       "name": "Nolan Arenado",
       "mlb_id": 571448,
@@ -4037,6 +4059,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
+    },
+    "tyler locklear": {
+      "name": "Tyler Locklear",
+      "mlb_id": 682988,
+      "team": "AZ",
+      "game_pk": 825056,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "1B"
     },
     "ryan waldschmidt": {
       "name": "Ryan Waldschmidt",
@@ -4104,17 +4137,6 @@
       "batting_order_raw": null,
       "position": "RF"
     },
-    "lourdes gurriel": {
-      "name": "Lourdes Gurriel Jr.",
-      "mlb_id": 666971,
-      "team": "AZ",
-      "game_pk": 825056,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "LF"
-    },
     "max kepler": {
       "name": "Max Kepler",
       "mlb_id": 596146,
@@ -4170,6 +4192,17 @@
       "batting_order_raw": null,
       "position": "C"
     },
+    "tommy white": {
+      "name": "Tommy White",
+      "mlb_id": 695720,
+      "team": "OAK",
+      "game_pk": 825056,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "3B"
+    },
     "donovan walton": {
       "name": "Donovan Walton",
       "mlb_id": 622268,
@@ -4201,7 +4234,7 @@
       "batting_order_status": "unknown",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "SS"
+      "position": "3B"
     },
     "carlos cortes": {
       "name": "Carlos Cortes",
