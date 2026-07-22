@@ -1,15 +1,15 @@
 {
   "date": "2026-07-22",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-22T01:56:44",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-22T12:15:02",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (15.1h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.8h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-22T17:05:00+00:00",
-    "hours_to_first_game": 15.14,
+    "hours_to_first_game": 4.83,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.08
   },
   "players": {
     "luis urias": {
@@ -3840,17 +3840,6 @@
       "batting_order_raw": null,
       "position": "DH"
     },
-    "kyle farmer": {
-      "name": "Kyle Farmer",
-      "mlb_id": 571657,
-      "team": "ATL",
-      "game_pk": 824896,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "DH"
-    },
     "eli white": {
       "name": "Eli White",
       "mlb_id": 642201,
@@ -3883,6 +3872,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
+    },
+    "mike yastrzemski": {
+      "name": "Mike Yastrzemski",
+      "mlb_id": 573262,
+      "team": "ATL",
+      "game_pk": 824896,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "LF"
     },
     "luis campusano": {
       "name": "Luis Campusano",
@@ -3928,6 +3928,17 @@
       "batting_order_raw": null,
       "position": "CF"
     },
+    "rodolfo duran": {
+      "name": "Rodolfo Dur\u00e1n",
+      "mlb_id": 660710,
+      "team": "SD",
+      "game_pk": 824896,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
+    },
     "sung-mun song": {
       "name": "Sung-Mun Song",
       "mlb_id": 823550,
@@ -3960,17 +3971,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
-    },
-    "miguel andujar": {
-      "name": "Miguel Andujar",
-      "mlb_id": 609280,
-      "team": "SD",
-      "game_pk": 824896,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "DH"
     },
     "ty france": {
       "name": "Ty France",
