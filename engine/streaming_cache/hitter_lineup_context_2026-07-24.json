@@ -1,15 +1,15 @@
 {
   "date": "2026-07-24",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-24T02:17:12",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-24T17:22:00",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (17.9h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (2.8h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-24T20:10:00+00:00",
-    "hours_to_first_game": 17.88,
+    "hours_to_first_game": 2.8,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.01
   },
   "players": {
     "cj abrams": {
@@ -2630,17 +2630,6 @@
       "batting_order_raw": null,
       "position": "1B"
     },
-    "braden shewmake": {
-      "name": "Braden Shewmake",
-      "mlb_id": 669699,
-      "team": "MIL",
-      "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
-    },
     "andrew vaughn": {
       "name": "Andrew Vaughn",
       "mlb_id": 683734,
@@ -2662,6 +2651,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "CF"
+    },
+    "david hamilton": {
+      "name": "David Hamilton",
+      "mlb_id": 666152,
+      "team": "MIL",
+      "game_pk": 823759,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "3B"
     },
     "blake perkins": {
       "name": "Blake Perkins",
@@ -2723,41 +2723,41 @@
       "mlb_id": 666160,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "LF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
+      "position": "DH"
     },
     "jake mccarthy": {
       "name": "Jake McCarthy",
       "mlb_id": 664983,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "CF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
+      "position": "LF"
     },
     "troy johnston": {
       "name": "Troy Johnston",
       "mlb_id": 687859,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
+      "position": "1B"
     },
     "braxton fulford": {
       "name": "Braxton Fulford",
       "mlb_id": 690924,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "DH"
@@ -2767,10 +2767,10 @@
       "mlb_id": 650489,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "2B"
     },
     "cole carrigg": {
@@ -2778,10 +2778,10 @@
       "mlb_id": 694249,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "CF"
     },
     "tyler freeman": {
@@ -2789,10 +2789,10 @@
       "mlb_id": 671289,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
       "position": "RF"
     },
     "edouard julien": {
@@ -2800,8 +2800,8 @@
       "mlb_id": 666397,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
@@ -2811,10 +2811,10 @@
       "mlb_id": 696100,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "C"
     },
     "brett sullivan": {
@@ -2822,8 +2822,8 @@
       "mlb_id": 664954,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -2833,10 +2833,10 @@
       "mlb_id": 678662,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "SS"
     },
     "tj rumfield": {
@@ -2844,8 +2844,8 @@
       "mlb_id": 681198,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "1B"
@@ -2855,10 +2855,10 @@
       "mlb_id": 691720,
       "team": "COL",
       "game_pk": 823759,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "3B"
     },
     "griffin conine": {
@@ -4082,17 +4082,6 @@
       "batting_order_raw": null,
       "position": "RF"
     },
-    "johnathan rodriguez": {
-      "name": "Johnathan Rodr\u00edguez",
-      "mlb_id": 671286,
-      "team": "BAL",
-      "game_pk": 824812,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
-    },
     "pete alonso": {
       "name": "Pete Alonso",
       "mlb_id": 624413,
@@ -4303,7 +4292,9 @@
       "position": "LF"
     }
   },
-  "teams_with_posted_lineups": [],
+  "teams_with_posted_lineups": [
+    "COL"
+  ],
   "game_pks": [
     822707,
     822872,
