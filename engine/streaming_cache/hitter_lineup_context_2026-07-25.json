@@ -1,15 +1,15 @@
 {
   "date": "2026-07-25",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-25T02:27:38",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-25T13:32:37",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (14.7h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (3.6h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-25T17:10:00+00:00",
-    "hours_to_first_game": 14.71,
+    "hours_to_first_game": 3.62,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.16
   },
   "players": {
     "cj abrams": {
@@ -1816,6 +1816,17 @@
       "batting_order_raw": null,
       "position": "3B"
     },
+    "payton henry": {
+      "name": "Payton Henry",
+      "mlb_id": 668721,
+      "team": "PHI",
+      "game_pk": 823435,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
+    },
     "bryson stott": {
       "name": "Bryson Stott",
       "mlb_id": 681082,
@@ -1837,17 +1848,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "DH"
-    },
-    "rafael marchan": {
-      "name": "Rafael March\u00e1n",
-      "mlb_id": 665561,
-      "team": "PHI",
-      "game_pk": 823435,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
     },
     "trea turner": {
       "name": "Trea Turner",
@@ -3068,7 +3068,7 @@
       "batting_order_status": "unknown",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "C"
+      "position": "DH"
     },
     "nick loftin": {
       "name": "Nick Loftin",
@@ -3409,7 +3409,7 @@
       "batting_order_status": "unknown",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "CF"
+      "position": "OF"
     },
     "christian vazquez": {
       "name": "Christian V\u00e1zquez",
