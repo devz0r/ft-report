@@ -1,15 +1,15 @@
 {
   "date": "2026-07-26",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-26T01:14:59",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-26T11:22:29",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (15.0h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.9h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-26T16:15:00+00:00",
-    "hours_to_first_game": 15.0,
+    "hours_to_first_game": 4.88,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.14
   },
   "players": {
     "cj abrams": {
