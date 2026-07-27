@@ -1,15 +1,15 @@
 {
   "date": "2026-07-27",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-27T09:00:08",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-27T15:28:31",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (9.6h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (3.1h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-27T18:35:00+00:00",
-    "hours_to_first_game": 9.58,
+    "hours_to_first_game": 3.11,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.13
   },
   "players": {
     "brady house": {
