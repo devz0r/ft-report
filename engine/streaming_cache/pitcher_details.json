@@ -13100,5 +13100,22 @@
     "fb_velo": 97.6,
     "pitch_count": 4,
     "pitcher_hand": "R"
+  },
+  "700363": {
+    "mlb_id": 700363,
+    "career_vs_l": {
+      "ops": "0.595",
+      "whip": "1.10",
+      "k9": "9.00",
+      "ip": "29.0"
+    },
+    "career_vs_r": {
+      "ops": "0.810",
+      "whip": "1.86",
+      "k9": "7.91",
+      "ip": "19.3"
+    },
+    "splits_window_years": 2,
+    "pitcher_hand": "R"
   }
 }
