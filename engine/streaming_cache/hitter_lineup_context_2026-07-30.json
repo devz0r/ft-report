@@ -1,15 +1,15 @@
 {
   "date": "2026-07-30",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-30T01:50:25",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-07-30T11:57:23",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (14.3h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.2h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-30T16:10:00+00:00",
-    "hours_to_first_game": 14.33,
+    "hours_to_first_game": 4.21,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.09
   },
   "players": {
     "taylor walls": {
@@ -1200,6 +1200,17 @@
       "batting_order_raw": null,
       "position": "RF"
     },
+    "tristan gray": {
+      "name": "Tristan Gray",
+      "mlb_id": 656484,
+      "team": "MIN",
+      "game_pk": 823674,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "SS"
+    },
     "josh bell": {
       "name": "Josh Bell",
       "mlb_id": 605137,
@@ -1265,17 +1276,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "LF"
-    },
-    "byron buxton": {
-      "name": "Byron Buxton",
-      "mlb_id": 621439,
-      "team": "MIN",
-      "game_pk": 823674,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "CF"
     },
     "alex jackson": {
       "name": "Alex Jackson",
@@ -1365,6 +1365,17 @@
       "batting_order_raw": null,
       "position": "3B"
     },
+    "john rave": {
+      "name": "John Rave",
+      "mlb_id": 670231,
+      "team": "KC",
+      "game_pk": 823674,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "RF"
+    },
     "andrew velazquez": {
       "name": "Andrew Velazquez",
       "mlb_id": 623205,
@@ -1408,17 +1419,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
-    },
-    "vinnie pasquantino": {
-      "name": "Vinnie Pasquantino",
-      "mlb_id": 686469,
-      "team": "KC",
-      "game_pk": 823674,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "1B"
     },
     "lane thomas": {
       "name": "Lane Thomas",
@@ -2355,6 +2355,17 @@
       "batting_order_raw": null,
       "position": "2B"
     },
+    "brian serven": {
+      "name": "Brian Serven",
+      "mlb_id": 661531,
+      "team": "OAK",
+      "game_pk": 824974,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
+    },
     "carlos cortes": {
       "name": "Carlos Cortes",
       "mlb_id": 666126,
@@ -2420,17 +2431,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
-    },
-    "shea langeliers": {
-      "name": "Shea Langeliers",
-      "mlb_id": 669127,
-      "team": "OAK",
-      "game_pk": 824974,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
     },
     "jacob wilson": {
       "name": "Jacob Wilson",
@@ -2553,16 +2553,16 @@
       "batting_order_raw": null,
       "position": "LF"
     },
-    "tsung-che cheng": {
-      "name": "Tsung-Che Cheng",
-      "mlb_id": 691907,
+    "nick sogard": {
+      "name": "Nick Sogard",
+      "mlb_id": 686765,
       "team": "BOS",
       "game_pk": 824974,
       "lineup_status": "unknown",
       "batting_order_status": "unknown",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "SS"
+      "position": "3B"
     },
     "ceddanne rafaela": {
       "name": "Ceddanne Rafaela",
