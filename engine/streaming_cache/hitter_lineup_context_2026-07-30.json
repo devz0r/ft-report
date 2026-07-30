@@ -1,15 +1,15 @@
 {
   "date": "2026-07-30",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-07-30T11:57:23",
+  "refreshed_at": "2026-07-30T13:46:14",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (4.2h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (2.4h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-07-30T16:10:00+00:00",
-    "hours_to_first_game": 4.21,
+    "hours_to_first_game": 2.4,
     "cached_posted_teams": 0,
-    "cache_age_hours": 0.09
+    "cache_age_hours": 0.1
   },
   "players": {
     "taylor walls": {
@@ -17,10 +17,10 @@
       "mlb_id": 670764,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
       "position": "SS"
     },
     "richie palacios": {
@@ -28,8 +28,8 @@
       "mlb_id": 680700,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
@@ -39,8 +39,8 @@
       "mlb_id": 668723,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
@@ -50,8 +50,8 @@
       "mlb_id": 802415,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "LF"
@@ -61,21 +61,21 @@
       "mlb_id": 676356,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
+      "position": "LF"
     },
     "hunter feduccia": {
       "name": "Hunter Feduccia",
       "mlb_id": 676439,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "C"
     },
     "jonathan aranda": {
@@ -83,10 +83,10 @@
       "mlb_id": 666018,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "1B"
     },
     "nick fortes": {
@@ -94,8 +94,8 @@
       "mlb_id": 663743,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -105,10 +105,10 @@
       "mlb_id": 650490,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
       "position": "DH"
     },
     "ben williamson": {
@@ -116,10 +116,10 @@
       "mlb_id": 810938,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
       "position": "2B"
     },
     "victor mesa": {
@@ -127,10 +127,10 @@
       "mlb_id": 683748,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "RF"
     },
     "junior caminero": {
@@ -138,10 +138,10 @@
       "mlb_id": 691406,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "3B"
     },
     "cedric mullins": {
@@ -149,10 +149,10 @@
       "mlb_id": 656775,
       "team": "TB",
       "game_pk": 822946,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "CF"
     },
     "evan carter": {
@@ -2587,7 +2587,9 @@
       "position": "DH"
     }
   },
-  "teams_with_posted_lineups": [],
+  "teams_with_posted_lineups": [
+    "TB"
+  ],
   "game_pks": [
     822946,
     823023,
