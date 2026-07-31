@@ -1,6 +1,6 @@
 {
   "date": "2026-07-31",
-  "timestamp": "2026-07-31T11:22:48.064189",
+  "timestamp": "2026-07-31T13:12:23.375702",
   "players": [
     {
       "rank": 1,
@@ -7152,7 +7152,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "NYM",
+      "team": "MIN",
       "dollars": -22.6,
       "rpts": 47.0,
       "type": "pitcher",
@@ -14185,7 +14185,7 @@
         "C"
       ],
       "displayPos": "C",
-      "team": "DET",
+      "team": "BAL",
       "dollars": -39.1,
       "rpts": 13.0,
       "type": "hitter",
