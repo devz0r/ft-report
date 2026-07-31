@@ -1,6 +1,6 @@
 {
   "date": "2026-07-31",
-  "timestamp": "2026-07-31T18:50:38.702233",
+  "timestamp": "2026-07-31T20:15:09.973743",
   "players": [
     {
       "rank": 1,
@@ -2597,7 +2597,7 @@
       "rpts": 102.5,
       "type": "hitter",
       "fg_id": "13301",
-      "espn_id": 4872686
+      "espn_id": 33303
     },
     {
       "rank": 178,
@@ -3402,7 +3402,7 @@
       "rpts": 93.6,
       "type": "hitter",
       "fg_id": "29805",
-      "espn_id": 4415849
+      "espn_id": 5014349
     },
     {
       "rank": 232,
@@ -3729,7 +3729,7 @@
       "type": "pitcher",
       "fg_id": "20302",
       "pitcherRole": "SP",
-      "espn_id": 35169
+      "espn_id": 40921
     },
     {
       "rank": 254,
@@ -5704,7 +5704,7 @@
       "type": "pitcher",
       "fg_id": "27819",
       "pitcherRole": "SP",
-      "espn_id": 5255095
+      "espn_id": 4414339
     },
     {
       "rank": 388,
@@ -6671,7 +6671,7 @@
       "type": "pitcher",
       "fg_id": "15454",
       "pitcherRole": "SP",
-      "espn_id": 33768
+      "espn_id": 36071
     },
     {
       "rank": 453,
@@ -11137,7 +11137,7 @@
       "type": "pitcher",
       "fg_id": "20423",
       "pitcherRole": "RP",
-      "espn_id": 4300476
+      "espn_id": 5000950
     },
     {
       "rank": 753,
@@ -15390,7 +15390,7 @@
       "rpts": 10.7,
       "type": "hitter",
       "fg_id": "29779",
-      "espn_id": 4872686
+      "espn_id": 33303
     },
     {
       "rank": 1040,
