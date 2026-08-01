@@ -1,13 +1,13 @@
 {
   "date": "2026-08-01",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-01T14:47:36",
+  "refreshed_at": "2026-08-01T15:59:22",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (4.3h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (3.1h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-01T19:07:00+00:00",
-    "hours_to_first_game": 4.32,
+    "hours_to_first_game": 3.13,
     "cached_posted_teams": 0,
     "cache_age_hours": 0.09
   },
@@ -17,10 +17,10 @@
       "mlb_id": 649966,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
       "position": "2B"
     },
     "ernie clement": {
@@ -28,21 +28,21 @@
       "mlb_id": 676391,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "2B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
+      "position": "SS"
     },
     "daulton varsho": {
       "name": "Daulton Varsho",
       "mlb_id": 662139,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "CF"
     },
     "andres gimenez": {
@@ -50,8 +50,8 @@
       "mlb_id": 665926,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "SS"
@@ -61,8 +61,8 @@
       "mlb_id": 678218,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -72,10 +72,10 @@
       "mlb_id": 676914,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "LF"
     },
     "nathan lukes": {
@@ -83,32 +83,21 @@
       "mlb_id": 664770,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
-    },
-    "yohendrick pinango": {
-      "name": "Yohendrick Pi\u00f1ango",
-      "mlb_id": 682818,
-      "team": "TOR",
-      "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "LF"
     },
     "george springer": {
       "name": "George Springer",
       "mlb_id": 543807,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "DH"
     },
     "vladimir guerrero": {
@@ -116,21 +105,32 @@
       "mlb_id": 665489,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
+      "position": "1B"
+    },
+    "jesus sanchez": {
+      "name": "Jes\u00fas S\u00e1nchez",
+      "mlb_id": 660821,
+      "team": "TOR",
+      "game_pk": 822781,
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "1B"
+      "position": "RF"
     },
     "myles straw": {
       "name": "Myles Straw",
       "mlb_id": 664702,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
       "position": "RF"
     },
     "alejandro kirk": {
@@ -138,10 +138,10 @@
       "mlb_id": 672386,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "C"
     },
     "kazuma okamoto": {
@@ -149,10 +149,10 @@
       "mlb_id": 672960,
       "team": "TOR",
       "game_pk": 822781,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "3B"
     },
     "bryan torres": {
@@ -4303,7 +4303,9 @@
       "position": "3B"
     }
   },
-  "teams_with_posted_lineups": [],
+  "teams_with_posted_lineups": [
+    "TOR"
+  ],
   "game_pks": [
     822781,
     822944,
