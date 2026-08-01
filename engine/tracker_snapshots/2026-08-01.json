@@ -1,6 +1,6 @@
 {
   "date": "2026-08-01",
-  "timestamp": "2026-08-01T11:39:04.508201",
+  "timestamp": "2026-08-01T13:02:56.807974",
   "players": [
     {
       "rank": 1,
@@ -4761,7 +4761,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "BAL",
+      "team": "MIN",
       "dollars": -9.5,
       "rpts": 70.0,
       "type": "pitcher",
@@ -5936,7 +5936,7 @@
         "OF"
       ],
       "displayPos": "OF",
-      "team": "",
+      "team": "DET",
       "dollars": -17.1,
       "rpts": 57.7,
       "type": "hitter",
@@ -12794,7 +12794,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "LAA",
       "dollars": -36.4,
       "rpts": 21.0,
       "type": "pitcher",
@@ -12884,7 +12884,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "CHC",
       "dollars": -36.4,
       "rpts": 21.0,
       "type": "pitcher",
@@ -13194,7 +13194,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "TB",
       "dollars": -37.5,
       "rpts": 19.0,
       "type": "pitcher",
@@ -13509,7 +13509,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "MIL",
+      "team": "",
       "dollars": -37.5,
       "rpts": 19.0,
       "type": "pitcher",
