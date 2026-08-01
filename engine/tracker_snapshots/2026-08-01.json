@@ -1,6 +1,6 @@
 {
   "date": "2026-08-01",
-  "timestamp": "2026-08-01T08:06:44.090152",
+  "timestamp": "2026-08-01T10:14:21.006342",
   "players": [
     {
       "rank": 1,
@@ -1828,7 +1828,8 @@
       "rank": 125,
       "name": "Gleyber Torres",
       "positions": [
-        "2B"
+        "2B",
+        "DH"
       ],
       "displayPos": "2B",
       "team": "DET",
