@@ -1,6 +1,6 @@
 {
   "date": "2026-08-02",
-  "timestamp": "2026-08-02T04:49:04.949288",
+  "timestamp": "2026-08-02T07:27:50.878272",
   "players": [
     {
       "rank": 1,
@@ -3490,7 +3490,7 @@
       "rpts": 93.1,
       "type": "hitter",
       "fg_id": "29805",
-      "espn_id": 5014349
+      "espn_id": 4415849
     },
     {
       "rank": 238,
@@ -3850,7 +3850,7 @@
       "type": "pitcher",
       "fg_id": "20302",
       "pitcherRole": "SP",
-      "espn_id": 40921
+      "espn_id": 35169
     },
     {
       "rank": 262,
