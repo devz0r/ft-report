@@ -1,6 +1,6 @@
 {
   "date": "2026-08-02",
-  "timestamp": "2026-08-02T09:32:07.820075",
+  "timestamp": "2026-08-02T11:11:28.877646",
   "players": [
     {
       "rank": 1,
@@ -15071,7 +15071,8 @@
       "rank": 1018,
       "name": "Christian Koss",
       "positions": [
-        "2B"
+        "2B",
+        "3B"
       ],
       "displayPos": "2B",
       "team": "SF",
@@ -16076,7 +16077,8 @@
       "rank": 1087,
       "name": "James Triantos",
       "positions": [
-        "2B"
+        "2B",
+        "DH"
       ],
       "displayPos": "2B",
       "team": "CHC",
@@ -16717,7 +16719,8 @@
       "rank": 1131,
       "name": "Osleivis Basabe",
       "positions": [
-        "2B"
+        "2B",
+        "3B"
       ],
       "displayPos": "2B",
       "team": "SF",
