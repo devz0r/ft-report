@@ -1,6 +1,6 @@
 {
   "date": "2026-08-04",
-  "timestamp": "2026-08-04T06:20:44.328651",
+  "timestamp": "2026-08-04T09:18:24.606259",
   "players": [
     {
       "rank": 1,
@@ -6303,6 +6303,21 @@
     },
     {
       "rank": 428,
+      "name": "Abimelec Ortiz",
+      "positions": [
+        "1B",
+        "DH"
+      ],
+      "displayPos": "1B",
+      "team": "WSH",
+      "dollars": -18.9,
+      "rpts": 56.2,
+      "type": "hitter",
+      "fg_id": "29539",
+      "espn_id": 5194635
+    },
+    {
+      "rank": 429,
       "name": "Nathan Church",
       "positions": [
         "OF"
@@ -6316,7 +6331,7 @@
       "espn_id": 5132177
     },
     {
-      "rank": 429,
+      "rank": 430,
       "name": "Brenton Doyle",
       "positions": [
         "OF"
@@ -6330,7 +6345,7 @@
       "espn_id": 42462
     },
     {
-      "rank": 430,
+      "rank": 431,
       "name": "Kyle Isbel",
       "positions": [
         "OF"
@@ -6344,7 +6359,7 @@
       "espn_id": 41263
     },
     {
-      "rank": 431,
+      "rank": 432,
       "name": "Fernando Cruz",
       "positions": [
         "P"
@@ -6359,7 +6374,7 @@
       "espn_id": 34068
     },
     {
-      "rank": 432,
+      "rank": 433,
       "name": "Luke Weaver",
       "positions": [
         "P"
@@ -6374,7 +6389,7 @@
       "espn_id": 33770
     },
     {
-      "rank": 433,
+      "rank": 434,
       "name": "Luis Lara",
       "positions": [
         "OF"
@@ -6388,7 +6403,7 @@
       "espn_id": 5138536
     },
     {
-      "rank": 434,
+      "rank": 435,
       "name": "Tim Tawa",
       "positions": [
         "1B",
@@ -6404,7 +6419,7 @@
       "espn_id": 4345192
     },
     {
-      "rank": 435,
+      "rank": 436,
       "name": "Kirby Yates",
       "positions": [
         "P"
@@ -6419,7 +6434,7 @@
       "espn_id": 32623
     },
     {
-      "rank": 436,
+      "rank": 437,
       "name": "Martin Perez",
       "positions": [
         "P"
@@ -6434,7 +6449,7 @@
       "espn_id": 31098
     },
     {
-      "rank": 437,
+      "rank": 438,
       "name": "Noah Schultz",
       "positions": [
         "P"
@@ -6449,7 +6464,7 @@
       "espn_id": 5080754
     },
     {
-      "rank": 438,
+      "rank": 439,
       "name": "Chad Patrick",
       "positions": [
         "P"
@@ -6464,7 +6479,7 @@
       "espn_id": 5131708
     },
     {
-      "rank": 439,
+      "rank": 440,
       "name": "Walbert Urena",
       "positions": [
         "P"
@@ -6479,7 +6494,7 @@
       "espn_id": 5197476
     },
     {
-      "rank": 440,
+      "rank": 441,
       "name": "Tyler Phillips",
       "positions": [
         "P"
@@ -6494,7 +6509,7 @@
       "espn_id": 41247
     },
     {
-      "rank": 441,
+      "rank": 442,
       "name": "Garrett Cleavinger",
       "positions": [
         "P"
@@ -6509,7 +6524,7 @@
       "espn_id": 36429
     },
     {
-      "rank": 442,
+      "rank": 443,
       "name": "Jordan Romano",
       "positions": [
         "P"
@@ -6524,7 +6539,7 @@
       "espn_id": 36380
     },
     {
-      "rank": 443,
+      "rank": 444,
       "name": "Owen Caissie",
       "positions": [
         "OF"
@@ -6538,7 +6553,7 @@
       "espn_id": 4917685
     },
     {
-      "rank": 444,
+      "rank": 445,
       "name": "Victor Caratini",
       "positions": [
         "C",
@@ -6554,7 +6569,7 @@
       "espn_id": 33229
     },
     {
-      "rank": 445,
+      "rank": 446,
       "name": "Oswald Peraza",
       "positions": [
         "2B",
@@ -6570,7 +6585,7 @@
       "espn_id": 42479
     },
     {
-      "rank": 446,
+      "rank": 447,
       "name": "Taylor Walls",
       "positions": [
         "SS"
@@ -6584,7 +6599,7 @@
       "espn_id": 40576
     },
     {
-      "rank": 447,
+      "rank": 448,
       "name": "Nasim Nunez",
       "positions": [
         "2B",
@@ -6599,7 +6614,7 @@
       "espn_id": 4728688
     },
     {
-      "rank": 448,
+      "rank": 449,
       "name": "JP Sears",
       "positions": [
         "P"
@@ -6614,7 +6629,7 @@
       "espn_id": 39818
     },
     {
-      "rank": 449,
+      "rank": 450,
       "name": "Elvis Alvarado",
       "positions": [
         "P"
@@ -6629,7 +6644,7 @@
       "espn_id": 42211
     },
     {
-      "rank": 450,
+      "rank": 451,
       "name": "Kyle Freeland",
       "positions": [
         "P"
@@ -6644,7 +6659,7 @@
       "espn_id": 33839
     },
     {
-      "rank": 451,
+      "rank": 452,
       "name": "Jared Young",
       "positions": [
         "1B",
@@ -6659,7 +6674,7 @@
       "espn_id": 41575
     },
     {
-      "rank": 452,
+      "rank": 453,
       "name": "Ke'Bryan Hayes",
       "positions": [
         "3B"
@@ -6673,7 +6688,7 @@
       "espn_id": 35020
     },
     {
-      "rank": 453,
+      "rank": 454,
       "name": "Ryan Feltner",
       "positions": [
         "P"
@@ -6688,7 +6703,7 @@
       "espn_id": 4738838
     },
     {
-      "rank": 454,
+      "rank": 455,
       "name": "Yusei Kikuchi",
       "positions": [
         "P"
@@ -6703,7 +6718,7 @@
       "espn_id": 41415
     },
     {
-      "rank": 455,
+      "rank": 456,
       "name": "Garrett Whitlock",
       "positions": [
         "P"
@@ -6718,7 +6733,7 @@
       "espn_id": 39674
     },
     {
-      "rank": 456,
+      "rank": 457,
       "name": "Sean Newcomb",
       "positions": [
         "P"
@@ -6733,7 +6748,7 @@
       "espn_id": 33856
     },
     {
-      "rank": 457,
+      "rank": 458,
       "name": "Marcell Ozuna",
       "positions": [
         "DH"
@@ -6745,20 +6760,6 @@
       "type": "hitter",
       "fg_id": "10324",
       "espn_id": 31668
-    },
-    {
-      "rank": 458,
-      "name": "Abimelec Ortiz",
-      "positions": [
-        "DH"
-      ],
-      "displayPos": "DH",
-      "team": "WSH",
-      "dollars": -21.4,
-      "rpts": 56.2,
-      "type": "hitter",
-      "fg_id": "29539",
-      "espn_id": 5194635
     },
     {
       "rank": 459,
@@ -14568,7 +14569,8 @@
       "rank": 984,
       "name": "Nathan Furman",
       "positions": [
-        "2B"
+        "2B",
+        "DH"
       ],
       "displayPos": "2B",
       "team": "SF",
