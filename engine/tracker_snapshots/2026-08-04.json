@@ -1,6 +1,6 @@
 {
   "date": "2026-08-04",
-  "timestamp": "2026-08-04T13:51:16.500391",
+  "timestamp": "2026-08-04T16:08:13.438394",
   "players": [
     {
       "rank": 1,
@@ -3127,7 +3127,7 @@
       ],
       "displayPos": "1B",
       "team": "MIN",
-      "dollars": -0.0,
+      "dollars": 0.0,
       "rpts": 84.1,
       "type": "hitter",
       "fg_id": "13145",
