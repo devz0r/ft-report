@@ -1,6 +1,6 @@
 {
   "date": "2026-08-05",
-  "timestamp": "2026-08-05T12:49:40.378169",
+  "timestamp": "2026-08-05T15:08:58.111568",
   "players": [
     {
       "rank": 1,
@@ -11134,7 +11134,7 @@
         "DH"
       ],
       "displayPos": "C",
-      "team": "SEA",
+      "team": "",
       "dollars": -33.5,
       "rpts": 18.8,
       "type": "hitter",
@@ -11414,7 +11414,7 @@
         "DH"
       ],
       "displayPos": "OF",
-      "team": "SEA",
+      "team": "",
       "dollars": -34.3,
       "rpts": 19.9,
       "type": "hitter",
@@ -13474,7 +13474,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "MIL",
+      "team": "",
       "dollars": -38.3,
       "rpts": 19.0,
       "type": "pitcher",
