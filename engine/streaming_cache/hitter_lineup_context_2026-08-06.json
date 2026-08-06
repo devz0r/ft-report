@@ -1,15 +1,15 @@
 {
   "date": "2026-08-06",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-06T01:54:50",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-08-06T12:53:52",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (14.7h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (3.7h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-06T16:35:00+00:00",
-    "hours_to_first_game": 14.67,
+    "hours_to_first_game": 3.69,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.04
   },
   "players": {
     "josh naylor": {
@@ -1299,17 +1299,6 @@
       "batting_order_raw": null,
       "position": "C"
     },
-    "francisco lindor": {
-      "name": "Francisco Lindor",
-      "mlb_id": 596019,
-      "team": "NYM",
-      "game_pk": 824401,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
-    },
     "brett baty": {
       "name": "Brett Baty",
       "mlb_id": 683146,
@@ -1332,6 +1321,17 @@
       "batting_order_raw": null,
       "position": "RF"
     },
+    "cristian pache": {
+      "name": "Cristian Pache",
+      "mlb_id": 665506,
+      "team": "NYM",
+      "game_pk": 824401,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "OF"
+    },
     "eric wagaman": {
       "name": "Eric Wagaman",
       "mlb_id": 676572,
@@ -1343,17 +1343,6 @@
       "batting_order_raw": null,
       "position": "1B"
     },
-    "jorge polanco": {
-      "name": "Jorge Polanco",
-      "mlb_id": 593871,
-      "team": "NYM",
-      "game_pk": 824401,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "DH"
-    },
     "marcus semien": {
       "name": "Marcus Semien",
       "mlb_id": 543760,
@@ -1364,6 +1353,28 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
+    },
+    "francisco lindor": {
+      "name": "Francisco Lindor",
+      "mlb_id": 596019,
+      "team": "NYM",
+      "game_pk": 824401,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "SS"
+    },
+    "jorge polanco": {
+      "name": "Jorge Polanco",
+      "mlb_id": 593871,
+      "team": "NYM",
+      "game_pk": 824401,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "DH"
     },
     "luis robert": {
       "name": "Luis Robert Jr.",
@@ -2058,17 +2069,6 @@
       "batting_order_raw": null,
       "position": "3B"
     },
-    "carlos narvaez": {
-      "name": "Carlos Narv\u00e1ez",
-      "mlb_id": 665966,
-      "team": "BAL",
-      "game_pk": 824804,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
-    },
     "jarren duran": {
       "name": "Jarren Duran",
       "mlb_id": 680776,
@@ -2223,17 +2223,6 @@
       "batting_order_raw": null,
       "position": "DH"
     },
-    "everson pereira": {
-      "name": "Everson Pereira",
-      "mlb_id": 677592,
-      "team": "CWS",
-      "game_pk": 824729,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
-    },
     "sam antonacci": {
       "name": "Sam Antonacci",
       "mlb_id": 803011,
@@ -2354,6 +2343,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
+    },
+    "carlos narvaez": {
+      "name": "Carlos Narv\u00e1ez",
+      "mlb_id": 665966,
+      "team": "BAL",
+      "game_pk": 824804,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
     },
     "christian encarnacion-strand": {
       "name": "Christian Encarnacion-Strand",
@@ -2531,50 +2531,6 @@
       "batting_order_raw": null,
       "position": "C"
     },
-    "michael harris": {
-      "name": "Michael Harris II",
-      "mlb_id": 671739,
-      "team": "ATL",
-      "game_pk": 824885,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "CF"
-    },
-    "mauricio dubon": {
-      "name": "Mauricio Dub\u00f3n",
-      "mlb_id": 643289,
-      "team": "ATL",
-      "game_pk": 824885,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "LF"
-    },
-    "drake baldwin": {
-      "name": "Drake Baldwin",
-      "mlb_id": 686948,
-      "team": "ATL",
-      "game_pk": 824885,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
-    },
-    "jim jarvis": {
-      "name": "Jim Jarvis",
-      "mlb_id": 805347,
-      "team": "ATL",
-      "game_pk": 824885,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
-    },
     "matt olson": {
       "name": "Matt Olson",
       "mlb_id": 621566,
@@ -2597,17 +2553,6 @@
       "batting_order_raw": null,
       "position": "DH"
     },
-    "sean murphy": {
-      "name": "Sean Murphy",
-      "mlb_id": 669221,
-      "team": "ATL",
-      "game_pk": 824885,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
-    },
     "ronald acuna": {
       "name": "Ronald Acu\u00f1a Jr.",
       "mlb_id": 660670,
@@ -2618,6 +2563,28 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
+    },
+    "michael harris": {
+      "name": "Michael Harris II",
+      "mlb_id": 671739,
+      "team": "ATL",
+      "game_pk": 824885,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "CF"
+    },
+    "jorge mateo": {
+      "name": "Jorge Mateo",
+      "mlb_id": 622761,
+      "team": "ATL",
+      "game_pk": 824885,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "SS"
     },
     "ozzie albies": {
       "name": "Ozzie Albies",
@@ -2630,6 +2597,17 @@
       "batting_order_raw": null,
       "position": "2B"
     },
+    "mauricio dubon": {
+      "name": "Mauricio Dub\u00f3n",
+      "mlb_id": 643289,
+      "team": "ATL",
+      "game_pk": 824885,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "LF"
+    },
     "austin riley": {
       "name": "Austin Riley",
       "mlb_id": 663586,
@@ -2640,6 +2618,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
+    },
+    "drake baldwin": {
+      "name": "Drake Baldwin",
+      "mlb_id": 686948,
+      "team": "ATL",
+      "game_pk": 824885,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
     },
     "mike yastrzemski": {
       "name": "Mike Yastrzemski",
@@ -2652,9 +2641,9 @@
       "batting_order_raw": null,
       "position": "LF"
     },
-    "ha-seong kim": {
-      "name": "Ha-Seong Kim",
-      "mlb_id": 673490,
+    "jim jarvis": {
+      "name": "Jim Jarvis",
+      "mlb_id": 805347,
       "team": "ATL",
       "game_pk": 824885,
       "lineup_status": "unknown",
@@ -2662,17 +2651,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "SS"
-    },
-    "lane thomas": {
-      "name": "Lane Thomas",
-      "mlb_id": 657041,
-      "team": "ATL",
-      "game_pk": 824885,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "CF"
     },
     "javier sanoja": {
       "name": "Javier Sanoja",
