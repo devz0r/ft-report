@@ -1,6 +1,6 @@
 {
   "date": "2026-08-06",
-  "timestamp": "2026-08-06T12:51:43.000026",
+  "timestamp": "2026-08-06T15:07:38.922735",
   "players": [
     {
       "rank": 1,
@@ -12241,7 +12241,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "AZ",
       "dollars": -36.5,
       "rpts": 22.0,
       "type": "pitcher",
@@ -13150,7 +13150,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "MIL",
+      "team": "",
       "dollars": -38.4,
       "rpts": 19.0,
       "type": "pitcher",
