@@ -1,15 +1,15 @@
 {
   "date": "2026-08-07",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-07T17:44:36",
+  "refreshed_at": "2026-08-07T18:43:46",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (4.9h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (3.9h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-07T22:40:00+00:00",
-    "hours_to_first_game": 4.92,
+    "hours_to_first_game": 3.94,
     "cached_posted_teams": 0,
-    "cache_age_hours": 0.06
+    "cache_age_hours": 0.03
   },
   "players": {
     "brady house": {
@@ -1464,17 +1464,6 @@
       "batting_order_raw": null,
       "position": "3B"
     },
-    "gage workman": {
-      "name": "Gage Workman",
-      "mlb_id": 669398,
-      "team": "SD",
-      "game_pk": 823266,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
-    },
     "freddy fermin": {
       "name": "Freddy Fermin",
       "mlb_id": 666023,
@@ -1496,6 +1485,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "CF"
+    },
+    "rodolfo duran": {
+      "name": "Rodolfo Dur\u00e1n",
+      "mlb_id": 660710,
+      "team": "SD",
+      "game_pk": 823266,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
     },
     "sung-mun song": {
       "name": "Sung-Mun Song",
