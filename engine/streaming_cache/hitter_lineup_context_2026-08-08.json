@@ -1,15 +1,15 @@
 {
   "date": "2026-08-08",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-08T15:25:52",
+  "refreshed_at": "2026-08-08T15:57:15",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (3.7h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (3.1h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-08T19:05:00+00:00",
-    "hours_to_first_game": 3.65,
+    "hours_to_first_game": 3.13,
     "cached_posted_teams": 0,
-    "cache_age_hours": 0.06
+    "cache_age_hours": 0.05
   },
   "players": {
     "brady house": {
@@ -2305,8 +2305,8 @@
       "mlb_id": 645305,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
@@ -2316,10 +2316,10 @@
       "mlb_id": 671218,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "LF"
     },
     "jose caballero": {
@@ -2327,32 +2327,32 @@
       "mlb_id": 676609,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
+      "position": "2B"
     },
     "spencer jones": {
       "name": "Spencer Jones",
       "mlb_id": 682987,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "CF"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
+      "position": "RF"
     },
     "amed rosario": {
       "name": "Amed Rosario",
       "mlb_id": 642708,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
       "position": "3B"
     },
     "ryan mcmahon": {
@@ -2360,8 +2360,8 @@
       "mlb_id": 641857,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
@@ -2371,10 +2371,10 @@
       "mlb_id": 502671,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
       "position": "1B"
     },
     "austin wells": {
@@ -2382,10 +2382,10 @@
       "mlb_id": 669224,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
       "position": "C"
     },
     "ben rice": {
@@ -2393,19 +2393,19 @@
       "mlb_id": 700250,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "1B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
+      "position": "DH"
     },
     "jazz chisholm": {
       "name": "Jazz Chisholm Jr.",
       "mlb_id": 665862,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
@@ -2415,10 +2415,10 @@
       "mlb_id": 663757,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "CF"
     },
     "george lombard": {
@@ -2426,10 +2426,10 @@
       "mlb_id": 806146,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
       "position": "SS"
     },
     "luis garcia": {
@@ -2437,8 +2437,8 @@
       "mlb_id": 671277,
       "team": "NYY",
       "game_pk": 823514,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "1B"
@@ -4292,7 +4292,9 @@
       "position": "2B"
     }
   },
-  "teams_with_posted_lineups": [],
+  "teams_with_posted_lineups": [
+    "NYY"
+  ],
   "game_pks": [
     822701,
     822864,
