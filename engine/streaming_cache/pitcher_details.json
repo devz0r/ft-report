@@ -9391,7 +9391,8 @@
       "k9": "11.64",
       "ip": "133.0"
     },
-    "splits_window_years": 2
+    "splits_window_years": 2,
+    "pitcher_hand": "L"
   },
   "572143": {
     "mlb_id": 572143,
