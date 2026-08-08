@@ -1,6 +1,6 @@
 {
   "date": "2026-08-08",
-  "timestamp": "2026-08-08T06:36:57.142584",
+  "timestamp": "2026-08-08T07:41:38.369640",
   "players": [
     {
       "rank": 1,
@@ -8151,7 +8151,8 @@
       "name": "Luis Rengifo",
       "positions": [
         "2B",
-        "3B"
+        "3B",
+        "OF"
       ],
       "displayPos": "2B",
       "team": "SD",
@@ -12500,7 +12501,8 @@
       "rank": 844,
       "name": "Brian Serven",
       "positions": [
-        "C"
+        "C",
+        "DH"
       ],
       "displayPos": "C",
       "team": "OAK",
@@ -14692,7 +14694,8 @@
       "positions": [
         "2B",
         "3B",
-        "SS"
+        "SS",
+        "OF"
       ],
       "displayPos": "SS",
       "team": "OAK",
