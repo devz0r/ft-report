@@ -1,6 +1,6 @@
 {
   "date": "2026-08-08",
-  "timestamp": "2026-08-08T09:11:05.129695",
+  "timestamp": "2026-08-08T10:01:18.722805",
   "players": [
     {
       "rank": 1,
@@ -11016,7 +11016,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "WSH",
+      "team": "",
       "dollars": -34.0,
       "rpts": 24.0,
       "type": "pitcher",
@@ -11564,7 +11564,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "BOS",
+      "team": "LAA",
       "dollars": -35.3,
       "rpts": 22.0,
       "type": "pitcher",
@@ -11954,7 +11954,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "LAA",
       "dollars": -35.9,
       "rpts": 21.0,
       "type": "pitcher",
@@ -12950,7 +12950,7 @@
         "DH"
       ],
       "displayPos": "OF",
-      "team": "CWS",
+      "team": "",
       "dollars": -38.4,
       "rpts": 18.2,
       "type": "hitter",
@@ -14213,7 +14213,7 @@
         "SS"
       ],
       "displayPos": "SS",
-      "team": "CLE",
+      "team": "NYM",
       "dollars": -42.3,
       "rpts": 14.4,
       "type": "hitter",
@@ -14536,7 +14536,7 @@
         "DH"
       ],
       "displayPos": "C",
-      "team": "",
+      "team": "NYY",
       "dollars": -44.1,
       "rpts": 7.7,
       "type": "hitter",
@@ -14682,7 +14682,7 @@
         "SS"
       ],
       "displayPos": "SS",
-      "team": "",
+      "team": "MIN",
       "dollars": -45.1,
       "rpts": 10.0,
       "type": "hitter",
@@ -14940,7 +14940,7 @@
         "OF"
       ],
       "displayPos": "OF",
-      "team": "",
+      "team": "TOR",
       "dollars": -46.3,
       "rpts": 5.8,
       "type": "hitter",
