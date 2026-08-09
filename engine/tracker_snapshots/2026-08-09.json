@@ -1,6 +1,6 @@
 {
   "date": "2026-08-09",
-  "timestamp": "2026-08-09T09:30:39.386979",
+  "timestamp": "2026-08-09T10:24:18.638859",
   "players": [
     {
       "rank": 1,
@@ -4030,7 +4030,8 @@
       "rank": 274,
       "name": "Tyler O'Neill",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "BAL",
@@ -7517,6 +7518,22 @@
     },
     {
       "rank": 510,
+      "name": "Osleivis Basabe",
+      "positions": [
+        "2B",
+        "3B",
+        "SS"
+      ],
+      "displayPos": "SS",
+      "team": "SF",
+      "dollars": -25.3,
+      "rpts": 41.3,
+      "type": "hitter",
+      "fg_id": "23985",
+      "espn_id": 42474
+    },
+    {
+      "rank": 511,
       "name": "Sean Murphy",
       "positions": [
         "C"
@@ -7528,21 +7545,6 @@
       "type": "hitter",
       "fg_id": "19352",
       "espn_id": 33557
-    },
-    {
-      "rank": 511,
-      "name": "Osleivis Basabe",
-      "positions": [
-        "2B",
-        "3B"
-      ],
-      "displayPos": "2B",
-      "team": "SF",
-      "dollars": -25.4,
-      "rpts": 41.3,
-      "type": "hitter",
-      "fg_id": "23985",
-      "espn_id": 42474
     },
     {
       "rank": 512,
@@ -7964,24 +7966,6 @@
     },
     {
       "rank": 540,
-      "name": "Nick Sogard",
-      "positions": [
-        "1B",
-        "2B",
-        "3B",
-        "SS",
-        "OF"
-      ],
-      "displayPos": "SS",
-      "team": "BOS",
-      "dollars": -26.9,
-      "rpts": 38.7,
-      "type": "hitter",
-      "fg_id": "25483",
-      "espn_id": 42979
-    },
-    {
-      "rank": 541,
       "name": "Angel Martinez",
       "positions": [
         "2B",
@@ -7996,7 +7980,7 @@
       "espn_id": 42497
     },
     {
-      "rank": 542,
+      "rank": 541,
       "name": "Ryan Kreidler",
       "positions": [
         "SS",
@@ -8011,7 +7995,7 @@
       "espn_id": 42701
     },
     {
-      "rank": 543,
+      "rank": 542,
       "name": "Brent Headrick",
       "positions": [
         "P"
@@ -8026,7 +8010,7 @@
       "espn_id": 5116839
     },
     {
-      "rank": 544,
+      "rank": 543,
       "name": "A.J. Minter",
       "positions": [
         "P"
@@ -8041,7 +8025,7 @@
       "espn_id": 36133
     },
     {
-      "rank": 545,
+      "rank": 544,
       "name": "Tyler Kinley",
       "positions": [
         "P"
@@ -8056,7 +8040,7 @@
       "espn_id": 34166
     },
     {
-      "rank": 546,
+      "rank": 545,
       "name": "Jimmy Herget",
       "positions": [
         "P"
@@ -8071,7 +8055,7 @@
       "espn_id": 36093
     },
     {
-      "rank": 547,
+      "rank": 546,
       "name": "Kyle Finnegan",
       "positions": [
         "P"
@@ -8084,6 +8068,20 @@
       "fg_id": "15009",
       "pitcherRole": "RP",
       "espn_id": 36543
+    },
+    {
+      "rank": 547,
+      "name": "Nick Sogard",
+      "positions": [
+        "2B"
+      ],
+      "displayPos": "2B",
+      "team": "BOS",
+      "dollars": -27.1,
+      "rpts": 38.7,
+      "type": "hitter",
+      "fg_id": "25483",
+      "espn_id": 42979
     },
     {
       "rank": 548,
@@ -14879,6 +14877,7 @@
       "name": "Ivan Johnson",
       "positions": [
         "2B",
+        "3B",
         "OF",
         "DH"
       ],
