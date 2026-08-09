@@ -1,6 +1,6 @@
 {
   "date": "2026-08-09",
-  "timestamp": "2026-08-09T11:33:49.627875",
+  "timestamp": "2026-08-09T12:33:12.812356",
   "players": [
     {
       "rank": 1,
@@ -10169,7 +10169,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "SF",
       "dollars": -32.4,
       "rpts": 27.0,
       "type": "pitcher",
@@ -14110,7 +14110,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "SD",
+      "team": "",
       "dollars": -41.0,
       "rpts": 14.0,
       "type": "pitcher",
@@ -15926,7 +15926,7 @@
         "OF"
       ],
       "displayPos": "OF",
-      "team": "",
+      "team": "CWS",
       "dollars": -45.8,
       "rpts": 0.7,
       "type": "hitter",
