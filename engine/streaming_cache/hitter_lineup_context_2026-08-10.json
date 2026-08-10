@@ -1,15 +1,15 @@
 {
   "date": "2026-08-10",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-10T01:48:40",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-08-10T18:15:52",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (21.3h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.9h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-10T23:07:00+00:00",
-    "hours_to_first_game": 21.31,
+    "hours_to_first_game": 4.85,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.08
   },
   "players": {
     "ernie clement": {
@@ -397,17 +397,6 @@
       "batting_order_raw": null,
       "position": "3B"
     },
-    "everson pereira": {
-      "name": "Everson Pereira",
-      "mlb_id": 677592,
-      "team": "STL",
-      "game_pk": 823018,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
-    },
     "masyn winn": {
       "name": "Masyn Winn",
       "mlb_id": 691026,
@@ -440,6 +429,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "C"
+    },
+    "nelson velazquez": {
+      "name": "Nelson Vel\u00e1zquez",
+      "mlb_id": 676369,
+      "team": "STL",
+      "game_pk": 823018,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "LF"
     },
     "brandon marsh": {
       "name": "Brandon Marsh",
