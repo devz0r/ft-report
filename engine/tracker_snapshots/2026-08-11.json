@@ -1,6 +1,6 @@
 {
   "date": "2026-08-11",
-  "timestamp": "2026-08-11T06:52:21.348392",
+  "timestamp": "2026-08-11T08:05:17.398557",
   "players": [
     {
       "rank": 1,
@@ -5138,7 +5138,8 @@
       "name": "Vaughn Grissom",
       "positions": [
         "1B",
-        "2B"
+        "2B",
+        "3B"
       ],
       "displayPos": "2B",
       "team": "LAA",
@@ -16881,7 +16882,8 @@
       "name": "Charles McAdoo",
       "positions": [
         "1B",
-        "2B"
+        "2B",
+        "3B"
       ],
       "displayPos": "2B",
       "team": "TOR",
