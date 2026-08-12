@@ -1,6 +1,6 @@
 {
   "date": "2026-08-12",
-  "timestamp": "2026-08-12T06:51:18.290128",
+  "timestamp": "2026-08-12T08:09:50.292277",
   "players": [
     {
       "rank": 1,
@@ -6618,6 +6618,21 @@
     },
     {
       "rank": 450,
+      "name": "Jacob Gonzalez",
+      "positions": [
+        "1B",
+        "SS"
+      ],
+      "displayPos": "SS",
+      "team": "PIT",
+      "dollars": -20.6,
+      "rpts": 43.6,
+      "type": "hitter",
+      "fg_id": "33225",
+      "espn_id": 40473
+    },
+    {
+      "rank": 451,
       "name": "TJ Friedl",
       "positions": [
         "OF"
@@ -6631,7 +6646,7 @@
       "espn_id": 36020
     },
     {
-      "rank": 451,
+      "rank": 452,
       "name": "Nathan Eovaldi",
       "positions": [
         "P"
@@ -6646,7 +6661,7 @@
       "espn_id": 31174
     },
     {
-      "rank": 452,
+      "rank": 453,
       "name": "Martin Perez",
       "positions": [
         "P"
@@ -6661,7 +6676,7 @@
       "espn_id": 31098
     },
     {
-      "rank": 453,
+      "rank": 454,
       "name": "Mason Barnett",
       "positions": [
         "P"
@@ -6676,7 +6691,7 @@
       "espn_id": 5195197
     },
     {
-      "rank": 454,
+      "rank": 455,
       "name": "Aaron Ashby",
       "positions": [
         "P"
@@ -6691,7 +6706,7 @@
       "espn_id": 41325
     },
     {
-      "rank": 455,
+      "rank": 456,
       "name": "Walker Buehler",
       "positions": [
         "P"
@@ -6706,7 +6721,7 @@
       "espn_id": 39251
     },
     {
-      "rank": 456,
+      "rank": 457,
       "name": "Jameson Taillon",
       "positions": [
         "P"
@@ -6721,7 +6736,7 @@
       "espn_id": 31258
     },
     {
-      "rank": 457,
+      "rank": 458,
       "name": "Myles Straw",
       "positions": [
         "OF"
@@ -6735,7 +6750,7 @@
       "espn_id": 39105
     },
     {
-      "rank": 458,
+      "rank": 459,
       "name": "Mitch Bratt",
       "positions": [
         "P"
@@ -6750,7 +6765,7 @@
       "espn_id": 5123768
     },
     {
-      "rank": 459,
+      "rank": 460,
       "name": "Nate Pearson",
       "positions": [
         "P"
@@ -6765,7 +6780,7 @@
       "espn_id": 39646
     },
     {
-      "rank": 460,
+      "rank": 461,
       "name": "Gregory Soto",
       "positions": [
         "P"
@@ -6780,7 +6795,7 @@
       "espn_id": 39804
     },
     {
-      "rank": 461,
+      "rank": 462,
       "name": "Luis Lara",
       "positions": [
         "OF"
@@ -6792,20 +6807,6 @@
       "type": "hitter",
       "fg_id": "30675",
       "espn_id": 5138536
-    },
-    {
-      "rank": 462,
-      "name": "Jacob Gonzalez",
-      "positions": [
-        "1B"
-      ],
-      "displayPos": "1B",
-      "team": "PIT",
-      "dollars": -21.6,
-      "rpts": 43.6,
-      "type": "hitter",
-      "fg_id": "33225",
-      "espn_id": 40473
     },
     {
       "rank": 463,
