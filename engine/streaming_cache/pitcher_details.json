@@ -13674,5 +13674,50 @@
   "800600": {
     "mlb_id": 800600,
     "pitcher_hand": "L"
+  },
+  "687911": {
+    "mlb_id": 687911,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 91.93569768776368,
+        "pct": 0.58159506
+      },
+      {
+        "code": "ST",
+        "desc": "Sweeper",
+        "velo": 81.0110961434782,
+        "pct": 0.2822086
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 86.52076566666666,
+        "pct": 0.011042945
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 91.62777683333331,
+        "pct": 0.12515338
+      }
+    ],
+    "fb_velo": 91.9,
+    "pitch_count": 4,
+    "career_vs_l": {
+      "ops": "0.686",
+      "whip": "1.30",
+      "k9": "9.68",
+      "ip": "48.3"
+    },
+    "career_vs_r": {
+      "ops": "0.660",
+      "whip": "1.10",
+      "k9": "8.40",
+      "ip": "95.3"
+    },
+    "splits_window_years": 3,
+    "pitcher_hand": "L"
   }
 }
