@@ -13670,5 +13670,9 @@
     },
     "splits_window_years": 3,
     "pitcher_hand": "L"
+  },
+  "800600": {
+    "mlb_id": 800600,
+    "pitcher_hand": "L"
   }
 }
