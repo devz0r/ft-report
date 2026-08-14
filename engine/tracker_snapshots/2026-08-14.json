@@ -1,6 +1,6 @@
 {
   "date": "2026-08-14",
-  "timestamp": "2026-08-14T09:33:01.149117",
+  "timestamp": "2026-08-14T10:50:37.790141",
   "players": [
     {
       "rank": 1,
@@ -12422,7 +12422,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "CWS",
       "dollars": -38.0,
       "rpts": 17.0,
       "type": "pitcher",
@@ -12598,7 +12598,7 @@
         "SS"
       ],
       "displayPos": "SS",
-      "team": "",
+      "team": "TB",
       "dollars": -38.7,
       "rpts": 16.9,
       "type": "hitter",
@@ -15903,7 +15903,7 @@
         "C"
       ],
       "displayPos": "C",
-      "team": "",
+      "team": "LAD",
       "dollars": -48.5,
       "rpts": 1.3,
       "type": "hitter",
