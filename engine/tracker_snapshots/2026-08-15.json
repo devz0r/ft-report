@@ -1,6 +1,6 @@
 {
   "date": "2026-08-15",
-  "timestamp": "2026-08-15T09:47:42.962197",
+  "timestamp": "2026-08-15T10:14:24.032882",
   "players": [
     {
       "rank": 1,
@@ -11806,7 +11806,7 @@
         "C"
       ],
       "displayPos": "C",
-      "team": "BOS",
+      "team": "CWS",
       "dollars": -37.8,
       "rpts": 16.5,
       "type": "hitter",
@@ -12069,7 +12069,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "NYY",
       "dollars": -38.5,
       "rpts": 18.0,
       "type": "pitcher",
@@ -14182,7 +14182,7 @@
         "SS"
       ],
       "displayPos": "SS",
-      "team": "",
+      "team": "SEA",
       "dollars": -44.3,
       "rpts": 9.9,
       "type": "hitter",
@@ -15684,7 +15684,7 @@
         "C"
       ],
       "displayPos": "C",
-      "team": "CWS",
+      "team": "",
       "dollars": -48.9,
       "rpts": 1.5,
       "type": "hitter",
