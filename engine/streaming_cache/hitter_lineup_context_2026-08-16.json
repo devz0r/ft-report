@@ -1,15 +1,15 @@
 {
   "date": "2026-08-16",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-16T00:51:07",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-08-16T11:45:50",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (15.4h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.5h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-16T16:15:00+00:00",
-    "hours_to_first_game": 15.4,
+    "hours_to_first_game": 4.49,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.06
   },
   "players": {
     "ernie clement": {
@@ -584,9 +584,9 @@
       "batting_order_raw": null,
       "position": "3B"
     },
-    "zach morgan": {
-      "name": "Zach Morgan",
-      "mlb_id": 681439,
+    "drew cavanaugh": {
+      "name": "Drew Cavanaugh",
+      "mlb_id": 701852,
       "team": "SF",
       "game_pk": 823182,
       "lineup_status": "unknown",
@@ -595,9 +595,9 @@
       "batting_order_raw": null,
       "position": "C"
     },
-    "drew cavanaugh": {
-      "name": "Drew Cavanaugh",
-      "mlb_id": 701852,
+    "andrew knizner": {
+      "name": "Andrew Knizner",
+      "mlb_id": 668800,
       "team": "SF",
       "game_pk": 823182,
       "lineup_status": "unknown",
@@ -616,6 +616,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
+    },
+    "victor bericoto": {
+      "name": "Victor Bericoto",
+      "mlb_id": 682674,
+      "team": "SF",
+      "game_pk": 823182,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "RF"
     },
     "buddy kennedy": {
       "name": "Buddy Kennedy",
@@ -682,17 +693,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
-    },
-    "eddys leonard": {
-      "name": "Eddys Leonard",
-      "mlb_id": 678760,
-      "team": "SF",
-      "game_pk": 823182,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "SS"
     },
     "willy adames": {
       "name": "Willy Adames",
@@ -914,17 +914,6 @@
       "batting_order_raw": null,
       "position": "2B"
     },
-    "endy rodriguez": {
-      "name": "Endy Rodr\u00edguez",
-      "mlb_id": 682848,
-      "team": "PIT",
-      "game_pk": 823344,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
-    },
     "bryan reynolds": {
       "name": "Bryan Reynolds",
       "mlb_id": 668804,
@@ -969,16 +958,27 @@
       "batting_order_raw": null,
       "position": "CF"
     },
-    "jhostynxon garcia": {
-      "name": "Jhostynxon Garcia",
-      "mlb_id": 691373,
+    "billy cook": {
+      "name": "Billy Cook",
+      "mlb_id": 695257,
       "team": "PIT",
       "game_pk": 823344,
       "lineup_status": "unknown",
       "batting_order_status": "unknown",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "RF"
+      "position": "CF"
+    },
+    "jack brannigan": {
+      "name": "Jack Brannigan",
+      "mlb_id": 687394,
+      "team": "PIT",
+      "game_pk": 823344,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "SS"
     },
     "henry davis": {
       "name": "Henry Davis",
