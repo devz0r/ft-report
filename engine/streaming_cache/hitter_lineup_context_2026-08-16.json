@@ -1,15 +1,15 @@
 {
   "date": "2026-08-16",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-16T11:45:50",
+  "refreshed_at": "2026-08-16T12:24:31",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (4.5h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (3.8h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-16T16:15:00+00:00",
-    "hours_to_first_game": 4.49,
+    "hours_to_first_game": 3.84,
     "cached_posted_teams": 0,
-    "cache_age_hours": 0.06
+    "cache_age_hours": 0.05
   },
   "players": {
     "ernie clement": {
