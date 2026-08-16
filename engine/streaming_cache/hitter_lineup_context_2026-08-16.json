@@ -1,15 +1,15 @@
 {
   "date": "2026-08-16",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-16T12:24:31",
+  "refreshed_at": "2026-08-16T13:09:24",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (3.8h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (3.1h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-16T16:15:00+00:00",
-    "hours_to_first_game": 3.84,
+    "hours_to_first_game": 3.09,
     "cached_posted_teams": 0,
-    "cache_age_hours": 0.05
+    "cache_age_hours": 0.04
   },
   "players": {
     "ernie clement": {
@@ -584,9 +584,9 @@
       "batting_order_raw": null,
       "position": "3B"
     },
-    "drew cavanaugh": {
-      "name": "Drew Cavanaugh",
-      "mlb_id": 701852,
+    "zach morgan": {
+      "name": "Zach Morgan",
+      "mlb_id": 681439,
       "team": "SF",
       "game_pk": 823182,
       "lineup_status": "unknown",
@@ -595,9 +595,9 @@
       "batting_order_raw": null,
       "position": "C"
     },
-    "andrew knizner": {
-      "name": "Andrew Knizner",
-      "mlb_id": 668800,
+    "drew cavanaugh": {
+      "name": "Drew Cavanaugh",
+      "mlb_id": 701852,
       "team": "SF",
       "game_pk": 823182,
       "lineup_status": "unknown",
@@ -616,17 +616,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
-    },
-    "victor bericoto": {
-      "name": "Victor Bericoto",
-      "mlb_id": 682674,
-      "team": "SF",
-      "game_pk": 823182,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
     },
     "buddy kennedy": {
       "name": "Buddy Kennedy",
@@ -693,6 +682,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "3B"
+    },
+    "eddys leonard": {
+      "name": "Eddys Leonard",
+      "mlb_id": 678760,
+      "team": "SF",
+      "game_pk": 823182,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "SS"
     },
     "willy adames": {
       "name": "Willy Adames",
