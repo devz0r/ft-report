@@ -1,6 +1,6 @@
 {
   "date": "2026-08-17",
-  "timestamp": "2026-08-17T06:52:35.465971",
+  "timestamp": "2026-08-17T07:44:34.091254",
   "players": [
     {
       "rank": 1,
@@ -2716,6 +2716,7 @@
       "rank": 185,
       "name": "Jeff McNeil",
       "positions": [
+        "1B",
         "2B",
         "OF"
       ],
@@ -7759,6 +7760,7 @@
       "rank": 526,
       "name": "Nick Sogard",
       "positions": [
+        "1B",
         "2B"
       ],
       "displayPos": "2B",
@@ -9458,8 +9460,7 @@
       "rank": 640,
       "name": "Harry Ford",
       "positions": [
-        "C",
-        "DH"
+        "C"
       ],
       "displayPos": "C",
       "team": "WSH",
@@ -11792,7 +11793,8 @@
       "rank": 797,
       "name": "Christian Franklin",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "BAL",
