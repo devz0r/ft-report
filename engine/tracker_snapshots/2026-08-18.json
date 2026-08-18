@@ -1,6 +1,6 @@
 {
   "date": "2026-08-18",
-  "timestamp": "2026-08-18T06:28:36.628940",
+  "timestamp": "2026-08-18T07:19:36.085849",
   "players": [
     {
       "rank": 1,
@@ -14990,7 +14990,8 @@
       "rank": 1013,
       "name": "Cristian Pache",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "NYM",
