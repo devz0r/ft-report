@@ -1,5 +1,18 @@
 {
-  "biases": {},
-  "count": 0,
-  "updated_at": "2026-08-19T00:44:56"
+  "biases": {
+    "auto_recent_era_-inf_2.60": {
+      "applied_delta": 3.98,
+      "basis": "auto:recent_era",
+      "eligible": true,
+      "key": "auto_recent_era_-inf_2.60",
+      "label": "when recent_era \u2264 2.60: +4.6 pts (n=390)",
+      "mean": 4.59,
+      "n": 390,
+      "se": 0.5779,
+      "std": 11.41,
+      "z": 7.94
+    }
+  },
+  "count": 1,
+  "updated_at": "2026-08-19T02:13:39"
 }
