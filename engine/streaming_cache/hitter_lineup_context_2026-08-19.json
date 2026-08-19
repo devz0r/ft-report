@@ -1,15 +1,15 @@
 {
   "date": "2026-08-19",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-19T00:47:26",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-08-19T11:50:30",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (15.8h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.7h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-19T16:35:00+00:00",
-    "hours_to_first_game": 15.79,
+    "hours_to_first_game": 4.74,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.05
   },
   "players": {
     "evan carter": {
@@ -44,17 +44,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "1B"
-    },
-    "austin wynns": {
-      "name": "Austin Wynns",
-      "mlb_id": 642851,
-      "team": "TEX",
-      "game_pk": 822860,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "C"
     },
     "joc pederson": {
       "name": "Joc Pederson",
@@ -121,6 +110,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
+    },
+    "danny jansen": {
+      "name": "Danny Jansen",
+      "mlb_id": 643376,
+      "team": "TEX",
+      "game_pk": 822860,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
     },
     "cody freeman": {
       "name": "Cody Freeman",
@@ -3268,9 +3268,9 @@
       "batting_order_raw": null,
       "position": "RF"
     },
-    "james triantos": {
-      "name": "James Triantos",
-      "mlb_id": 701649,
+    "owen miller": {
+      "name": "Owen Miller",
+      "mlb_id": 680911,
       "team": "CHC",
       "game_pk": 824640,
       "lineup_status": "unknown",
@@ -3279,16 +3279,16 @@
       "batting_order_raw": null,
       "position": "2B"
     },
-    "dansby swanson": {
-      "name": "Dansby Swanson",
-      "mlb_id": 621020,
+    "kevin alcantara": {
+      "name": "Kevin Alc\u00e1ntara",
+      "mlb_id": 682634,
       "team": "CHC",
       "game_pk": 824640,
       "lineup_status": "unknown",
       "batting_order_status": "unknown",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "SS"
+      "position": "DH"
     },
     "nico hoerner": {
       "name": "Nico Hoerner",
