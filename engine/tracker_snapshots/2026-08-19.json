@@ -1,6 +1,6 @@
 {
   "date": "2026-08-19",
-  "timestamp": "2026-08-19T22:16:01.201066",
+  "timestamp": "2026-08-19T22:48:21.218249",
   "players": [
     {
       "rank": 1,
@@ -3103,7 +3103,7 @@
       ],
       "displayPos": "OF",
       "team": "HOU",
-      "dollars": -0.0,
+      "dollars": 0.0,
       "rpts": 62.1,
       "type": "hitter",
       "fg_id": "19918",
