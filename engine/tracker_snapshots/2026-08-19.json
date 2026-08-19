@@ -1,6 +1,6 @@
 {
   "date": "2026-08-19",
-  "timestamp": "2026-08-19T06:29:20.809435",
+  "timestamp": "2026-08-19T07:21:07.218926",
   "players": [
     {
       "rank": 1,
@@ -5857,7 +5857,6 @@
       "rank": 398,
       "name": "Thomas White",
       "positions": [
-        "1B",
         "3B"
       ],
       "displayPos": "3B",
@@ -8770,6 +8769,7 @@
       "rank": 593,
       "name": "Alika Williams",
       "positions": [
+        "2B",
         "SS"
       ],
       "displayPos": "SS",
