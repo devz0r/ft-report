@@ -1,6 +1,6 @@
 {
   "date": "2026-08-20",
-  "timestamp": "2026-08-20T09:04:53.787544",
+  "timestamp": "2026-08-20T09:57:50.668755",
   "players": [
     {
       "rank": 1,
@@ -7687,7 +7687,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "",
+      "team": "SF",
       "dollars": -29.6,
       "rpts": 29.0,
       "type": "pitcher",
@@ -9254,7 +9254,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "",
+      "team": "HOU",
       "dollars": -35.2,
       "rpts": 23.0,
       "type": "pitcher",
@@ -11249,7 +11249,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "PHI",
       "dollars": -38.9,
       "rpts": 19.0,
       "type": "pitcher",
@@ -12016,7 +12016,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "COL",
       "dollars": -41.7,
       "rpts": 16.0,
       "type": "pitcher",
@@ -12475,7 +12475,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "AZ",
+      "team": "SF",
       "dollars": -42.6,
       "rpts": 15.0,
       "type": "pitcher",
@@ -16328,7 +16328,7 @@
         "SS"
       ],
       "displayPos": "SS",
-      "team": "NYM",
+      "team": "CHC",
       "dollars": -53.6,
       "rpts": 0.6,
       "type": "hitter",
@@ -16357,7 +16357,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "COL",
+      "team": "",
       "dollars": -53.7,
       "rpts": 3.0,
       "type": "pitcher",
