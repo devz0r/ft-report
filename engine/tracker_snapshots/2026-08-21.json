@@ -1,6 +1,6 @@
 {
   "date": "2026-08-21",
-  "timestamp": "2026-08-21T15:56:13.502747",
+  "timestamp": "2026-08-21T16:24:44.184121",
   "players": [
     {
       "rank": 1,
@@ -3068,7 +3068,7 @@
       ],
       "displayPos": "OF",
       "team": "KC",
-      "dollars": -0.0,
+      "dollars": 0.0,
       "rpts": 58.4,
       "type": "hitter",
       "fg_id": "25477",
