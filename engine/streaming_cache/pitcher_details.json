@@ -13833,5 +13833,50 @@
   "807739": {
     "mlb_id": 807739,
     "pitcher_hand": "L"
+  },
+  "621097": {
+    "mlb_id": 621097,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 92.84672568390803,
+        "pct": 0.4507772
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 76.15218200000001,
+        "pct": 0.033678755
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 84.19357275324673,
+        "pct": 0.19948186
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 86.7874344262295,
+        "pct": 0.31606218
+      }
+    ],
+    "fb_velo": 92.8,
+    "pitch_count": 4,
+    "career_vs_l": {
+      "ops": "0.424",
+      "whip": "1.04",
+      "k9": "4.67",
+      "ip": "17.3"
+    },
+    "career_vs_r": {
+      "ops": "0.796",
+      "whip": "1.38",
+      "k9": "7.97",
+      "ip": "20.3"
+    },
+    "splits_window_years": 2,
+    "pitcher_hand": "R"
   }
 }
