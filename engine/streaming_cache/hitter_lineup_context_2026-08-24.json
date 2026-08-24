@@ -1,15 +1,15 @@
 {
   "date": "2026-08-24",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-24T00:51:40",
-  "refresh_mode": "cache_miss",
+  "refreshed_at": "2026-08-24T17:58:20",
+  "refresh_mode": "automatic",
   "refresh_decision": {
-    "should_refresh": false,
-    "reason": "too early for most posted lineups (21.8h before first game)",
+    "should_refresh": true,
+    "reason": "inside lineup window (4.7h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-24T22:40:00+00:00",
-    "hours_to_first_game": 21.81,
+    "hours_to_first_game": 4.69,
     "cached_posted_teams": 0,
-    "cache_age_hours": null
+    "cache_age_hours": 0.05
   },
   "players": {
     "brady house": {
@@ -760,17 +760,6 @@
       "batting_order_raw": null,
       "position": "1B"
     },
-    "michael toglia": {
-      "name": "Michael Toglia",
-      "mlb_id": 669911,
-      "team": "CIN",
-      "game_pk": 823183,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "1B"
-    },
     "matt mclain": {
       "name": "Matt McLain",
       "mlb_id": 680574,
@@ -869,6 +858,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
+    },
+    "ivan johnson": {
+      "name": "Ivan Johnson",
+      "mlb_id": 671155,
+      "team": "CIN",
+      "game_pk": 823183,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "2B"
     },
     "luis campusano": {
       "name": "Luis Campusano",
