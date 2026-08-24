@@ -1,6 +1,6 @@
 {
   "date": "2026-08-24",
-  "timestamp": "2026-08-24T03:29:32.914518",
+  "timestamp": "2026-08-24T04:21:30.891441",
   "players": [
     {
       "rank": 1,
@@ -9255,13 +9255,13 @@
       "positions": [
         "P"
       ],
-      "displayPos": "RP",
+      "displayPos": "SP",
       "team": "TB",
       "dollars": -33.5,
       "rpts": 21.0,
       "type": "pitcher",
       "fg_id": "19205",
-      "pitcherRole": "RP",
+      "pitcherRole": "SP",
       "espn_id": 41452
     },
     {
