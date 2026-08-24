@@ -1,6 +1,6 @@
 {
   "date": "2026-08-24",
-  "timestamp": "2026-08-24T06:00:56.653748",
+  "timestamp": "2026-08-24T07:34:46.794492",
   "players": [
     {
       "rank": 1,
@@ -13832,7 +13832,8 @@
       "rank": 934,
       "name": "Corey Julks",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "DET",
@@ -13932,7 +13933,8 @@
       "rank": 941,
       "name": "Brett Callahan",
       "positions": [
-        "OF"
+        "OF",
+        "DH"
       ],
       "displayPos": "OF",
       "team": "DET",
@@ -14241,6 +14243,7 @@
       "rank": 962,
       "name": "Brock Rodden",
       "positions": [
+        "3B",
         "SS"
       ],
       "displayPos": "SS",
