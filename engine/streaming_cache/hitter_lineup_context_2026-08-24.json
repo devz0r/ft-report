@@ -1,13 +1,13 @@
 {
   "date": "2026-08-24",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-24T17:58:20",
+  "refreshed_at": "2026-08-24T18:30:55",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (4.7h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (4.2h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-24T22:40:00+00:00",
-    "hours_to_first_game": 4.69,
+    "hours_to_first_game": 4.15,
     "cached_posted_teams": 0,
     "cache_age_hours": 0.05
   },
