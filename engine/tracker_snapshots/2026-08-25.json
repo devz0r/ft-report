@@ -1,6 +1,6 @@
 {
   "date": "2026-08-25",
-  "timestamp": "2026-08-25T07:37:18.355675",
+  "timestamp": "2026-08-25T08:32:22.166764",
   "players": [
     {
       "rank": 1,
@@ -5712,7 +5712,8 @@
       "rank": 388,
       "name": "Tyler Stephenson",
       "positions": [
-        "C"
+        "C",
+        "DH"
       ],
       "displayPos": "C",
       "team": "CIN",
