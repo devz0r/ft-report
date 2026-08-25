@@ -1,6 +1,6 @@
 {
   "date": "2026-08-25",
-  "timestamp": "2026-08-25T11:19:20.406675",
+  "timestamp": "2026-08-25T11:52:01.404211",
   "players": [
     {
       "rank": 1,
@@ -2996,7 +2996,7 @@
       ],
       "displayPos": "SP",
       "team": "SEA",
-      "dollars": 0.0,
+      "dollars": -0.0,
       "rpts": 55.0,
       "type": "pitcher",
       "fg_id": "29837",
@@ -3011,7 +3011,7 @@
       ],
       "displayPos": "SP",
       "team": "PIT",
-      "dollars": 0.0,
+      "dollars": -0.0,
       "rpts": 55.0,
       "type": "pitcher",
       "fg_id": "27863",
@@ -3026,7 +3026,7 @@
       ],
       "displayPos": "SP",
       "team": "CLE",
-      "dollars": 0.0,
+      "dollars": -0.0,
       "rpts": 55.0,
       "type": "pitcher",
       "fg_id": "23335",
@@ -3041,7 +3041,7 @@
       ],
       "displayPos": "SP",
       "team": "CLE",
-      "dollars": 0.0,
+      "dollars": -0.0,
       "rpts": 55.0,
       "type": "pitcher",
       "fg_id": "16432",
