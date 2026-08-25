@@ -1,15 +1,15 @@
 {
   "date": "2026-08-25",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-25T17:54:45",
+  "refreshed_at": "2026-08-25T18:30:53",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (4.8h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (4.2h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-25T22:40:00+00:00",
-    "hours_to_first_game": 4.75,
+    "hours_to_first_game": 4.15,
     "cached_posted_teams": 0,
-    "cache_age_hours": 0.04
+    "cache_age_hours": 0.07
   },
   "players": {
     "brady house": {
@@ -2355,17 +2355,6 @@
       "batting_order_raw": null,
       "position": "3B"
     },
-    "deyvison de los santos": {
-      "name": "Deyvison De Los Santos",
-      "mlb_id": 691277,
-      "team": "MIA",
-      "game_pk": 823826,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
-    },
     "xavier edwards": {
       "name": "Xavier Edwards",
       "mlb_id": 669364,
@@ -2376,6 +2365,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "2B"
+    },
+    "kyle stowers": {
+      "name": "Kyle Stowers",
+      "mlb_id": 669065,
+      "team": "MIA",
+      "game_pk": 823826,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "1B"
     },
     "owen caissie": {
       "name": "Owen Caissie",
@@ -2529,7 +2529,7 @@
       "batting_order_status": "unknown",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "C"
+      "position": "DH"
     },
     "caleb durbin": {
       "name": "Caleb Durbin",
@@ -3179,17 +3179,6 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "LF"
-    },
-    "brewer hicklen": {
-      "name": "Brewer Hicklen",
-      "mlb_id": 676551,
-      "team": "ATL",
-      "game_pk": 824881,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "RF"
     },
     "drake baldwin": {
       "name": "Drake Baldwin",
