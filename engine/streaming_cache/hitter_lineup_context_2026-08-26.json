@@ -1,15 +1,15 @@
 {
   "date": "2026-08-26",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-26T12:37:02",
+  "refreshed_at": "2026-08-26T13:48:51",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (4.5h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (3.4h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-26T17:10:00+00:00",
-    "hours_to_first_game": 4.55,
+    "hours_to_first_game": 3.35,
     "cached_posted_teams": 0,
-    "cache_age_hours": 0.05
+    "cache_age_hours": 0.04
   },
   "players": {
     "ernie clement": {
@@ -1926,6 +1926,17 @@
       "batting_order_raw": null,
       "position": "1B"
     },
+    "bo naylor": {
+      "name": "Bo Naylor",
+      "mlb_id": 666310,
+      "team": "MIL",
+      "game_pk": 823584,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "C"
+    },
     "garrett mitchell": {
       "name": "Garrett Mitchell",
       "mlb_id": 669003,
@@ -2232,7 +2243,7 @@
       "batting_order_status": "unknown",
       "batting_order_spot": null,
       "batting_order_raw": null,
-      "position": "C"
+      "position": "DH"
     },
     "caleb durbin": {
       "name": "Caleb Durbin",
@@ -3168,6 +3179,17 @@
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "LF"
+    },
+    "brewer hicklen": {
+      "name": "Brewer Hicklen",
+      "mlb_id": 676551,
+      "team": "ATL",
+      "game_pk": 824878,
+      "lineup_status": "unknown",
+      "batting_order_status": "unknown",
+      "batting_order_spot": null,
+      "batting_order_raw": null,
+      "position": "RF"
     },
     "drake baldwin": {
       "name": "Drake Baldwin",
