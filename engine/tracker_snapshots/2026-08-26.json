@@ -1,6 +1,6 @@
 {
   "date": "2026-08-26",
-  "timestamp": "2026-08-26T09:32:36.432904",
+  "timestamp": "2026-08-26T10:26:18.558209",
   "players": [
     {
       "rank": 1,
@@ -7021,7 +7021,7 @@
         "P"
       ],
       "displayPos": "SP",
-      "team": "",
+      "team": "COL",
       "dollars": -24.0,
       "rpts": 28.0,
       "type": "pitcher",
@@ -15342,7 +15342,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "TB",
+      "team": "OAK",
       "dollars": -46.0,
       "rpts": 6.0,
       "type": "pitcher",
