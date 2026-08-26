@@ -1,15 +1,15 @@
 {
   "date": "2026-08-26",
   "source": "MLB StatsAPI boxscore battingOrder",
-  "refreshed_at": "2026-08-26T13:48:51",
+  "refreshed_at": "2026-08-26T14:38:41",
   "refresh_mode": "automatic",
   "refresh_decision": {
     "should_refresh": true,
-    "reason": "inside lineup window (3.4h before first game), refreshing posted lineups",
+    "reason": "inside lineup window (2.5h before first game), refreshing posted lineups",
     "earliest_game_utc": "2026-08-26T17:10:00+00:00",
-    "hours_to_first_game": 3.35,
+    "hours_to_first_game": 2.52,
     "cached_posted_teams": 0,
-    "cache_age_hours": 0.04
+    "cache_age_hours": 0.05
   },
   "players": {
     "ernie clement": {
@@ -2591,8 +2591,8 @@
       "mlb_id": 667452,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "LF"
@@ -2602,10 +2602,10 @@
       "mlb_id": 814430,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 1,
+      "batting_order_raw": "100",
       "position": "LF"
     },
     "zach mckinstry": {
@@ -2613,30 +2613,30 @@
       "mlb_id": 656716,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "2B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 6,
+      "batting_order_raw": "600",
+      "position": "RF"
     },
     "hao-yu lee": {
       "name": "Hao-Yu Lee",
       "mlb_id": 701678,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "2B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 9,
+      "batting_order_raw": "900",
+      "position": "3B"
     },
     "javier baez": {
       "name": "Javier B\u00e1ez",
       "mlb_id": 595879,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "SS"
@@ -2646,8 +2646,8 @@
       "mlb_id": 680664,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "DH"
@@ -2657,10 +2657,10 @@
       "mlb_id": 805808,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 2,
+      "batting_order_raw": "200",
       "position": "SS"
     },
     "spencer torkelson": {
@@ -2668,10 +2668,10 @@
       "mlb_id": 679529,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 7,
+      "batting_order_raw": "700",
       "position": "1B"
     },
     "ben malgeri": {
@@ -2679,8 +2679,8 @@
       "mlb_id": 701162,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
+      "lineup_status": "not_in_confirmed_lineup",
+      "batting_order_status": "posted_without_player",
       "batting_order_spot": null,
       "batting_order_raw": null,
       "position": "RF"
@@ -2690,10 +2690,10 @@
       "mlb_id": 650402,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 3,
+      "batting_order_raw": "300",
       "position": "2B"
     },
     "max clark": {
@@ -2701,10 +2701,10 @@
       "mlb_id": 703601,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 8,
+      "batting_order_raw": "800",
       "position": "CF"
     },
     "dillon dingler": {
@@ -2712,10 +2712,10 @@
       "mlb_id": 693307,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 5,
+      "batting_order_raw": "500",
       "position": "C"
     },
     "colt keith": {
@@ -2723,11 +2723,11 @@
       "mlb_id": 690993,
       "team": "DET",
       "game_pk": 824234,
-      "lineup_status": "unknown",
-      "batting_order_status": "unknown",
-      "batting_order_spot": null,
-      "batting_order_raw": null,
-      "position": "3B"
+      "lineup_status": "confirmed_starting",
+      "batting_order_status": "confirmed",
+      "batting_order_spot": 4,
+      "batting_order_raw": "400",
+      "position": "DH"
     },
     "taylor walls": {
       "name": "Taylor Walls",
@@ -4017,7 +4017,9 @@
       "position": "2B"
     }
   },
-  "teams_with_posted_lineups": [],
+  "teams_with_posted_lineups": [
+    "DET"
+  ],
   "game_pks": [
     822772,
     823015,
