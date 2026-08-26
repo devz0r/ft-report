@@ -1,6 +1,6 @@
 {
   "date": "2026-08-26",
-  "timestamp": "2026-08-26T06:46:25.124052",
+  "timestamp": "2026-08-26T07:39:14.147388",
   "players": [
     {
       "rank": 1,
@@ -13924,11 +13924,7 @@
       "rank": 941,
       "name": "Garrett Stubbs",
       "positions": [
-        "C",
-        "1B",
-        "3B",
-        "OF",
-        "DH"
+        "C"
       ],
       "displayPos": "C",
       "team": "PHI",
