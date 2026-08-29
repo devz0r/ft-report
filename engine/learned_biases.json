@@ -1,5 +1,30 @@
 {
-  "biases": {},
-  "count": 0,
-  "updated_at": "2026-08-29T04:14:29"
+  "biases": {
+    "pitcher_jacob misiorowski": {
+      "applied_delta": 2.32,
+      "basis": "pitcher",
+      "eligible": true,
+      "key": "pitcher_jacob misiorowski",
+      "label": "Jacob Misiorowski historically +11.6 pts vs prediction (n=12)",
+      "mean": 11.62,
+      "n": 12,
+      "se": 2.7805,
+      "std": 9.63,
+      "z": 4.18
+    },
+    "pitcher_kyle leahy": {
+      "applied_delta": 1.13,
+      "basis": "pitcher",
+      "eligible": true,
+      "key": "pitcher_kyle leahy",
+      "label": "Kyle Leahy historically +5.3 pts vs prediction (n=13)",
+      "mean": 5.3,
+      "n": 13,
+      "se": 1.2726,
+      "std": 4.59,
+      "z": 4.16
+    }
+  },
+  "count": 2,
+  "updated_at": "2026-08-29T11:15:29"
 }
