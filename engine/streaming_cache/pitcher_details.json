@@ -14021,5 +14021,50 @@
   "805074": {
     "mlb_id": 805074,
     "pitcher_hand": "R"
+  },
+  "702021": {
+    "mlb_id": 702021,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 91.222744318584,
+        "pct": 0.42242992
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 80.97075059999999,
+        "pct": 0.19626169
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 77.98920550735295,
+        "pct": 0.2542056
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 90.00287609523811,
+        "pct": 0.039252337
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 87.16909953191488,
+        "pct": 0.08785047
+      }
+    ],
+    "fb_velo": 91.2,
+    "pitch_count": 5,
+    "career_vs_r": {
+      "ops": "0.627",
+      "whip": "0.87",
+      "k9": "10.17",
+      "ip": "23.0"
+    },
+    "splits_window_years": 1,
+    "pitcher_hand": "L"
   }
 }
