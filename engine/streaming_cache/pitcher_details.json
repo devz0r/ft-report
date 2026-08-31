@@ -4048,7 +4048,8 @@
       }
     ],
     "fb_velo": 92.6,
-    "pitch_count": 6
+    "pitch_count": 6,
+    "pitcher_hand": "L"
   },
   "687075": {
     "mlb_id": 687075,
@@ -14110,6 +14111,10 @@
       "ip": "57.0"
     },
     "splits_window_years": 3,
+    "pitcher_hand": "R"
+  },
+  "663795": {
+    "mlb_id": 663795,
     "pitcher_hand": "R"
   }
 }
