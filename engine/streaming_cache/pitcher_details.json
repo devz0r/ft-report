@@ -14116,5 +14116,43 @@
   "663795": {
     "mlb_id": 663795,
     "pitcher_hand": "R"
+  },
+  "699151": {
+    "mlb_id": 699151,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 91.85954582608696,
+        "pct": 0.35384616
+      },
+      {
+        "code": "CU",
+        "desc": "Curveball",
+        "velo": 79.04443985714285,
+        "pct": 0.10769231
+      },
+      {
+        "code": "CH",
+        "desc": "Changeup",
+        "velo": 84.31616673333335,
+        "pct": 0.23076923
+      },
+      {
+        "code": "SI",
+        "desc": "Sinker",
+        "velo": 91.26203788888887,
+        "pct": 0.13846155
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 88.49494172727273,
+        "pct": 0.16923077
+      }
+    ],
+    "fb_velo": 91.9,
+    "pitch_count": 5,
+    "pitcher_hand": "R"
   }
 }
