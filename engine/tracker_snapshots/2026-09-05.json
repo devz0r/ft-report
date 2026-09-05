@@ -1,6 +1,6 @@
 {
   "date": "2026-09-05",
-  "timestamp": "2026-09-05T13:56:39.818384",
+  "timestamp": "2026-09-05T16:29:15.888034",
   "players": [
     {
       "rank": 1,
@@ -10428,7 +10428,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "MIL",
+      "team": "SF",
       "dollars": -31.6,
       "rpts": 11.0,
       "type": "pitcher",
@@ -10680,7 +10680,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "ATL",
+      "team": "COL",
       "dollars": -32.9,
       "rpts": 10.0,
       "type": "pitcher",
@@ -13083,7 +13083,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "STL",
       "dollars": -36.8,
       "rpts": 7.0,
       "type": "pitcher",
@@ -13378,7 +13378,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "WSH",
       "dollars": -38.2,
       "rpts": 6.0,
       "type": "pitcher",
@@ -13620,7 +13620,7 @@
         "PR"
       ],
       "displayPos": "PH",
-      "team": "",
+      "team": "CIN",
       "dollars": -38.5,
       "rpts": 7.7,
       "type": "hitter",
