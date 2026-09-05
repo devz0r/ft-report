@@ -1,6 +1,6 @@
 {
   "date": "2026-09-05",
-  "timestamp": "2026-09-05T07:01:02.541951",
+  "timestamp": "2026-09-05T11:19:42.084315",
   "players": [
     {
       "rank": 1,
@@ -7261,7 +7261,8 @@
       "rank": 492,
       "name": "Andres Chaparro",
       "positions": [
-        "1B"
+        "1B",
+        "DH"
       ],
       "displayPos": "1B",
       "team": "WSH",
@@ -13460,7 +13461,8 @@
       "rank": 908,
       "name": "Juan Brito",
       "positions": [
-        "2B"
+        "2B",
+        "3B"
       ],
       "displayPos": "2B",
       "team": "CIN",
