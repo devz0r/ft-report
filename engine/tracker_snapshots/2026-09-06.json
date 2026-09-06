@@ -1,6 +1,6 @@
 {
   "date": "2026-09-06",
-  "timestamp": "2026-09-06T09:04:59.546745",
+  "timestamp": "2026-09-06T13:00:01.231102",
   "players": [
     {
       "rank": 1,
@@ -12783,7 +12783,7 @@
         "P"
       ],
       "displayPos": "RP",
-      "team": "",
+      "team": "CLE",
       "dollars": -41.3,
       "rpts": 8.0,
       "type": "pitcher",
@@ -16008,7 +16008,7 @@
         "3B"
       ],
       "displayPos": "2B",
-      "team": "MIA",
+      "team": "",
       "dollars": -46.0,
       "rpts": 0.4,
       "type": "hitter",
