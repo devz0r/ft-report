@@ -14445,5 +14445,31 @@
     },
     "splits_window_years": 2,
     "pitcher_hand": "R"
+  },
+  "683000": {
+    "mlb_id": 683000,
+    "pitches": [
+      {
+        "code": "FF",
+        "desc": "Four-seam FB",
+        "velo": 96.502122545,
+        "pct": 0.43763676
+      },
+      {
+        "code": "SL",
+        "desc": "Slider",
+        "velo": 84.49870748706901,
+        "pct": 0.50765866
+      },
+      {
+        "code": "FC",
+        "desc": "Cutter",
+        "velo": 90.14229028,
+        "pct": 0.054704595
+      }
+    ],
+    "fb_velo": 96.5,
+    "pitch_count": 3,
+    "pitcher_hand": "R"
   }
 }
